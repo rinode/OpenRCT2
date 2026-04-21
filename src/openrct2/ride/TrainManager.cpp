@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -13,7 +13,7 @@
 #include "../entity/EntityRegistry.h"
 #include "Vehicle.h"
 
-namespace TrainManager
+namespace OpenRCT2::TrainManager
 {
     View::Iterator& View::Iterator::operator++()
     {
@@ -21,7 +21,7 @@ namespace TrainManager
 
         while (iter != end && Entity == nullptr)
         {
-            Entity = GetEntity<Vehicle>(*iter++);
+            Entity = getGameState().entities.GetEntity<Vehicle>(*iter++);
             if (Entity != nullptr && !Entity->IsHead())
             {
                 Entity = nullptr;
@@ -32,6 +32,6 @@ namespace TrainManager
 
     View::View()
     {
-        vec = &GetEntityList(EntityType::Vehicle);
+        vec = &getGameState().entities.GetEntityList(EntityType::vehicle);
     }
-} // namespace TrainManager
+} // namespace OpenRCT2::TrainManager

@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,29 +9,32 @@
 
 #include "Painter.h"
 
-#include "../Game.h"
-#include "../Intro.h"
+#include "../GameState.h"
 #include "../OpenRCT2.h"
 #include "../ReplayManager.h"
 #include "../config/Config.h"
+#include "../core/Guard.hpp"
+#include "../drawing/Drawing.String.h"
 #include "../drawing/Drawing.h"
 #include "../drawing/IDrawingEngine.h"
-#include "../interface/Chat.h"
-#include "../interface/InteractiveConsole.h"
-#include "../localisation/FormatCodes.h"
+#include "../drawing/Text.h"
+#include "../interface/Viewport.h"
 #include "../localisation/Formatting.h"
-#include "../localisation/Language.h"
 #include "../paint/Paint.h"
+#include "../paint/VirtualFloor.h"
 #include "../profiling/Profiling.h"
-#include "../title/TitleScreen.h"
+#include "../scenes/intro/IntroScene.h"
 #include "../ui/UiContext.h"
+#include "../ui/WindowManager.h"
+#include "../world/MapSelection.h"
+#include "../world/TileInspector.h"
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::Drawing;
 using namespace OpenRCT2::Paint;
 using namespace OpenRCT2::Ui;
 
-Painter::Painter(const std::shared_ptr<IUiContext>& uiContext)
+Painter::Painter(IUiContext& uiContext)
     : _uiContext(uiContext)
 {
 }
@@ -40,24 +43,23 @@ void Painter::Paint(IDrawingEngine& de)
 {
     PROFILED_FUNCTION();
 
-    auto dpi = de.GetDrawingPixelInfo();
-    if (gIntroState != IntroState::None)
+    auto rt = de.getRT();
+
+    if (IntroIsPlaying())
     {
-        IntroDraw(dpi);
+        IntroDraw(*rt);
     }
     else
     {
+        MapSelection::invalidate();
+        VirtualFloorInvalidate(false);
+
         de.PaintWindows();
 
         UpdatePaletteEffects();
-        _uiContext->Draw(dpi);
+        _uiContext.Draw(*rt);
 
-        if ((gScreenFlags & SCREEN_FLAGS_TITLE_DEMO) && !TitleShouldHideVersionInfo())
-        {
-            DrawOpenRCT2(dpi, { 0, _uiContext->GetHeight() - 20 });
-        }
-
-        GfxDrawPickedUpPeep(dpi);
+        GfxDrawPickedUpPeep(*rt);
         GfxInvalidatePickedUpPeep();
 
         de.PaintWeather();
@@ -66,7 +68,7 @@ void Painter::Paint(IDrawingEngine& de)
     auto* replayManager = GetContext()->GetReplayManager();
     const char* text = nullptr;
 
-    if (replayManager->IsReplaying())
+    if (replayManager->IsReplaying() && !gSilentReplays)
         text = "Replaying...";
     else if (replayManager->ShouldDisplayNotice())
         text = "Recording...";
@@ -74,48 +76,67 @@ void Painter::Paint(IDrawingEngine& de)
         text = "Normalising...";
 
     if (text != nullptr)
-        PaintReplayNotice(dpi, text);
+        PaintReplayNotice(*rt, text);
 
-    if (gConfigGeneral.ShowFPS)
+    if (Config::Get().general.showFPS)
     {
-        PaintFPS(dpi);
+        PaintFPS(*rt);
     }
     gCurrentDrawCount++;
 }
 
-void Painter::PaintReplayNotice(DrawPixelInfo* dpi, const char* text)
+void Painter::PaintReplayNotice(RenderTarget& rt, const char* text)
 {
-    ScreenCoordsXY screenCoords(_uiContext->GetWidth() / 2, _uiContext->GetHeight() - 44);
+    ScreenCoordsXY screenCoords(_uiContext.GetWidth() / 2, _uiContext.GetHeight() - 44);
 
     char buffer[64]{};
     FormatStringToBuffer(buffer, sizeof(buffer), "{OUTLINE}{RED}{STRING}", text);
 
-    auto stringWidth = GfxGetStringWidth(buffer, FontStyle::Medium);
+    auto stringWidth = getStringWidth(buffer, FontStyle::medium);
     screenCoords.x = screenCoords.x - stringWidth;
 
-    if (((gCurrentTicks >> 1) & 0xF) > 4)
-        GfxDrawString(*dpi, screenCoords, buffer, { COLOUR_SATURATED_RED });
+    if (((getGameState().currentTicks >> 1) & 0xF) > 4)
+        drawText(rt, screenCoords, buffer, { OpenRCT2::Drawing::Colour::saturatedRed });
 
     // Make area dirty so the text doesn't get drawn over the last
     GfxSetDirtyBlocks({ screenCoords, screenCoords + ScreenCoordsXY{ stringWidth, 16 } });
 }
 
-void Painter::PaintFPS(DrawPixelInfo* dpi)
+static bool ShouldShowFPS()
 {
-    ScreenCoordsXY screenCoords(_uiContext->GetWidth() / 2, 2);
+    if (gLegacyScene == LegacyScene::titleSequence)
+        return true;
+
+    auto* windowMgr = GetWindowManager();
+    return windowMgr->FindByClass(WindowClass::topToolbar);
+}
+
+void Painter::PaintFPS(RenderTarget& rt)
+{
+    if (!ShouldShowFPS())
+        return;
 
     MeasureFPS();
 
     char buffer[64]{};
     FormatStringToBuffer(buffer, sizeof(buffer), "{OUTLINE}{WHITE}{INT32}", _currentFPS);
+    const int32_t stringWidth = getStringWidth(buffer, FontStyle::medium);
 
-    // Draw Text
-    int32_t stringWidth = GfxGetStringWidth(buffer, FontStyle::Medium);
+    // Figure out where counter should be rendered
+    ScreenCoordsXY screenCoords(_uiContext.GetWidth() / 2, 2);
     screenCoords.x = screenCoords.x - (stringWidth / 2);
-    GfxDrawString(*dpi, screenCoords, buffer);
+
+    // Move counter below toolbar if buttons are centred
+    const bool isTitle = gLegacyScene == LegacyScene::titleSequence;
+    if (!isTitle && Config::Get().interface.toolbarButtonsCentred)
+    {
+        screenCoords.y = kTopToolbarHeight + 3;
+    }
+
+    drawText(rt, screenCoords, buffer, { OpenRCT2::Drawing::Colour::white });
 
     // Make area dirty so the text doesn't get drawn over the last
-    GfxSetDirtyBlocks({ { screenCoords - ScreenCoordsXY{ 16, 4 } }, { dpi->lastStringPos.x + 16, 16 } });
+    GfxSetDirtyBlocks({ { screenCoords - ScreenCoordsXY{ 16, 4 } }, { rt.lastStringPos.x + 16, screenCoords.y + 16 } });
 }
 
 void Painter::MeasureFPS()
@@ -131,7 +152,7 @@ void Painter::MeasureFPS()
     _lastSecond = currentTime;
 }
 
-PaintSession* Painter::CreateSession(DrawPixelInfo* dpi, uint32_t viewFlags)
+PaintSession* Painter::CreateSession(RenderTarget& rt, uint32_t viewFlags, uint8_t rotation)
 {
     PROFILED_FUNCTION();
 
@@ -148,18 +169,18 @@ PaintSession* Painter::CreateSession(DrawPixelInfo* dpi, uint32_t viewFlags)
     else
     {
         // Create new one in pool.
-        _paintSessionPool.emplace_back(std::make_unique<PaintSession>());
-        session = _paintSessionPool.back().get();
+        session = &_paintSessionPool.emplace_back();
     }
 
-    session->DPI = *dpi;
+    session->rt = rt;
     session->ViewFlags = viewFlags;
     session->QuadrantBackIndex = std::numeric_limits<uint32_t>::max();
     session->QuadrantFrontIndex = 0;
-    session->PaintEntryChain = _paintStructPool.Create();
     session->Flags = 0;
+    session->CurrentRotation = rotation;
 
     std::fill(std::begin(session->Quadrants), std::end(session->Quadrants), nullptr);
+    session->PaintHead = nullptr;
     session->LastPS = nullptr;
     session->LastAttachedPS = nullptr;
     session->PSStringHead = nullptr;
@@ -167,7 +188,11 @@ PaintSession* Painter::CreateSession(DrawPixelInfo* dpi, uint32_t viewFlags)
     session->WoodenSupportsPrependTo = nullptr;
     session->CurrentlyDrawnEntity = nullptr;
     session->CurrentlyDrawnTileElement = nullptr;
-    session->SurfaceElement = nullptr;
+    session->Surface = nullptr;
+    session->SelectedElement = TileInspector::GetSelectedElement();
+    session->InteractionType = ViewportInteractionItem::none;
+    session->PathElementOnSameHeight = nullptr;
+    session->TrackElementOnSameHeight = nullptr;
 
     return session;
 }
@@ -176,15 +201,12 @@ void Painter::ReleaseSession(PaintSession* session)
 {
     PROFILED_FUNCTION();
 
-    session->PaintEntryChain.Clear();
+    session->paintEntries.clear();
+
     _freePaintSessions.push_back(session);
 }
 
 Painter::~Painter()
 {
-    for (auto&& session : _paintSessionPool)
-    {
-        ReleaseSession(session.get());
-    }
     _paintSessionPool.clear();
 }

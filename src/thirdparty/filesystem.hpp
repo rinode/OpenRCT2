@@ -114,7 +114,6 @@
 #include <Availability.h>
 #endif
 
-#include <algorithm>
 #include <cctype>
 #include <chrono>
 #include <clocale>
@@ -2556,7 +2555,7 @@ GHC_INLINE path path::extension() const
     impl_string_type fn = filename().string();
     impl_string_type::size_type pos = fn.find_last_of('.');
     if (pos == std::string::npos || pos == 0) {
-        return "";
+        return {};
     }
     return fn.substr(pos);
 }

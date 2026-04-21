@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -15,7 +15,7 @@
 #include <cstdio>
 #include <string>
 
-namespace Console
+namespace OpenRCT2::Console
 {
     void Write(char c)
     {
@@ -54,7 +54,7 @@ namespace Console
 
         char buffer[4096];
         std::vsnprintf(buffer, sizeof(buffer), format, args);
-        auto ctx = OpenRCT2::GetContext();
+        auto ctx = GetContext();
         if (ctx != nullptr)
             ctx->WriteLine(buffer);
         else
@@ -101,11 +101,11 @@ namespace Console
         {
             char buffer[4096];
             std::vsnprintf(buffer, sizeof(buffer), format, args);
-            auto ctx = OpenRCT2::GetContext();
+            auto ctx = GetContext();
             if (ctx != nullptr)
                 ctx->WriteErrorLine(buffer);
             else
                 std::printf("%s\n", buffer);
         }
     } // namespace Error
-} // namespace Console
+} // namespace OpenRCT2::Console

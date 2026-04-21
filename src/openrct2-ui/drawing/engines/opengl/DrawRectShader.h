@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -14,49 +14,52 @@
 #include "OpenGLShaderProgram.h"
 
 #include <SDL_pixels.h>
-
-class DrawRectShader final : public OpenGLShaderProgram
+namespace OpenRCT2::Ui
 {
-private:
-    GLuint uScreenSize;
-    GLuint uTexture;
-    GLuint uPaletteTex;
+    class DrawRectShader final : public OpenGLShaderProgram
+    {
+    private:
+        GLint uScreenSize{ -1 };
+        GLint uTexture{ -1 };
+        GLint uPaletteTex{ -1 };
 
-    GLuint uPeelingTex;
-    GLuint uPeeling;
+        GLint uPeelingTex{ -1 };
+        GLint uPeeling{ -1 };
 
-    GLuint vVertMat;
-    GLuint vVertVec;
+        GLint vVertMat{ -1 };
+        GLint vVertVec{ -1 };
 
-    GLuint vClip;
-    GLuint vTexColourAtlas;
-    GLuint vTexColourBounds;
-    GLuint vTexMaskAtlas;
-    GLuint vTexMaskBounds;
-    GLuint vPalettes;
-    GLuint vFlags;
-    GLuint vColour;
-    GLuint vBounds;
-    GLuint vDepth;
+        GLint vClip{ -1 };
+        GLint vTexColourAtlas{ -1 };
+        GLint vTexColourCoords{ -1 };
+        GLint vTexMaskAtlas{ -1 };
+        GLint vTexMaskCoords{ -1 };
+        GLint vPalettes{ -1 };
+        GLint vFlags{ -1 };
+        GLint vColour{ -1 };
+        GLint vBounds{ -1 };
+        GLint vDepth{ -1 };
+        GLint vZoom{ -1 };
 
-    GLuint _vbo;
-    GLuint _vboInstances;
-    GLuint _vao;
+        GLuint _vbo{ 0 };
+        GLuint _vboInstances{ 0 };
+        GLuint _vao{ 0 };
 
-    GLsizei _instanceCount = 0;
-    size_t _maxInstancesBufferSize;
+        GLsizei _instanceCount = 0;
+        size_t _maxInstancesBufferSize;
 
-public:
-    DrawRectShader();
-    ~DrawRectShader() override;
+    public:
+        DrawRectShader();
+        ~DrawRectShader() override;
 
-    void SetScreenSize(int32_t width, int32_t height);
-    void EnablePeeling(GLuint peelingTex);
-    void DisablePeeling();
+        void SetScreenSize(int32_t width, int32_t height);
+        void EnablePeeling(GLuint peelingTex);
+        void DisablePeeling();
 
-    void SetInstances(const RectCommandBatch& instances);
-    void DrawInstances();
+        void SetInstances(const RectCommandBatch& instances);
+        void DrawInstances();
 
-private:
-    void GetLocations();
-};
+    private:
+        void GetLocations();
+    };
+} // namespace OpenRCT2::Ui

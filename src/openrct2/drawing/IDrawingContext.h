@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,32 +9,38 @@
 
 #pragma once
 
-#include "../common.h"
-#include "Drawing.h"
+#include "../world/Location.hpp"
+#include "FilterPaletteIds.h"
+#include "PaletteIndex.h"
+#include "TTF.h"
 
 namespace OpenRCT2::Drawing
 {
     struct IDrawingEngine;
+    struct PaletteMap;
+    struct RenderTarget;
+    struct TextDrawInfo;
 
     struct IDrawingContext
     {
         virtual ~IDrawingContext() = default;
 
-        virtual void Clear(DrawPixelInfo* dpi, uint8_t paletteIndex) abstract;
+        virtual void Clear(RenderTarget& rt, PaletteIndex paletteIndex) = 0;
         virtual void FillRect(
-            DrawPixelInfo* dpi, uint32_t colour, int32_t left, int32_t top, int32_t right, int32_t bottom) abstract;
+            RenderTarget& rt, PaletteIndex paletteIndex, int32_t left, int32_t top, int32_t right, int32_t bottom,
+            bool crossHatch = false)
+            = 0;
         virtual void FilterRect(
-            DrawPixelInfo* dpi, FilterPaletteID palette, int32_t left, int32_t top, int32_t right, int32_t bottom) abstract;
-        virtual void DrawLine(DrawPixelInfo* dpi, uint32_t colour, const ScreenLine& line) abstract;
-        virtual void DrawSprite(DrawPixelInfo* dpi, const ImageId image, int32_t x, int32_t y) abstract;
-        virtual void DrawSpriteRawMasked(
-            DrawPixelInfo* dpi, int32_t x, int32_t y, const ImageId maskImage, const ImageId colourImage) abstract;
-        virtual void DrawSpriteSolid(DrawPixelInfo* dpi, const ImageId image, int32_t x, int32_t y, uint8_t colour) abstract;
-        virtual void DrawGlyph(
-            DrawPixelInfo* dpi, const ImageId image, int32_t x, int32_t y, const PaletteMap& palette) abstract;
-        virtual void DrawBitmap(
-            DrawPixelInfo* dpi, ImageIndex image, const void* pixels, int32_t width, int32_t height, int32_t x,
-            int32_t y) abstract;
+            RenderTarget& rt, FilterPaletteID palette, int32_t left, int32_t top, int32_t right, int32_t bottom)
+            = 0;
+        virtual void DrawLine(RenderTarget& rt, PaletteIndex colour, const ScreenLine& line) = 0;
+        virtual void DrawSprite(RenderTarget& rt, ImageId image, int32_t x, int32_t y) = 0;
+        virtual void DrawSpriteRawMasked(RenderTarget& rt, int32_t x, int32_t y, ImageId maskImage, ImageId colourImage) = 0;
+        virtual void DrawSpriteSolid(RenderTarget& rt, ImageId image, int32_t x, int32_t y, PaletteIndex colour) = 0;
+        virtual void DrawGlyph(RenderTarget& rt, ImageId image, int32_t x, int32_t y, const PaletteMap& palette) = 0;
+        virtual void DrawTTFBitmap(
+            RenderTarget& rt, const TextDrawInfo& info, TTFSurface* surface, int32_t x, int32_t y, uint8_t hintingThreshold)
+            = 0;
     };
 
 } // namespace OpenRCT2::Drawing

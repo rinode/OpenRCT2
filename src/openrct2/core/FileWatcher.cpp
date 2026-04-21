@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -7,19 +7,26 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "../Diagnostic.h"
+
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <stdexcept>
 
 #ifdef _WIN32
-#    include <windows.h>
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #include <windows.h>
 #elif defined(__linux__)
-#    include <fcntl.h>
-#    include <sys/inotify.h>
-#    include <sys/types.h>
-#    include <unistd.h>
+    #include <chrono>
+    #include <fcntl.h>
+    #include <sys/inotify.h>
+    #include <sys/types.h>
+    #include <unistd.h>
 #elif defined(__APPLE__)
-#    include <CoreServices/CoreServices.h>
+    #include <CoreServices/CoreServices.h>
 #endif
 
 #include "../core/Guard.hpp"
@@ -27,6 +34,8 @@
 #include "../core/String.hpp"
 #include "FileSystem.hpp"
 #include "FileWatcher.h"
+
+using namespace OpenRCT2;
 
 #if defined(__linux__)
 FileWatcher::FileDescriptor::~FileDescriptor()
@@ -123,7 +132,7 @@ FileWatcher::FileWatcher(u8string_view directoryPath)
 #ifdef _WIN32
     _path = fs::u8path(directoryPath);
     _directoryHandle = CreateFileW(
-        String::ToWideChar(directoryPath).c_str(), FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        String::toWideChar(directoryPath).c_str(), FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
         nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
     if (_directoryHandle == INVALID_HANDLE_VALUE)
     {
@@ -246,7 +255,8 @@ void FileWatcher::WatchDirectory()
         }
 
         // Sleep for 1/2 second
-        usleep(500000);
+        using namespace std::chrono_literals;
+        usleep(std::chrono::microseconds(1s).count() / 2);
     }
 #elif defined(__APPLE__)
     if (_stream)

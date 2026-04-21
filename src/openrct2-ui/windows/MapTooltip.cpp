@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -7,145 +7,130 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
-#include "../interface/Theme.h"
-
+#include <openrct2-ui/UiContext.h>
+#include <openrct2-ui/input/InputManager.h>
+#include <openrct2-ui/interface/Theme.h>
 #include <openrct2-ui/interface/Widget.h>
-#include <openrct2-ui/windows/Window.h>
+#include <openrct2-ui/windows/Windows.h>
 #include <openrct2/Context.h>
 #include <openrct2/Input.h>
 #include <openrct2/drawing/Drawing.h>
+#include <openrct2/drawing/Text.h>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
+#include <openrct2/ui/WindowManager.h>
 
-// clang-format off
-static Widget window_map_tooltip_widgets[] = {
-    MakeWidget({0, 0}, {200, 30}, WindowWidgetType::ImgBtn, WindowColour::Primary),
-    WIDGETS_END,
-};
-
-static void WindowMapTooltipUpdate(WindowBase *w);
-static void WindowMapTooltipPaint(WindowBase *w, DrawPixelInfo *dpi);
-
-static WindowEventList window_map_tooltip_events([](auto& events)
+namespace OpenRCT2::Ui::Windows
 {
-    events.update = &WindowMapTooltipUpdate;
-    events.paint = &WindowMapTooltipPaint;
-});
-// clang-format on
+    // clang-format off
+    static constexpr Widget window_map_tooltip_widgets[] = {
+        makeWidget({0, 0}, {200, 30}, WidgetType::imgBtn, WindowColour::primary),
+    };
+    // clang-format on
 
-#define MAP_TOOLTIP_ARGS
+    static ScreenCoordsXY _lastCursor;
+    static int32_t _cursorHoldDuration;
 
-static ScreenCoordsXY _lastCursor;
-static int32_t _cursorHoldDuration;
+    static void WindowMapTooltipOpen();
 
-static void WindowMapTooltipOpen();
+    static Formatter _mapTooltipArgs;
 
-static Formatter _mapTooltipArgs;
-
-void SetMapTooltip(Formatter& ft)
-{
-    _mapTooltipArgs = ft;
-}
-
-const Formatter& GetMapTooltip()
-{
-    return _mapTooltipArgs;
-}
-
-/**
- *
- *  rct2: 0x006EE77A
- */
-void WindowMapTooltipUpdateVisibility()
-{
-    if (ThemeGetFlags() & UITHEME_FLAG_USE_FULL_BOTTOM_TOOLBAR)
+    class MapTooltip final : public Window
     {
-        // The map tooltip is drawn by the bottom toolbar
-        WindowInvalidateByClass(WindowClass::BottomToolbar);
-        return;
+    public:
+        void onOpen() override
+        {
+            setWidgets(window_map_tooltip_widgets);
+        }
+
+        void onUpdate() override
+        {
+            invalidate();
+        }
+
+        void onDraw(Drawing::RenderTarget& rt) override
+        {
+            StringId stringId;
+            std::memcpy(&stringId, _mapTooltipArgs.Data(), sizeof(StringId));
+            if (stringId == kStringIdNone)
+            {
+                return;
+            }
+
+            auto stringCoords = windowPos + ScreenCoordsXY{ width / 2, height / 2 };
+            drawTextWrapped(rt, stringCoords, width, STR_MAP_TOOLTIP_STRINGID, _mapTooltipArgs, { TextAlignment::centre });
+        }
+    };
+
+    void SetMapTooltip(Formatter& ft)
+    {
+        _mapTooltipArgs = ft;
     }
 
-    const CursorState* state = ContextGetCursorState();
-    auto cursor = state->position;
-    auto cursorChange = cursor - _lastCursor;
-
-    // Check for cursor movement
-    _cursorHoldDuration++;
-    if (abs(cursorChange.x) > 5 || abs(cursorChange.y) > 5 || (InputTestFlag(INPUT_FLAG_5))
-        || InputGetState() == InputState::ViewportRight)
-        _cursorHoldDuration = 0;
-
-    _lastCursor = cursor;
-
-    // Show or hide tooltip
-    StringId stringId;
-    std::memcpy(&stringId, _mapTooltipArgs.Data(), sizeof(StringId));
-
-    if (_cursorHoldDuration < 25 || stringId == STR_NONE
-        || InputTestPlaceObjectModifier(
-            static_cast<PLACE_OBJECT_MODIFIER>(PLACE_OBJECT_MODIFIER_COPY_Z | PLACE_OBJECT_MODIFIER_SHIFT_Z))
-        || WindowFindByClass(WindowClass::Error) != nullptr)
+    const Formatter& GetMapTooltip()
     {
-        WindowCloseByClass(WindowClass::MapTooltip);
-    }
-    else
-    {
-        WindowMapTooltipOpen();
-    }
-}
-
-/**
- *
- *  rct2: 0x006A7C43
- */
-static void WindowMapTooltipOpen()
-{
-    WindowBase* w;
-
-    constexpr int32_t width = 200;
-    constexpr int32_t height = 44;
-    const CursorState* state = ContextGetCursorState();
-    ScreenCoordsXY pos = { state->position.x - (width / 2), state->position.y + 15 };
-
-    w = WindowFindByClass(WindowClass::MapTooltip);
-    if (w == nullptr)
-    {
-        w = WindowCreate(
-            pos, width, height, &window_map_tooltip_events, WindowClass::MapTooltip,
-            WF_STICK_TO_FRONT | WF_TRANSPARENT | WF_NO_BACKGROUND);
-        w->widgets = window_map_tooltip_widgets;
-    }
-    else
-    {
-        w->Invalidate();
-        w->windowPos = pos;
-        w->width = width;
-        w->height = height;
-    }
-}
-
-/**
- *
- *  rct2: 0x006EE8CE
- */
-static void WindowMapTooltipUpdate(WindowBase* w)
-{
-    w->Invalidate();
-}
-
-/**
- *
- *  rct2: 0x006EE894
- */
-static void WindowMapTooltipPaint(WindowBase* w, DrawPixelInfo* dpi)
-{
-    StringId stringId;
-    std::memcpy(&stringId, _mapTooltipArgs.Data(), sizeof(StringId));
-    if (stringId == STR_NONE)
-    {
-        return;
+        return _mapTooltipArgs;
     }
 
-    ScreenCoordsXY stringCoords(w->windowPos.x + (w->width / 2), w->windowPos.y + (w->height / 2));
-    DrawTextWrapped(*dpi, stringCoords, w->width, STR_MAP_TOOLTIP_STRINGID, _mapTooltipArgs, { TextAlignment::CENTRE });
-}
+    void WindowMapTooltipUpdateVisibility()
+    {
+        if (ThemeGetFlags() & UITHEME_FLAG_USE_FULL_BOTTOM_TOOLBAR)
+        {
+            // The map tooltip is drawn by the bottom toolbar
+            auto* windowMgr = GetWindowManager();
+            windowMgr->InvalidateByClass(WindowClass::bottomToolbar);
+            return;
+        }
+
+        const CursorState* state = ContextGetCursorState();
+        auto cursor = state->position;
+        auto cursorChange = cursor - _lastCursor;
+
+        // Check for cursor movement
+        _cursorHoldDuration++;
+        if (abs(cursorChange.x) > 5 || abs(cursorChange.y) > 5 || gInputFlags.has(InputFlag::rightMousePressed)
+            || InputGetState() == InputState::ViewportRight)
+            _cursorHoldDuration = 0;
+
+        _lastCursor = cursor;
+
+        // Show or hide tooltip
+        StringId stringId;
+        std::memcpy(&stringId, _mapTooltipArgs.Data(), sizeof(StringId));
+
+        auto& im = GetInputManager();
+        auto* wm = GetWindowManager();
+        if (_cursorHoldDuration < 25 || stringId == kStringIdNone || im.isModifierKeyPressed(ModifierKey::ctrl)
+            || im.isModifierKeyPressed(ModifierKey::shift) || wm->FindByClass(WindowClass::error) != nullptr)
+        {
+            auto* windowMgr = GetWindowManager();
+            windowMgr->CloseByClass(WindowClass::mapTooltip);
+        }
+        else
+        {
+            WindowMapTooltipOpen();
+        }
+    }
+
+    static void WindowMapTooltipOpen()
+    {
+        constexpr int32_t width = 200;
+        constexpr int32_t height = 44;
+        const CursorState* state = ContextGetCursorState();
+        auto pos = state->position + ScreenCoordsXY{ -width / 2, 15 };
+
+        auto* windowMgr = GetWindowManager();
+        if (auto w = windowMgr->FindByClass(WindowClass::mapTooltip))
+        {
+            w->invalidate();
+            w->windowPos = pos;
+            w->width = width;
+            w->height = height;
+        }
+        else
+        {
+            w = windowMgr->Create<MapTooltip>(
+                WindowClass::mapTooltip, pos, { width, height },
+                { WindowFlag::stickToFront, WindowFlag::transparent, WindowFlag::noBackground, WindowFlag::noTitleBar });
+        }
+    }
+} // namespace OpenRCT2::Ui::Windows

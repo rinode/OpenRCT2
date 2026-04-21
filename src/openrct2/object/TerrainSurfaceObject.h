@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,60 +9,68 @@
 
 #pragma once
 
+#include "../core/Money.hpp"
+#include "../drawing/Colour.h"
+#include "../drawing/PaletteIndex.h"
 #include "Object.h"
 
 struct CoordsXY;
 
-enum TERRAIN_SURFACE_FLAGS
+namespace OpenRCT2
 {
-    NONE = 0,
-    SMOOTH_WITH_SELF = 1 << 0,
-    SMOOTH_WITH_OTHER = 1 << 1,
-    CAN_GROW = 1 << 2,
-};
-
-class TerrainSurfaceObject final : public Object
-{
-private:
-    struct SpecialEntry
+    enum class TerrainSurfaceFlag : uint8_t
     {
-        uint32_t Index{};
-        int32_t Length{};
-        int32_t Rotation{};
-        int32_t Variation{};
-        bool Grid{};
-        bool Underground{};
+        smoothWithSelf,
+        smoothWithOther,
+        canGrow,
     };
+    using TerrainSurfaceFlags = FlagHolder<uint8_t, TerrainSurfaceFlag>;
 
-    static constexpr auto NUM_IMAGES_IN_ENTRY = 19;
+    class TerrainSurfaceObject final : public Object
+    {
+    private:
+        struct SpecialEntry
+        {
+            uint8_t Index{};
+            uint8_t Length{};
+            uint8_t Rotation{};
+            uint8_t Variation{};
+        };
 
-public:
-    StringId NameStringId{};
-    uint32_t IconImageId{};
-    uint32_t PatternBaseImageId{};
-    uint32_t EntryBaseImageId{};
+        static constexpr auto kNumImagesInEntry = 19;
 
-    uint32_t NumEntries{};
-    uint32_t DefaultEntry{};
-    uint32_t DefaultGridEntry{};
-    uint32_t DefaultUndergroundEntry{};
-    std::vector<SpecialEntry> SpecialEntries;
-    std::vector<uint32_t> SpecialEntryMap;
+    public:
+        static constexpr ObjectType kObjectType = ObjectType::terrainSurface;
 
-    colour_t Colour{};
-    uint8_t Rotations{};
-    money64 Price{};
-    TERRAIN_SURFACE_FLAGS Flags{};
-    PaletteIndex MapColours[2]{};
+        static constexpr uint8_t kNoValue = 0xFF;
+        StringId NameStringId{};
+        uint32_t IconImageId{};
+        uint32_t PatternBaseImageId{};
+        uint32_t EntryBaseImageId{};
 
-    void ReadJson(IReadObjectContext* context, json_t& root) override;
-    void Load() override;
-    void Unload() override;
+        uint32_t NumEntries{};
+        uint32_t DefaultEntry{};
+        uint32_t DefaultGridEntry{};
+        uint32_t DefaultUndergroundEntry{};
+        std::vector<SpecialEntry> SpecialEntries;
+        std::vector<SpecialEntry> SpecialEntriesUnderground;
+        std::vector<SpecialEntry> SpecialEntriesGrid;
 
-    void DrawPreview(DrawPixelInfo* dpi, int32_t width, int32_t height) const override;
+        Drawing::Colour Colour{};
+        uint8_t Rotations{};
+        money64 Price{};
+        TerrainSurfaceFlags Flags{};
+        Drawing::PaletteIndex MapColours[2]{};
 
-    uint32_t GetImageId(
-        const CoordsXY& position, int32_t length, int32_t rotation, int32_t offset, bool grid, bool underground) const;
+        void ReadJson(IReadObjectContext* context, json_t& root) override;
+        void Load() override;
+        void Unload() override;
 
-    static TerrainSurfaceObject* GetById(ObjectEntryIndex entryIndex);
-};
+        void DrawPreview(Drawing::RenderTarget& rt, int32_t width, int32_t height) const override;
+
+        ImageId GetImageId(
+            const CoordsXY& position, uint8_t length, uint8_t rotation, uint8_t offset, bool grid, bool underground) const;
+
+        static TerrainSurfaceObject* GetById(ObjectEntryIndex entryIndex);
+    };
+} // namespace OpenRCT2

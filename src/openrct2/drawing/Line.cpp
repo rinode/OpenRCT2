@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -12,18 +12,23 @@
 #include <cmath>
 #include <cstdlib>
 
+using namespace OpenRCT2::Drawing;
+
 /**
  * Draws a horizontal line of specified colour to a buffer.
  *  rct2: 0x0068474C
  */
-static void GfxDrawLineOnBuffer(DrawPixelInfo* dpi, char colour, const ScreenCoordsXY& coords, int32_t no_pixels)
+static void GfxDrawLineOnBuffer(RenderTarget& rt, PaletteIndex colour, const ScreenCoordsXY& coords, int32_t no_pixels)
 {
-    ScreenCoordsXY offset{ coords.x - dpi->x, coords.y - dpi->y };
+    ScreenCoordsXY offset{ coords.x - rt.x, coords.y - rt.y };
+
+    const int32_t width = rt.width;
+    const int32_t height = rt.height;
 
     // Check to make sure point is in the y range
     if (offset.y < 0)
         return;
-    if (offset.y >= dpi->height)
+    if (offset.y >= height)
         return;
     // Check to make sure we are drawing at least a pixel
     if (!no_pixels)
@@ -41,18 +46,17 @@ static void GfxDrawLineOnBuffer(DrawPixelInfo* dpi, char colour, const ScreenCoo
     }
 
     // Ensure that the end point of the line is within range
-    if (offset.x + no_pixels - dpi->width > 0)
+    if (offset.x + no_pixels - width > 0)
     {
         // If the end point has any pixels outside range
         // cut them off. If there are now no pixels return.
-        no_pixels -= offset.x + no_pixels - dpi->width;
+        no_pixels -= offset.x + no_pixels - width;
         if (no_pixels <= 0)
             return;
     }
 
     // Get the buffer we are drawing to and move to the first coordinate.
-    uint8_t* bits_pointer = dpi->bits
-        + offset.y * (static_cast<int64_t>(static_cast<int64_t>(dpi->pitch) + static_cast<int64_t>(dpi->width))) + offset.x;
+    PaletteIndex* bits_pointer = reinterpret_cast<PaletteIndex*>(rt.bits + offset.y * rt.LineStride() + offset.x);
 
     // Draw the line to the specified colour
     for (; no_pixels > 0; --no_pixels, ++bits_pointer)
@@ -62,9 +66,9 @@ static void GfxDrawLineOnBuffer(DrawPixelInfo* dpi, char colour, const ScreenCoo
 }
 
 /**
- * Draws a line on dpi if within dpi boundaries
+ * Draws a line on rt if within rt boundaries
  *  rct2: 0x00684466
- * dpi (edi)
+ * rt (edi)
  * x1 (ax)
  * y1 (bx)
  * x2 (cx)
@@ -72,29 +76,30 @@ static void GfxDrawLineOnBuffer(DrawPixelInfo* dpi, char colour, const ScreenCoo
  * colour (ebp)
  */
 
-void GfxDrawLineSoftware(DrawPixelInfo* dpi, const ScreenLine& line, int32_t colour)
+void GfxDrawLineSoftware(RenderTarget& rt, const ScreenLine& line, PaletteIndex colour)
 {
-    int32_t x1 = line.GetX1();
-    int32_t x2 = line.GetX2();
-    int32_t y1 = line.GetY1();
-    int32_t y2 = line.GetY2();
+    const ZoomLevel zoom = rt.zoom_level;
+    int32_t x1 = zoom.ApplyInversedTo(line.GetX1());
+    int32_t x2 = zoom.ApplyInversedTo(line.GetX2());
+    int32_t y1 = zoom.ApplyInversedTo(line.GetY1());
+    int32_t y2 = zoom.ApplyInversedTo(line.GetY2());
     // Check to make sure the line is within the drawing area
-    if ((x1 < dpi->x) && (x2 < dpi->x))
+    if ((x1 < rt.x) && (x2 < rt.x))
     {
         return;
     }
 
-    if ((y1 < dpi->y) && (y2 < dpi->y))
+    if ((y1 < rt.y) && (y2 < rt.y))
     {
         return;
     }
 
-    if ((x1 > (dpi->x + dpi->width)) && (x2 > (dpi->x + dpi->width)))
+    if ((x1 > (rt.x + rt.width)) && (x2 > (rt.x + rt.width)))
     {
         return;
     }
 
-    if ((y1 > (dpi->y + dpi->height)) && (y2 > (dpi->y + dpi->height)))
+    if ((y1 > (rt.y + rt.height)) && (y2 > (rt.y + rt.height)))
     {
         return;
     }
@@ -136,22 +141,22 @@ void GfxDrawLineSoftware(DrawPixelInfo* dpi, const ScreenLine& line, int32_t col
     else
         y_step = -1;
 
-    for (int32_t x = x1, x_start = x1, no_pixels = 1; x < x2; ++x, ++no_pixels)
+    for (int32_t x = x1, x_start = x1, length = 1; x < x2; ++x, ++length)
     {
         // Vertical lines are drawn 1 pixel at a time
         if (steep)
-            GfxDrawLineOnBuffer(dpi, colour, { y, x }, 1);
+            GfxDrawLineOnBuffer(rt, colour, { y, x }, 1);
 
         error -= delta_y;
         if (error < 0)
         {
             // Non vertical lines are drawn with as many pixels in a horizontal line as possible
             if (!steep)
-                GfxDrawLineOnBuffer(dpi, colour, { x_start, y }, no_pixels);
+                GfxDrawLineOnBuffer(rt, colour, { x_start, y }, length);
 
             // Reset non vertical line vars
             x_start = x + 1;
-            no_pixels = 1;
+            length = 0; // NB: will be incremented in next iteration
             y += y_step;
             error += delta_x;
         }
@@ -159,7 +164,7 @@ void GfxDrawLineSoftware(DrawPixelInfo* dpi, const ScreenLine& line, int32_t col
         // Catch the case of the last line
         if (x + 1 == x2 && !steep)
         {
-            GfxDrawLineOnBuffer(dpi, colour, { x_start, y }, no_pixels);
+            GfxDrawLineOnBuffer(rt, colour, { x_start, y }, length);
         }
     }
 }

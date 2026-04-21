@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -7,39 +7,40 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__NetBSD__)              \
+    || defined(__HAIKU__)
 
-#    include "Platform.h"
+    #include "Platform.h"
 
-#    include "../core/Memory.hpp"
-#    include "../core/Path.hpp"
-#    include "../core/String.hpp"
-#    include "../localisation/Date.h"
-#    include "../util/Util.h"
+    #include "../Date.h"
+    #include "../Diagnostic.h"
+    #include "../core/Memory.hpp"
+    #include "../core/Path.hpp"
+    #include "../core/String.hpp"
 
-#    include <cerrno>
-#    include <clocale>
-#    include <cstdlib>
-#    include <cstring>
-#    include <ctime>
-#    include <dirent.h>
-#    include <fcntl.h>
-#    include <fnmatch.h>
-#    include <locale>
-#    include <pwd.h>
-#    include <sys/stat.h>
-#    include <sys/time.h>
+    #include <cerrno>
+    #include <clocale>
+    #include <cstdlib>
+    #include <cstring>
+    #include <ctime>
+    #include <dirent.h>
+    #include <fcntl.h>
+    #include <fnmatch.h>
+    #include <locale>
+    #include <pwd.h>
+    #include <sys/stat.h>
+    #include <sys/time.h>
+    #include <sys/wait.h>
+    #include <unistd.h>
 
 // The name of the mutex used to prevent multiple instances of the game from running
-static constexpr u8string_view SINGLE_INSTANCE_MUTEX_NAME = u8"openrct2.lock";
+static constexpr const utf8* kSingleInstanceMutexName = u8"openrct2.lock";
 
-static utf8 _userDataDirectoryPath[MAX_PATH] = { 0 };
-
-namespace Platform
+namespace OpenRCT2::Platform
 {
     std::string GetEnvironmentVariable(std::string_view name)
     {
-        return String::ToStd(getenv(std::string(name).c_str()));
+        return String::toStd(getenv(std::string(name).c_str()));
     }
 
     std::string GetEnvironmentPath(const char* name)
@@ -114,65 +115,127 @@ namespace Platform
 
     bool FindApp(std::string_view app, std::string* output)
     {
-        return Execute(String::StdFormat("which %s 2> /dev/null", std::string(app).c_str()), output) == 0;
+        auto tryPath = [&](const std::string& path) -> bool {
+            const char* args[] = { path.c_str(), "--version", nullptr };
+            if (Execute(args, nullptr) == 0)
+            {
+                if (output)
+                    *output = path;
+                return true;
+            }
+            return false;
+        };
+
+        std::string appStr = std::string(app);
+        if (tryPath(appStr))
+            return true;
+
+    #ifdef __APPLE__
+        // Apps on macOS don't inherit the shell PATH, so check common Homebrew install locations as a fallback.
+        for (const char* prefix : { "/opt/homebrew/bin/", "/usr/local/bin/" })
+        {
+            if (tryPath(std::string(prefix) + appStr))
+                return true;
+        }
+    #endif
+
+        return false;
     }
 
-    int32_t Execute(std::string_view command, std::string* output)
+    int32_t Execute(const char* args[], std::string* output)
     {
-#    ifndef __EMSCRIPTEN__
-        LOG_VERBOSE("executing \"%s\"...", std::string(command).c_str());
-        FILE* fpipe = popen(std::string(command).c_str(), "r");
-        if (fpipe == nullptr)
+        // Build the command string from args for logging
+        std::string commandLine;
+        if (args && args[0])
         {
+            for (size_t i = 0; args[i]; ++i)
+            {
+                if (i > 0)
+                    commandLine += " ";
+                commandLine += args[i];
+            }
+        }
+    #ifndef __EMSCRIPTEN__
+        int status;
+        pid_t pid1;
+
+        LOG_INFO("Executing command: %s", commandLine.c_str());
+        int fd_pipe[2];
+        if (pipe(fd_pipe) != 0)
+        { /* create a pipe */
             return -1;
         }
-        if (output != nullptr)
-        {
-            // Read output into buffer
-            std::vector<char> outputBuffer;
-            char buffer[1024];
-            size_t readBytes;
-            while ((readBytes = fread(buffer, 1, sizeof(buffer), fpipe)) > 0)
+
+        pid1 = fork();
+        if (pid1 == 0)
+        {                      /* child process */
+            close(fd_pipe[0]); /* no reading from pipe */
+            /* write stdout in pipe */
+            if (dup2(fd_pipe[1], STDOUT_FILENO) == -1)
             {
-                outputBuffer.insert(outputBuffer.begin(), buffer, buffer + readBytes);
+                _exit(128);
             }
 
-            // Trim line breaks
-            size_t outputLength = outputBuffer.size();
-            for (size_t i = outputLength - 1; i != SIZE_MAX; i--)
-            {
-                if (outputBuffer[i] == '\n')
-                {
-                    outputLength = i;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // Convert to string
-            *output = std::string(outputBuffer.data(), outputLength);
+            /* const casting argv is fine:
+             * https://pubs.opengroup.org/onlinepubs/9699919799/functions/fexecve.html -> rational
+             */
+            execvp(args[0], const_cast<char**>(args));
+            _exit(129);
+        }
+        else if (pid1 < 0)
+        { /* fork() failed */
+            return -128;
         }
         else
-        {
-            fflush(fpipe);
-        }
+        {                      /* parent process */
+            close(fd_pipe[1]); /* no writing to the pipe */
+            if (waitpid(pid1, &status, 0) != pid1)
+            {
+                return -errno;
+            }
 
-        // Return exit code
-        return pclose(fpipe);
-#    else
-        LOG_WARNING("Emscripten cannot execute processes. The commandline was '%s'.", command.c_str());
+            if (!WIFEXITED(status))
+            {
+                return -129;
+            }
+
+            if (WEXITSTATUS(status) >= 128)
+            {
+                return -130 - WEXITSTATUS(status);
+            }
+
+            // Optionally, read output from fd_pipe[0] if output != nullptr
+            if (output != nullptr)
+            {
+                std::vector<char> outputBuffer;
+                char buffer[1024];
+                ssize_t readBytes;
+                while ((readBytes = read(fd_pipe[0], buffer, sizeof(buffer))) > 0)
+                {
+                    outputBuffer.insert(outputBuffer.end(), buffer, buffer + readBytes);
+                }
+                // Trim line breaks
+                size_t outputLength = outputBuffer.size();
+                while (outputLength > 0 && outputBuffer[outputLength - 1] == '\n')
+                {
+                    --outputLength;
+                }
+                *output = std::string(outputBuffer.data(), outputLength);
+            }
+            close(fd_pipe[0]);
+            return 0; /* success! */
+        }
+    #else
+        LOG_WARNING("Emscripten cannot execute processes. The commandline was '%s'.", commandLine.c_str());
         return -1;
-#    endif // __EMSCRIPTEN__
+    #endif // __EMSCRIPTEN__
     }
 
+    #ifndef __ANDROID__
     uint64_t GetLastModified(std::string_view path)
     {
         uint64_t lastModified = 0;
-        struct stat statInfo
-        {
-        };
+        struct stat statInfo{};
         if (stat(std::string(path).c_str(), &statInfo) == 0)
         {
             lastModified = statInfo.st_mtime;
@@ -183,15 +246,14 @@ namespace Platform
     uint64_t GetFileSize(std::string_view path)
     {
         uint64_t size = 0;
-        struct stat statInfo
-        {
-        };
+        struct stat statInfo{};
         if (stat(std::string(path).c_str(), &statInfo) == 0)
         {
             size = statInfo.st_size;
         }
         return size;
     }
+    #endif
 
     bool ShouldIgnoreCase()
     {
@@ -224,7 +286,7 @@ namespace Platform
                 // Find a file which matches by name (case insensitive)
                 for (int32_t i = 0; i < count; i++)
                 {
-                    if (String::Equals(files[i]->d_name, fileName.c_str(), true))
+                    if (String::iequals(files[i]->d_name, fileName.c_str()))
                     {
                         result = Path::Combine(directory, std::string(files[i]->d_name));
                         break;
@@ -280,12 +342,12 @@ namespace Platform
 
     TemperatureUnit GetLocaleTemperatureFormat()
     {
-// LC_MEASUREMENT is GNU specific.
-#    ifdef LC_MEASUREMENT
+    // LC_MEASUREMENT is GNU specific.
+    #ifdef LC_MEASUREMENT
         const char* langstring = setlocale(LC_MEASUREMENT, "");
-#    else
+    #else
         const char* langstring = setlocale(LC_ALL, "");
-#    endif
+    #endif
 
         if (langstring != nullptr)
         {
@@ -300,71 +362,20 @@ namespace Platform
 
     bool ProcessIsElevated()
     {
-#    ifndef __EMSCRIPTEN__
+    #ifndef __EMSCRIPTEN__
         return (geteuid() == 0);
-#    else
+    #else
         return false;
-#    endif // __EMSCRIPTEN__
-    }
-
-    // Implement our own version of getumask(), as it is documented being
-    // "a vaporware GNU extension".
-    static mode_t openrct2_getumask()
-    {
-        mode_t mask = umask(0);
-        umask(mask);
-        return 0777 & ~mask; // Keep in mind 0777 is octal
-    }
-
-    bool EnsureDirectoryExists(u8string_view path)
-    {
-        mode_t mask = openrct2_getumask();
-        char buffer[MAX_PATH];
-        SafeStrCpy(buffer, u8string(path).c_str(), sizeof(buffer));
-
-        LOG_VERBOSE("Create directory: %s", buffer);
-        for (char* p = buffer + 1; *p != '\0'; p++)
-        {
-            if (*p == '/')
-            {
-                // Temporarily truncate
-                *p = '\0';
-
-                LOG_VERBOSE("mkdir(%s)", buffer);
-                if (mkdir(buffer, mask) != 0)
-                {
-                    if (errno != EEXIST)
-                    {
-                        return false;
-                    }
-                }
-
-                // Restore truncation
-                *p = '/';
-            }
-        }
-
-        LOG_VERBOSE("mkdir(%s)", buffer);
-        if (mkdir(buffer, mask) != 0)
-        {
-            if (errno != EEXIST)
-            {
-                return false;
-            }
-        }
-
-        return true;
+    #endif // __EMSCRIPTEN__
     }
 
     bool LockSingleInstance()
     {
-        auto pidFilePath = Path::Combine(_userDataDirectoryPath, SINGLE_INSTANCE_MUTEX_NAME);
-
         // We will never close this file manually. The operating system will
         // take care of that, because flock keeps the lock as long as the
         // file is open and closes it automatically on file close.
         // This is intentional.
-        int32_t pidFile = open(pidFilePath.c_str(), O_CREAT | O_RDWR, 0666);
+        int32_t pidFile = open(kSingleInstanceMutexName, O_CREAT | O_RDWR, 0666);
 
         if (pidFile == -1)
         {
@@ -398,6 +409,7 @@ namespace Platform
         return 0;
     }
 
+    #ifndef __ANDROID__
     time_t FileGetModifiedTime(u8string_view path)
     {
         struct stat buf;
@@ -407,6 +419,7 @@ namespace Platform
         }
         return 100;
     }
+    #endif
 
     datetime64 GetDatetimeNowUTC()
     {
@@ -421,36 +434,6 @@ namespace Platform
         datetime64 utcNow = epochAsTicks + utcEpochTicks;
         return utcNow;
     }
-
-    u8string GetRCT1SteamDir()
-    {
-        return u8"app_285310" PATH_SEPARATOR u8"depot_285311";
-    }
-
-    u8string GetRCT2SteamDir()
-    {
-        return u8"app_285330" PATH_SEPARATOR u8"depot_285331";
-    }
-
-    void Sleep(uint32_t ms)
-    {
-        usleep(ms * 1000);
-    }
-
-    void InitTicks()
-    {
-    }
-
-    uint32_t GetTicks()
-    {
-        struct timespec ts;
-        if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
-        {
-            LOG_FATAL("clock_gettime failed");
-            exit(-1);
-        }
-        return static_cast<uint32_t>(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
-    }
-} // namespace Platform
+} // namespace OpenRCT2::Platform
 
 #endif

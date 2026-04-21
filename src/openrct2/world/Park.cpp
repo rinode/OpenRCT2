@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -15,785 +15,760 @@
 #include "../Game.h"
 #include "../GameState.h"
 #include "../OpenRCT2.h"
-#include "../actions/ParkSetParameterAction.h"
-#include "../config/Config.h"
+#include "../actions/GameActionRunner.h"
+#include "../actions/park/ParkSetParameterAction.h"
 #include "../core/Memory.hpp"
 #include "../core/String.hpp"
+#include "../entity/EntityList.h"
 #include "../entity/Litter.h"
 #include "../entity/Peep.h"
 #include "../entity/Staff.h"
-#include "../interface/Colour.h"
-#include "../interface/Window.h"
-#include "../localisation/Localisation.h"
 #include "../management/Award.h"
 #include "../management/Finance.h"
 #include "../management/Marketing.h"
 #include "../management/Research.h"
-#include "../network/network.h"
+#include "../network/Network.h"
 #include "../profiling/Profiling.h"
 #include "../ride/Ride.h"
 #include "../ride/RideData.h"
+#include "../ride/RideManager.hpp"
 #include "../ride/ShopItem.h"
 #include "../scenario/Scenario.h"
+#include "../scripting/ScriptEngine.h"
+#include "../ui/WindowManager.h"
 #include "../util/Util.h"
 #include "../windows/Intent.h"
 #include "Entrance.h"
 #include "Map.h"
-#include "Surface.h"
+#include "tile_element/EntranceElement.h"
+#include "tile_element/SurfaceElement.h"
 
-#include <algorithm>
 #include <limits>
+#include <type_traits>
 
 using namespace OpenRCT2;
+using namespace OpenRCT2::Scripting;
 
-uint64_t gParkFlags;
-uint16_t gParkRating;
-money64 gParkEntranceFee;
-uint32_t gParkSize;
-money64 gLandPrice;
-money64 gConstructionRightsPrice;
-
-uint64_t gTotalAdmissions;
-money64 gTotalIncomeFromAdmissions;
-
-money64 gParkValue;
-money64 gCompanyValue;
-
-int16_t gParkRatingCasualtyPenalty;
-uint8_t gParkRatingHistory[32];
-uint32_t gGuestsInParkHistory[32];
-
-// If this value is more than or equal to 0, the park rating is forced to this value. Used for cheat
-static int32_t _forcedParkRating = -1;
-
-/**
- * In a difficult guest generation scenario, no guests will be generated if over this value.
- */
-uint32_t _suggestedGuestMaximum;
-
-/**
- * Probability out of 65535, of gaining a new guest per game tick.
- * new guests per second = 40 * (probability / 65535)
- * With a full park rating, non-overpriced entrance fee, less guests than the suggested maximum and four positive awards,
- * approximately 1 guest per second can be generated (+60 guests in one minute).
- */
-int32_t _guestGenerationProbability;
-
-/**
- * Choose a random peep spawn and iterates through until defined spawn is found.
- */
-static PeepSpawn* GetRandomPeepSpawn()
+namespace OpenRCT2::Park
 {
-    if (!gPeepSpawns.empty())
+    static Guest* generateGuestFromCampaign(int32_t campaign);
+
+    /**
+     * Choose a random peep spawn and iterates through until defined spawn is found.
+     */
+    static PeepSpawn* GetRandomPeepSpawn()
     {
-        return &gPeepSpawns[ScenarioRand() % gPeepSpawns.size()];
+        auto& gameState = getGameState();
+        if (!gameState.peepSpawns.empty())
+        {
+            return &gameState.peepSpawns[ScenarioRand() % gameState.peepSpawns.size()];
+        }
+
+        return nullptr;
     }
 
-    return nullptr;
-}
-
-void ParkSetOpen(bool open)
-{
-    auto parkSetParameter = ParkSetParameterAction(open ? ParkParameter::Open : ParkParameter::Close);
-    GameActions::Execute(&parkSetParameter);
-}
-
-/**
- *
- *  rct2: 0x00664D05
- */
-void ParkUpdateFences(const CoordsXY& coords)
-{
-    if (MapIsEdge(coords))
-        return;
-
-    auto surfaceElement = MapGetSurfaceElementAt(coords);
-    if (surfaceElement == nullptr)
-        return;
-
-    uint8_t newFences = 0;
-    if ((surfaceElement->GetOwnership() & OWNERSHIP_OWNED) == 0)
+    static money64 calculateRideValue(const Ride& ride)
     {
-        bool fenceRequired = true;
-
-        TileElement* tileElement = MapGetFirstElementAt(coords);
-        if (tileElement == nullptr)
-            return;
-        // If an entrance element do not place flags around surface
-        do
+        money64 result = 0;
+        if (ride.value != kRideValueUndefined)
         {
-            if (tileElement->GetType() != TileElementType::Entrance)
+            const auto& rtd = ride.getRideTypeDescriptor();
+            result = (ride.value * 10) * (static_cast<money64>(RideCustomersInLast5Minutes(ride)) + rtd.BonusValue * 4LL);
+        }
+        return result;
+    }
+
+    static money64 calculateTotalRideValueForMoney(const ParkData& park, const GameState_t& gameState)
+    {
+        money64 totalRideValue = 0;
+        bool ridePricesUnlocked = RidePricesUnlocked(park) && !(gameState.park.flags & PARK_FLAGS_NO_MONEY);
+        for (auto& ride : RideManager(gameState))
+        {
+            if (ride.status != RideStatus::open)
+                continue;
+            if (ride.flags.hasAny(RideFlag::brokenDown, RideFlag::crashed))
                 continue;
 
-            if (tileElement->AsEntrance()->GetEntranceType() != ENTRANCE_TYPE_PARK_ENTRANCE)
+            // Add ride value
+            if (ride.value != kRideValueUndefined)
+            {
+                money64 rideValue = ride.value;
+                if (ridePricesUnlocked)
+                {
+                    rideValue -= ride.price[0];
+                }
+                if (rideValue > 0)
+                {
+                    totalRideValue += rideValue * 2;
+                }
+            }
+        }
+        return totalRideValue;
+    }
+
+    static uint32_t calculateSuggestedMaxGuests(const ParkData& park, const GameState_t& gameState)
+    {
+        uint32_t suggestedMaxGuests = 0;
+        uint32_t difficultGenerationBonus = 0;
+
+        for (auto& ride : RideManager(gameState))
+        {
+            if (ride.status != RideStatus::open)
+                continue;
+            if (ride.flags.hasAny(RideFlag::brokenDown, RideFlag::crashed))
                 continue;
 
-            if (!(tileElement->IsGhost()))
-            {
-                fenceRequired = false;
-                break;
-            }
-        } while (!(tileElement++)->IsLastForTile());
+            // Add guest score for ride type
+            suggestedMaxGuests += ride.getRideTypeDescriptor().BonusValue;
 
-        if (fenceRequired)
+            // If difficult guest generation, extra guests are available for good rides
+            if (park.flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION)
+            {
+                if (!ride.flags.has(RideFlag::tested))
+                    continue;
+                if (!ride.getRideTypeDescriptor().flags.has(RtdFlag::hasTrack))
+                    continue;
+                if (!ride.getRideTypeDescriptor().flags.has(RtdFlag::hasDataLogging))
+                    continue;
+                if (ride.getStation().SegmentLength < (600 << 16))
+                    continue;
+                if (ride.ratings.excitement < RideRating::make(6, 00))
+                    continue;
+
+                // Bonus guests for good ride
+                difficultGenerationBonus += ride.getRideTypeDescriptor().BonusValue * 2;
+            }
+        }
+
+        if (park.flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION)
         {
-            if (MapIsLocationInPark({ coords.x - COORDS_XY_STEP, coords.y }))
-            {
-                newFences |= 0x8;
-            }
+            suggestedMaxGuests = std::min<uint32_t>(suggestedMaxGuests, 1000);
+            suggestedMaxGuests += difficultGenerationBonus;
+        }
 
-            if (MapIsLocationInPark({ coords.x, coords.y - COORDS_XY_STEP }))
-            {
-                newFences |= 0x4;
-            }
+        suggestedMaxGuests = std::min<uint32_t>(suggestedMaxGuests, 65535);
 
-            if (MapIsLocationInPark({ coords.x + COORDS_XY_STEP, coords.y }))
-            {
-                newFences |= 0x2;
-            }
+#ifdef ENABLE_SCRIPTING
+        auto& hookEngine = GetContext()->GetScriptEngine().GetHookEngine();
+        if (hookEngine.HasSubscriptions(HookType::parkCalculateGuestCap))
+        {
+            JSContext* ctx = GetContext()->GetScriptEngine().GetContext();
+            JSValue obj = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, obj, "suggestedGuestMaximum", JS_NewInt64(ctx, suggestedMaxGuests));
+            hookEngine.Call(HookType::parkCalculateGuestCap, obj, true, true);
 
-            if (MapIsLocationInPark({ coords.x, coords.y + COORDS_XY_STEP }))
+            suggestedMaxGuests = AsOrDefault(ctx, obj, "suggestedGuestMaximum", static_cast<int32_t>(suggestedMaxGuests));
+            suggestedMaxGuests = std::clamp<uint16_t>(suggestedMaxGuests, 0, UINT16_MAX);
+
+            JS_FreeValue(ctx, obj);
+        }
+#endif
+        return suggestedMaxGuests;
+    }
+
+    static uint32_t calculateGuestGenerationProbability(ParkData& park)
+    {
+        // Begin with 50 + park rating
+        uint32_t probability = 50 + std::clamp(park.rating - 200, 0, 650);
+
+        // The more guests, the lower the chance of a new one
+        uint32_t numGuests = park.numGuestsInPark + park.numGuestsHeadingForPark;
+        if (numGuests > park.suggestedGuestMaximum)
+        {
+            probability /= 4;
+            // Even lower for difficult guest generation
+            if (park.flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION)
             {
-                newFences |= 0x1;
+                probability /= 4;
+            }
+        }
+
+        // Reduces chance for any more than 52000 guests
+        if (numGuests > 52000)
+        {
+            probability /= 4;
+        }
+
+        // Penalty for overpriced entrance fee relative to total ride value
+        auto entranceFee = GetEntranceFee(park);
+        if (entranceFee > park.totalRideValueForMoney)
+        {
+            probability /= 4;
+            // Extra penalty for very overpriced entrance fee
+            if (entranceFee / 2 > park.totalRideValueForMoney)
+            {
+                probability /= 4;
+            }
+        }
+
+        // Reward or penalties for park awards
+        for (const auto& award : park.currentAwards)
+        {
+            // +/- 0.25% of the probability
+            if (AwardIsPositive(award.Type))
+            {
+                probability += probability / 4;
+            }
+            else
+            {
+                probability -= probability / 4;
+            }
+        }
+
+        return probability;
+    }
+
+    static void generateGuests(ParkData& park, GameState_t& gameState)
+    {
+        // Generate a new guest for some probability
+        if (static_cast<int32_t>(ScenarioRand() & 0xFFFF) < park.guestGenerationProbability)
+        {
+            bool difficultGeneration = (park.flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION) != 0;
+            if (!difficultGeneration || park.suggestedGuestMaximum + 150 >= park.numGuestsInPark)
+            {
+                GenerateGuest();
+            }
+        }
+
+        // Extra guests generated by advertising campaigns
+        for (const auto& campaign : park.marketingCampaigns)
+        {
+            // Random chance of guest generation
+            auto probability = MarketingGetCampaignGuestGenerationProbability(campaign.Type);
+            auto random = ScenarioRandMax(std::numeric_limits<uint16_t>::max());
+            if (random < probability)
+            {
+                generateGuestFromCampaign(campaign.Type);
             }
         }
     }
 
-    if (surfaceElement->GetParkFences() != newFences)
+    static Guest* generateGuestFromCampaign(int32_t campaign)
     {
-        int32_t baseZ = surfaceElement->GetBaseZ();
-        int32_t clearZ = baseZ + 16;
-        MapInvalidateTile({ coords, baseZ, clearZ });
-        surfaceElement->SetParkFences(newFences);
-    }
-}
-
-void ParkUpdateFencesAroundTile(const CoordsXY& coords)
-{
-    ParkUpdateFences(coords);
-    ParkUpdateFences({ coords.x + COORDS_XY_STEP, coords.y });
-    ParkUpdateFences({ coords.x - COORDS_XY_STEP, coords.y });
-    ParkUpdateFences({ coords.x, coords.y + COORDS_XY_STEP });
-    ParkUpdateFences({ coords.x, coords.y - COORDS_XY_STEP });
-}
-
-void ParkSetForcedRating(int32_t rating)
-{
-    _forcedParkRating = rating;
-    auto& park = GetContext()->GetGameState()->GetPark();
-    gParkRating = park.CalculateParkRating();
-    auto intent = Intent(INTENT_ACTION_UPDATE_PARK_RATING);
-    ContextBroadcastIntent(&intent);
-}
-
-int32_t ParkGetForcedRating()
-{
-    return _forcedParkRating;
-}
-
-money64 ParkGetEntranceFee()
-{
-    if (gParkFlags & PARK_FLAGS_NO_MONEY)
-    {
-        return 0;
-    }
-    if (!ParkEntranceFeeUnlocked())
-    {
-        return 0;
-    }
-    return gParkEntranceFee;
-}
-
-bool ParkRidePricesUnlocked()
-{
-    if (gParkFlags & PARK_FLAGS_UNLOCK_ALL_PRICES)
-    {
-        return true;
-    }
-    if (gParkFlags & PARK_FLAGS_PARK_FREE_ENTRY)
-    {
-        return true;
-    }
-    return false;
-}
-
-bool ParkEntranceFeeUnlocked()
-{
-    if (gParkFlags & PARK_FLAGS_UNLOCK_ALL_PRICES)
-    {
-        return true;
-    }
-    if (!(gParkFlags & PARK_FLAGS_PARK_FREE_ENTRY))
-    {
-        return true;
-    }
-    return false;
-}
-
-bool Park::IsOpen() const
-{
-    return (gParkFlags & PARK_FLAGS_PARK_OPEN) != 0;
-}
-
-uint16_t Park::GetParkRating() const
-{
-    return gParkRating;
-}
-
-money64 Park::GetParkValue() const
-{
-    return gParkValue;
-}
-
-money64 Park::GetCompanyValue() const
-{
-    return gCompanyValue;
-}
-
-void Park::Initialise()
-{
-    Name = FormatStringID(STR_UNNAMED_PARK, nullptr);
-    PluginStorage = {};
-    gStaffHandymanColour = COLOUR_BRIGHT_RED;
-    gStaffMechanicColour = COLOUR_LIGHT_BLUE;
-    gStaffSecurityColour = COLOUR_YELLOW;
-    gNumGuestsInPark = 0;
-    gNumGuestsInParkLastWeek = 0;
-    gNumGuestsHeadingForPark = 0;
-    gGuestChangeModifier = 0;
-    gParkRating = 0;
-    _guestGenerationProbability = 0;
-    gTotalRideValueForMoney = 0;
-    _suggestedGuestMaximum = 0;
-    gResearchLastItem = std::nullopt;
-    gMarketingCampaigns.clear();
-
-    ResearchResetItems();
-    FinanceInit();
-
-    SetEveryRideTypeNotInvented();
-
-    SetAllSceneryItemsInvented();
-
-    gParkEntranceFee = 10.00_GBP;
-
-    gPeepSpawns.clear();
-    ParkEntranceReset();
-
-    gResearchPriorities = EnumsToFlags(
-        ResearchCategory::Transport, ResearchCategory::Gentle, ResearchCategory::Rollercoaster, ResearchCategory::Thrill,
-        ResearchCategory::Water, ResearchCategory::Shop, ResearchCategory::SceneryGroup);
-    gResearchFundingLevel = RESEARCH_FUNDING_NORMAL;
-
-    gGuestInitialCash = 50.00_GBP;
-    gGuestInitialHappiness = CalculateGuestInitialHappiness(50);
-    gGuestInitialHunger = 200;
-    gGuestInitialThirst = 200;
-    gScenarioObjective.Type = OBJECTIVE_GUESTS_BY;
-    gScenarioObjective.Year = 4;
-    gScenarioObjective.NumGuests = 1000;
-    gLandPrice = 90.00_GBP;
-    gConstructionRightsPrice = 40.00_GBP;
-    gParkFlags = PARK_FLAGS_NO_MONEY | PARK_FLAGS_SHOW_REAL_GUEST_NAMES;
-    ResetHistories();
-    FinanceResetHistory();
-    AwardReset();
-
-    gScenarioName.clear();
-    gScenarioDetails = String::ToStd(LanguageGetString(STR_NO_DETAILS_YET));
-}
-
-void Park::Update(const Date& date)
-{
-    PROFILED_FUNCTION();
-
-    // Every new week
-    if (date.IsWeekStart())
-    {
-        UpdateHistories();
+        auto peep = GenerateGuest();
+        if (peep != nullptr)
+        {
+            MarketingSetGuestCampaign(peep, campaign);
+        }
+        return peep;
     }
 
-    // Every ~13 seconds
-    if (gCurrentTicks % 512 == 0)
+    template<typename T, size_t TSize>
+    static void HistoryPushRecord(T history[TSize], T newItem)
     {
-        gParkRating = CalculateParkRating();
-        gParkValue = CalculateParkValue();
-        gCompanyValue = CalculateCompanyValue();
-        gTotalRideValueForMoney = CalculateTotalRideValueForMoney();
-        _suggestedGuestMaximum = CalculateSuggestedMaxGuests();
-        _guestGenerationProbability = CalculateGuestGenerationProbability();
+        for (size_t i = TSize - 1; i > 0; i--)
+        {
+            history[i] = history[i - 1];
+        }
+        history[0] = newItem;
+    }
 
-        WindowInvalidateByClass(WindowClass::Finances);
+    void Initialise(ParkData& park, GameState_t& gameState)
+    {
+        park.name = LanguageGetString(STR_UNNAMED_PARK);
+        gameState.pluginStorage = {};
+        park.staffHandymanColour = Drawing::Colour::brightRed;
+        park.staffMechanicColour = Drawing::Colour::lightBlue;
+        park.staffSecurityColour = Drawing::Colour::yellow;
+        park.numGuestsInPark = 0;
+        park.numGuestsInParkLastWeek = 0;
+        park.numGuestsHeadingForPark = 0;
+        park.guestChangeModifier = 0;
+        park.rating = 0;
+        park.guestGenerationProbability = 0;
+        park.totalRideValueForMoney = 0;
+        park.suggestedGuestMaximum = 0;
+        gameState.researchLastItem = std::nullopt;
+        park.marketingCampaigns.clear();
+
+        ResearchResetItems(gameState);
+        FinanceInit();
+
+        SetEveryRideTypeNotInvented();
+
+        SetAllSceneryItemsInvented();
+
+        park.entranceFee = 10.00_GBP;
+
+        gameState.peepSpawns.clear();
+        ParkEntranceReset();
+
+        gameState.researchPriorities = EnumsToFlags(
+            ResearchCategory::transport, ResearchCategory::gentle, ResearchCategory::rollercoaster, ResearchCategory::thrill,
+            ResearchCategory::water, ResearchCategory::shop, ResearchCategory::sceneryGroup);
+        gameState.researchFundingLevel = RESEARCH_FUNDING_NORMAL;
+
+        gameState.scenarioOptions.guestInitialCash = 50.00_GBP;
+        gameState.scenarioOptions.guestInitialHappiness = CalculateGuestInitialHappiness(50);
+        gameState.scenarioOptions.guestInitialHunger = 200;
+        gameState.scenarioOptions.guestInitialThirst = 200;
+        gameState.scenarioOptions.objective.Type = Scenario::ObjectiveType::guestsBy;
+        gameState.scenarioOptions.objective.Year = 4;
+        gameState.scenarioOptions.objective.NumGuests = 1000;
+        gameState.scenarioOptions.landPrice = 90.00_GBP;
+        gameState.scenarioOptions.constructionRightsPrice = 40.00_GBP;
+        park.flags = PARK_FLAGS_NO_MONEY | PARK_FLAGS_SHOW_REAL_GUEST_NAMES;
+
+        ResetHistories(park);
+        FinanceResetHistory();
+        AwardReset();
+
+        gameState.scenarioOptions.name.clear();
+        gameState.scenarioOptions.details = String::toStd(LanguageGetString(STR_NO_DETAILS_YET));
+    }
+
+    void Update(ParkData& park, GameState_t& gameState)
+    {
+        PROFILED_FUNCTION();
+
+        // Every new week
+        if (gameState.date.IsWeekStart())
+        {
+            UpdateHistories(park);
+        }
+
+        const auto currentTicks = gameState.currentTicks;
+        auto* windowMgr = Ui::GetWindowManager();
+
+        // Every ~13 seconds
+        if (currentTicks % 512 == 0)
+        {
+            park.rating = CalculateParkRating(park, gameState);
+            park.value = CalculateParkValue(park, gameState);
+            park.companyValue = CalculateCompanyValue(park);
+            park.totalRideValueForMoney = calculateTotalRideValueForMoney(park, gameState);
+            park.suggestedGuestMaximum = calculateSuggestedMaxGuests(park, gameState);
+            park.guestGenerationProbability = calculateGuestGenerationProbability(park);
+
+            windowMgr->InvalidateByClass(WindowClass::finances);
+            auto intent = Intent(INTENT_ACTION_UPDATE_PARK_RATING);
+            ContextBroadcastIntent(&intent);
+        }
+
+        // Every ~102 seconds
+        if (currentTicks % 4096 == 0)
+        {
+            UpdateSize(park);
+        }
+
+        generateGuests(park, gameState);
+    }
+
+    uint32_t CalculateParkSize(ParkData& park)
+    {
+        uint32_t tiles = 0;
+        TileElementIterator it;
+        TileElementIteratorBegin(&it);
+        do
+        {
+            if (it.element->GetType() == TileElementType::Surface)
+            {
+                if (it.element->AsSurface()->GetOwnership() & (OWNERSHIP_CONSTRUCTION_RIGHTS_OWNED | OWNERSHIP_OWNED))
+                {
+                    tiles++;
+                }
+            }
+        } while (TileElementIteratorNext(&it));
+
+        return tiles;
+    }
+
+    int32_t CalculateParkRating(const ParkData& park, const GameState_t& gameState)
+    {
+        if (gameState.cheats.forcedParkRating != kForcedParkRatingDisabled)
+        {
+            return gameState.cheats.forcedParkRating;
+        }
+
+        int32_t result = 1150;
+        if (park.flags & PARK_FLAGS_DIFFICULT_PARK_RATING)
+        {
+            result = 1050;
+        }
+
+        // Guests
+        {
+            // -150 to +3 based on a range of guests from 0 to 2000
+            result -= 150 - (std::min<int32_t>(2000, park.numGuestsInPark) / 13);
+
+            // Find the number of happy peeps and the number of peeps who can't find the park exit
+            uint32_t happyGuestCount = 0;
+            uint32_t lostGuestCount = 0;
+            for (auto peep : EntityList<Guest>())
+            {
+                if (!peep->OutsideOfPark)
+                {
+                    if (peep->Happiness > 128)
+                    {
+                        happyGuestCount++;
+                    }
+                    if ((peep->PeepFlags & PEEP_FLAGS_LEAVING_PARK) && (peep->GuestIsLostCountdown < 90))
+                    {
+                        lostGuestCount++;
+                    }
+                }
+            }
+
+            // Peep happiness -500 to +0
+            result -= 500;
+            if (park.numGuestsInPark > 0)
+            {
+                result += 2 * std::min(250u, (happyGuestCount * 300) / park.numGuestsInPark);
+            }
+
+            // Up to 25 guests can be lost without affecting the park rating.
+            if (lostGuestCount > 25)
+            {
+                result -= (lostGuestCount - 25) * 7;
+            }
+        }
+
+        // Rides
+        {
+            int32_t rideCount = 0;
+            int32_t excitingRideCount = 0;
+            int32_t totalRideUptime = 0;
+            int32_t totalRideIntensity = 0;
+            int32_t totalRideExcitement = 0;
+            for (auto& ride : RideManager(gameState))
+            {
+                totalRideUptime += 100 - ride.downtime;
+                if (RideHasRatings(ride))
+                {
+                    totalRideExcitement += ride.ratings.excitement / 8;
+                    totalRideIntensity += ride.ratings.intensity / 8;
+                    excitingRideCount++;
+                }
+                rideCount++;
+            }
+            result -= 200;
+            if (rideCount > 0)
+            {
+                result += (totalRideUptime / rideCount) * 2;
+            }
+            result -= 100;
+            if (excitingRideCount > 0)
+            {
+                int32_t averageExcitement = totalRideExcitement / excitingRideCount;
+                int32_t averageIntensity = totalRideIntensity / excitingRideCount;
+
+                averageExcitement -= 46;
+                if (averageExcitement < 0)
+                {
+                    averageExcitement = -averageExcitement;
+                }
+
+                averageIntensity -= 65;
+                if (averageIntensity < 0)
+                {
+                    averageIntensity = -averageIntensity;
+                }
+
+                averageExcitement = std::min(averageExcitement / 2, 50);
+                averageIntensity = std::min(averageIntensity / 2, 50);
+                result += 100 - averageExcitement - averageIntensity;
+            }
+
+            totalRideExcitement = std::min<int32_t>(1000, totalRideExcitement);
+            totalRideIntensity = std::min<int32_t>(1000, totalRideIntensity);
+            result -= 200 - ((totalRideExcitement + totalRideIntensity) / 10);
+        }
+
+        // Litter
+        {
+            // Counts the amount of litter whose age is min. 7680 ticks (5~ min) old.
+            const auto litterList = EntityList<Litter>();
+            const auto litterCount = std::count_if(
+                litterList.begin(), litterList.end(), [](auto* litter) { return litter->GetAge() >= 7680; });
+
+            result -= 600 - (4 * (150 - std::min<int32_t>(150, litterCount)));
+        }
+
+        result -= park.ratingCasualtyPenalty;
+        result = std::clamp(result, 0, 999);
+        return result;
+    }
+
+    money64 CalculateParkValue(const ParkData& park, const GameState_t& gameState)
+    {
+        // Sum ride values
+        money64 result = 0;
+        for (const auto& ride : RideManager(gameState))
+        {
+            result += calculateRideValue(ride);
+        }
+
+        // +7.00 per guest
+        result += static_cast<money64>(park.numGuestsInPark) * 7.00_GBP;
+
+        return result;
+    }
+
+    money64 CalculateCompanyValue(const ParkData& park)
+    {
+        money64 result = park.value - park.bankLoan;
+
+        result = AddClamp(result, park.cash);
+
+        return result;
+    }
+
+    uint8_t CalculateGuestInitialHappiness(uint8_t percentage)
+    {
+        percentage = std::clamp<uint8_t>(percentage, 15, 98);
+
+        // The percentages follow this sequence:
+        //   15 17 18 20 21 23 25 26 28 29 31 32 34 36 37 39 40 42 43 45 47 48 50 51 53...
+        // This sequence can be defined as PI*(9+n)/2 (the value is floored)
+        for (uint8_t n = 1; n < 55; n++)
+        {
+            // Avoid floating point math by rescaling PI up.
+            constexpr int32_t SCALE = 100000;
+            constexpr int32_t PI_SCALED = 314159; // PI * SCALE;
+            if (((PI_SCALED * (9 + n)) / SCALE) / 2 >= percentage)
+            {
+                return (9 + n) * 4;
+            }
+        }
+
+        // This is the lowest possible value:
+        return 40;
+    }
+
+    Guest* GenerateGuest()
+    {
+        Guest* peep = nullptr;
+        const auto spawn = GetRandomPeepSpawn();
+        if (spawn != nullptr)
+        {
+            auto direction = DirectionReverse(spawn->direction);
+            peep = Guest::Generate({ spawn->x, spawn->y, spawn->z });
+            if (peep != nullptr)
+            {
+                peep->Orientation = direction << 3;
+
+                auto destination = peep->GetLocation().ToTileCentre();
+                peep->SetDestination(destination, 5);
+                peep->PeepDirection = direction;
+                peep->Var37 = 0;
+                peep->State = PeepState::enteringPark;
+            }
+        }
+        return peep;
+    }
+
+    void ResetHistories(ParkData& park)
+    {
+        std::fill(std::begin(park.ratingHistory), std::end(park.ratingHistory), kParkRatingHistoryUndefined);
+        std::fill(std::begin(park.guestsInParkHistory), std::end(park.guestsInParkHistory), kGuestsInParkHistoryUndefined);
+    }
+
+    void UpdateHistories(ParkData& park)
+    {
+        uint8_t guestChangeModifier = 1;
+        int32_t changeInGuestsInPark = static_cast<int32_t>(park.numGuestsInPark)
+            - static_cast<int32_t>(park.numGuestsInParkLastWeek);
+        if (changeInGuestsInPark > -20)
+        {
+            guestChangeModifier++;
+            if (changeInGuestsInPark < 20)
+            {
+                guestChangeModifier = 0;
+            }
+        }
+        park.guestChangeModifier = guestChangeModifier;
+        park.numGuestsInParkLastWeek = park.numGuestsInPark;
+
+        // Update park rating, guests in park and current cash history
+        constexpr auto ratingHistorySize = std::extent_v<decltype(ParkData::ratingHistory)>;
+        HistoryPushRecord<uint16_t, ratingHistorySize>(park.ratingHistory, park.rating);
+        constexpr auto numGuestsHistorySize = std::extent_v<decltype(ParkData::guestsInParkHistory)>;
+        HistoryPushRecord<uint32_t, numGuestsHistorySize>(park.guestsInParkHistory, park.numGuestsInPark);
+
+        constexpr auto cashHistorySize = std::extent_v<decltype(ParkData::cashHistory)>;
+        HistoryPushRecord<money64, cashHistorySize>(park.cashHistory, park.cash - park.bankLoan);
+
+        // Update weekly profit history
+        auto currentWeeklyProfit = park.weeklyProfitAverageDividend;
+        if (park.weeklyProfitAverageDivisor != 0)
+        {
+            currentWeeklyProfit /= park.weeklyProfitAverageDivisor;
+        }
+        constexpr auto profitHistorySize = std::extent_v<decltype(ParkData::weeklyProfitHistory)>;
+        HistoryPushRecord<money64, profitHistorySize>(park.weeklyProfitHistory, currentWeeklyProfit);
+        park.weeklyProfitAverageDividend = 0;
+        park.weeklyProfitAverageDivisor = 0;
+
+        // Update park value history
+        constexpr auto parkValueHistorySize = std::extent_v<decltype(ParkData::weeklyProfitHistory)>;
+        HistoryPushRecord<money64, parkValueHistorySize>(park.valueHistory, park.value);
+
+        // Invalidate relevant windows
+        auto intent = Intent(INTENT_ACTION_UPDATE_GUEST_COUNT);
+        ContextBroadcastIntent(&intent);
+
+        auto* windowMgr = Ui::GetWindowManager();
+        windowMgr->InvalidateByClass(WindowClass::parkInformation);
+        windowMgr->InvalidateByClass(WindowClass::finances);
+    }
+
+    uint32_t UpdateSize(ParkData& park)
+    {
+        auto tiles = CalculateParkSize(park);
+        if (tiles != park.size)
+        {
+            park.size = tiles;
+
+            auto* windowMgr = Ui::GetWindowManager();
+            windowMgr->InvalidateByClass(WindowClass::parkInformation);
+        }
+        return tiles;
+    }
+
+    void SetOpen(const ParkData& park, bool open)
+    {
+        auto parkSetParameter = GameActions::ParkSetParameterAction(
+            open ? GameActions::ParkParameter::Open : GameActions::ParkParameter::Close);
+        GameActions::Execute(&parkSetParameter, getGameState());
+    }
+
+    /**
+     *
+     *  rct2: 0x00664D05
+     */
+    void UpdateFences(const CoordsXY& coords)
+    {
+        if (MapIsEdge(coords))
+            return;
+
+        auto surfaceElement = MapGetSurfaceElementAt(coords);
+        if (surfaceElement == nullptr)
+            return;
+
+        uint8_t newFences = 0;
+        if ((surfaceElement->GetOwnership() & OWNERSHIP_OWNED) == 0)
+        {
+            bool fenceRequired = true;
+
+            TileElement* tileElement = MapGetFirstElementAt(coords);
+            if (tileElement == nullptr)
+                return;
+            // If an entrance element do not place flags around surface
+            do
+            {
+                if (tileElement->GetType() != TileElementType::Entrance)
+                    continue;
+
+                if (tileElement->AsEntrance()->GetEntranceType() != ENTRANCE_TYPE_PARK_ENTRANCE)
+                    continue;
+
+                if (!(tileElement->IsGhost()))
+                {
+                    fenceRequired = false;
+                    break;
+                }
+            } while (!(tileElement++)->IsLastForTile());
+
+            if (fenceRequired)
+            {
+                if (MapIsLocationInPark({ coords.x - kCoordsXYStep, coords.y }))
+                {
+                    newFences |= 0x8;
+                }
+
+                if (MapIsLocationInPark({ coords.x, coords.y - kCoordsXYStep }))
+                {
+                    newFences |= 0x4;
+                }
+
+                if (MapIsLocationInPark({ coords.x + kCoordsXYStep, coords.y }))
+                {
+                    newFences |= 0x2;
+                }
+
+                if (MapIsLocationInPark({ coords.x, coords.y + kCoordsXYStep }))
+                {
+                    newFences |= 0x1;
+                }
+            }
+        }
+
+        if (surfaceElement->GetParkFences() != newFences)
+        {
+            int32_t baseZ = surfaceElement->GetBaseZ();
+            int32_t clearZ = baseZ + 16;
+            MapInvalidateTile({ coords, baseZ, clearZ });
+            surfaceElement->SetParkFences(newFences);
+        }
+    }
+
+    void UpdateFencesAroundTile(const CoordsXY& coords)
+    {
+        UpdateFences(coords);
+        UpdateFences({ coords.x + kCoordsXYStep, coords.y });
+        UpdateFences({ coords.x - kCoordsXYStep, coords.y });
+        UpdateFences({ coords.x, coords.y + kCoordsXYStep });
+        UpdateFences({ coords.x, coords.y - kCoordsXYStep });
+    }
+
+    void SetForcedRating(ParkData& park, int32_t rating)
+    {
+        auto& gameState = getGameState();
+        gameState.cheats.forcedParkRating = rating;
+
+        park.rating = CalculateParkRating(park, gameState);
+
         auto intent = Intent(INTENT_ACTION_UPDATE_PARK_RATING);
         ContextBroadcastIntent(&intent);
     }
 
-    // Every ~102 seconds
-    if (gCurrentTicks % 4096 == 0)
+    int32_t GetForcedRating()
     {
-        gParkSize = CalculateParkSize();
-        WindowInvalidateByClass(WindowClass::ParkInformation);
+        return getGameState().cheats.forcedParkRating;
     }
 
-    GenerateGuests();
-}
-
-uint32_t Park::CalculateParkSize() const
-{
-    uint32_t tiles = 0;
-    TileElementIterator it;
-    TileElementIteratorBegin(&it);
-    do
+    money64 GetEntranceFee(const ParkData& park)
     {
-        if (it.element->GetType() == TileElementType::Surface)
+        if (park.flags & PARK_FLAGS_NO_MONEY)
         {
-            if (it.element->AsSurface()->GetOwnership() & (OWNERSHIP_CONSTRUCTION_RIGHTS_OWNED | OWNERSHIP_OWNED))
-            {
-                tiles++;
-            }
+            return 0;
         }
-    } while (TileElementIteratorNext(&it));
-
-    if (tiles != gParkSize)
-    {
-        gParkSize = tiles;
-        WindowInvalidateByClass(WindowClass::ParkInformation);
-    }
-
-    return tiles;
-}
-
-int32_t Park::CalculateParkRating() const
-{
-    if (_forcedParkRating >= 0)
-    {
-        return _forcedParkRating;
-    }
-
-    int32_t result = 1150;
-    if (gParkFlags & PARK_FLAGS_DIFFICULT_PARK_RATING)
-    {
-        result = 1050;
-    }
-
-    // Guests
-    {
-        // -150 to +3 based on a range of guests from 0 to 2000
-        result -= 150 - (std::min<int32_t>(2000, gNumGuestsInPark) / 13);
-
-        // Find the number of happy peeps and the number of peeps who can't find the park exit
-        uint32_t happyGuestCount = 0;
-        uint32_t lostGuestCount = 0;
-        for (auto peep : EntityList<Guest>())
+        if (!EntranceFeeUnlocked(park))
         {
-            if (!peep->OutsideOfPark)
-            {
-                if (peep->Happiness > 128)
-                {
-                    happyGuestCount++;
-                }
-                if ((peep->PeepFlags & PEEP_FLAGS_LEAVING_PARK) && (peep->GuestIsLostCountdown < 90))
-                {
-                    lostGuestCount++;
-                }
-            }
+            return 0;
         }
 
-        // Peep happiness -500 to +0
-        result -= 500;
-        if (gNumGuestsInPark > 0)
+        return park.entranceFee;
+    }
+
+    bool RidePricesUnlocked(const ParkData& park)
+    {
+        if (park.flags & PARK_FLAGS_UNLOCK_ALL_PRICES)
         {
-            result += 2 * std::min(250u, (happyGuestCount * 300) / gNumGuestsInPark);
+            return true;
         }
-
-        // Up to 25 guests can be lost without affecting the park rating.
-        if (lostGuestCount > 25)
+        if (park.flags & PARK_FLAGS_PARK_FREE_ENTRY)
         {
-            result -= (lostGuestCount - 25) * 7;
+            return true;
         }
+        return false;
     }
 
-    // Rides
+    bool EntranceFeeUnlocked(const ParkData& park)
     {
-        int32_t rideCount = 0;
-        int32_t excitingRideCount = 0;
-        int32_t totalRideUptime = 0;
-        int32_t totalRideIntensity = 0;
-        int32_t totalRideExcitement = 0;
-        for (auto& ride : GetRideManager())
+        if (park.flags & PARK_FLAGS_UNLOCK_ALL_PRICES)
         {
-            totalRideUptime += 100 - ride.downtime;
-            if (RideHasRatings(ride))
-            {
-                totalRideExcitement += ride.excitement / 8;
-                totalRideIntensity += ride.intensity / 8;
-                excitingRideCount++;
-            }
-            rideCount++;
+            return true;
         }
-        result -= 200;
-        if (rideCount > 0)
+        if (!(park.flags & PARK_FLAGS_PARK_FREE_ENTRY))
         {
-            result += (totalRideUptime / rideCount) * 2;
+            return true;
         }
-        result -= 100;
-        if (excitingRideCount > 0)
-        {
-            int32_t averageExcitement = totalRideExcitement / excitingRideCount;
-            int32_t averageIntensity = totalRideIntensity / excitingRideCount;
-
-            averageExcitement -= 46;
-            if (averageExcitement < 0)
-            {
-                averageExcitement = -averageExcitement;
-            }
-
-            averageIntensity -= 65;
-            if (averageIntensity < 0)
-            {
-                averageIntensity = -averageIntensity;
-            }
-
-            averageExcitement = std::min(averageExcitement / 2, 50);
-            averageIntensity = std::min(averageIntensity / 2, 50);
-            result += 100 - averageExcitement - averageIntensity;
-        }
-
-        totalRideExcitement = std::min<int32_t>(1000, totalRideExcitement);
-        totalRideIntensity = std::min<int32_t>(1000, totalRideIntensity);
-        result -= 200 - ((totalRideExcitement + totalRideIntensity) / 10);
+        return false;
     }
 
-    // Litter
+    bool IsOpen(const ParkData& park)
     {
-        // Counts the amount of litter whose age is min. 7680 ticks (5~ min) old.
-        const auto litterList = EntityList<Litter>();
-        const auto litterCount = std::count_if(
-            litterList.begin(), litterList.end(), [](auto* litter) { return litter->GetAge() >= 7680; });
-
-        result -= 600 - (4 * (150 - std::min<int32_t>(150, litterCount)));
+        return (park.flags & PARK_FLAGS_PARK_OPEN) != 0;
     }
-
-    result -= gParkRatingCasualtyPenalty;
-    result = std::clamp(result, 0, 999);
-    return result;
-}
-
-money64 Park::CalculateParkValue() const
-{
-    // Sum ride values
-    money64 result = 0;
-    for (const auto& ride : GetRideManager())
-    {
-        result += CalculateRideValue(ride);
-    }
-
-    // +7.00 per guest
-    result += static_cast<money64>(gNumGuestsInPark) * 7.00_GBP;
-
-    return result;
-}
-
-money64 Park::CalculateRideValue(const Ride& ride) const
-{
-    money64 result = 0;
-    if (ride.value != RIDE_VALUE_UNDEFINED)
-    {
-        const auto& rtd = ride.GetRideTypeDescriptor();
-        result = (ride.value * 10) * (static_cast<money64>(RideCustomersInLast5Minutes(ride)) + rtd.BonusValue * 4LL);
-    }
-    return result;
-}
-
-money64 Park::CalculateCompanyValue() const
-{
-    auto result = gParkValue - gBankLoan;
-
-    // Clamp addition to prevent overflow
-    result = AddClamp_money64(result, FinanceGetCurrentCash());
-
-    return result;
-}
-
-money64 Park::CalculateTotalRideValueForMoney() const
-{
-    money64 totalRideValue = 0;
-    bool ridePricesUnlocked = ParkRidePricesUnlocked() && !(gParkFlags & PARK_FLAGS_NO_MONEY);
-    for (auto& ride : GetRideManager())
-    {
-        if (ride.status != RideStatus::Open)
-            continue;
-        if (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN)
-            continue;
-        if (ride.lifecycle_flags & RIDE_LIFECYCLE_CRASHED)
-            continue;
-
-        // Add ride value
-        if (ride.value != RIDE_VALUE_UNDEFINED)
-        {
-            money64 rideValue = ride.value;
-            if (ridePricesUnlocked)
-            {
-                rideValue -= ride.price[0];
-            }
-            if (rideValue > 0)
-            {
-                totalRideValue += rideValue * 2;
-            }
-        }
-    }
-    return totalRideValue;
-}
-
-uint32_t Park::CalculateSuggestedMaxGuests() const
-{
-    uint32_t suggestedMaxGuests = 0;
-    uint32_t difficultGenerationBonus = 0;
-
-    for (auto& ride : GetRideManager())
-    {
-        if (ride.status != RideStatus::Open)
-            continue;
-        if (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN)
-            continue;
-        if (ride.lifecycle_flags & RIDE_LIFECYCLE_CRASHED)
-            continue;
-
-        // Add guest score for ride type
-        suggestedMaxGuests += ride.GetRideTypeDescriptor().BonusValue;
-
-        // If difficult guest generation, extra guests are available for good rides
-        if (gParkFlags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION)
-        {
-            if (!(ride.lifecycle_flags & RIDE_LIFECYCLE_TESTED))
-                continue;
-            if (!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_HAS_TRACK))
-                continue;
-            if (!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_HAS_DATA_LOGGING))
-                continue;
-            if (ride.GetStation().SegmentLength < (600 << 16))
-                continue;
-            if (ride.excitement < RIDE_RATING(6, 00))
-                continue;
-
-            // Bonus guests for good ride
-            difficultGenerationBonus += ride.GetRideTypeDescriptor().BonusValue * 2;
-        }
-    }
-
-    if (gParkFlags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION)
-    {
-        suggestedMaxGuests = std::min<uint32_t>(suggestedMaxGuests, 1000);
-        suggestedMaxGuests += difficultGenerationBonus;
-    }
-
-    suggestedMaxGuests = std::min<uint32_t>(suggestedMaxGuests, 65535);
-    return suggestedMaxGuests;
-}
-
-uint32_t Park::CalculateGuestGenerationProbability() const
-{
-    // Begin with 50 + park rating
-    uint32_t probability = 50 + std::clamp(gParkRating - 200, 0, 650);
-
-    // The more guests, the lower the chance of a new one
-    uint32_t numGuests = gNumGuestsInPark + gNumGuestsHeadingForPark;
-    if (numGuests > _suggestedGuestMaximum)
-    {
-        probability /= 4;
-        // Even lower for difficult guest generation
-        if (gParkFlags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION)
-        {
-            probability /= 4;
-        }
-    }
-
-    // Reduces chance for any more than 7000 guests
-    if (numGuests > 7000)
-    {
-        probability /= 4;
-    }
-
-    // Penalty for overpriced entrance fee relative to total ride value
-    auto entranceFee = ParkGetEntranceFee();
-    if (entranceFee > gTotalRideValueForMoney)
-    {
-        probability /= 4;
-        // Extra penalty for very overpriced entrance fee
-        if (entranceFee / 2 > gTotalRideValueForMoney)
-        {
-            probability /= 4;
-        }
-    }
-
-    // Reward or penalties for park awards
-    for (const auto& award : GetAwards())
-    {
-        // +/- 0.25% of the probability
-        if (AwardIsPositive(award.Type))
-        {
-            probability += probability / 4;
-        }
-        else
-        {
-            probability -= probability / 4;
-        }
-    }
-
-    return probability;
-}
-
-uint8_t Park::CalculateGuestInitialHappiness(uint8_t percentage)
-{
-    percentage = std::clamp<uint8_t>(percentage, 15, 98);
-
-    // The percentages follow this sequence:
-    //   15 17 18 20 21 23 25 26 28 29 31 32 34 36 37 39 40 42 43 45 47 48 50 51 53...
-    // This sequence can be defined as PI*(9+n)/2 (the value is floored)
-    for (uint8_t n = 1; n < 55; n++)
-    {
-        // Avoid floating point math by rescaling PI up.
-        constexpr int32_t SCALE = 100000;
-        constexpr int32_t PI_SCALED = 314159; // PI * SCALE;
-        if (((PI_SCALED * (9 + n)) / SCALE) / 2 >= percentage)
-        {
-            return (9 + n) * 4;
-        }
-    }
-
-    // This is the lowest possible value:
-    return 40;
-}
-
-void Park::GenerateGuests()
-{
-    // Generate a new guest for some probability
-    if (static_cast<int32_t>(ScenarioRand() & 0xFFFF) < _guestGenerationProbability)
-    {
-        bool difficultGeneration = (gParkFlags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION) != 0;
-        if (!difficultGeneration || _suggestedGuestMaximum + 150 >= gNumGuestsInPark)
-        {
-            GenerateGuest();
-        }
-    }
-
-    // Extra guests generated by advertising campaigns
-    for (const auto& campaign : gMarketingCampaigns)
-    {
-        // Random chance of guest generation
-        auto probability = MarketingGetCampaignGuestGenerationProbability(campaign.Type);
-        auto random = ScenarioRandMax(std::numeric_limits<uint16_t>::max());
-        if (random < probability)
-        {
-            GenerateGuestFromCampaign(campaign.Type);
-        }
-    }
-}
-
-Guest* Park::GenerateGuestFromCampaign(int32_t campaign)
-{
-    auto peep = GenerateGuest();
-    if (peep != nullptr)
-    {
-        MarketingSetGuestCampaign(peep, campaign);
-    }
-    return peep;
-}
-
-Guest* Park::GenerateGuest()
-{
-    Guest* peep = nullptr;
-    const auto spawn = GetRandomPeepSpawn();
-    if (spawn != nullptr)
-    {
-        auto direction = DirectionReverse(spawn->direction);
-        peep = Guest::Generate({ spawn->x, spawn->y, spawn->z });
-        if (peep != nullptr)
-        {
-            peep->sprite_direction = direction << 3;
-
-            auto destination = peep->GetLocation().ToTileCentre();
-            peep->SetDestination(destination, 5);
-            peep->PeepDirection = direction;
-            peep->Var37 = 0;
-            peep->State = PeepState::EnteringPark;
-        }
-    }
-    return peep;
-}
-
-template<typename T, size_t TSize> static void HistoryPushRecord(T history[TSize], T newItem)
-{
-    for (size_t i = TSize - 1; i > 0; i--)
-    {
-        history[i] = history[i - 1];
-    }
-    history[0] = newItem;
-}
-
-void Park::ResetHistories()
-{
-    std::fill(std::begin(gParkRatingHistory), std::end(gParkRatingHistory), ParkRatingHistoryUndefined);
-    std::fill(std::begin(gGuestsInParkHistory), std::end(gGuestsInParkHistory), GuestsInParkHistoryUndefined);
-}
-
-void Park::UpdateHistories()
-{
-    uint8_t guestChangeModifier = 1;
-    int32_t changeInGuestsInPark = static_cast<int32_t>(gNumGuestsInPark) - static_cast<int32_t>(gNumGuestsInParkLastWeek);
-    if (changeInGuestsInPark > -20)
-    {
-        guestChangeModifier++;
-        if (changeInGuestsInPark < 20)
-        {
-            guestChangeModifier = 0;
-        }
-    }
-    gGuestChangeModifier = guestChangeModifier;
-    gNumGuestsInParkLastWeek = gNumGuestsInPark;
-
-    // Update park rating, guests in park and current cash history
-    HistoryPushRecord<uint8_t, 32>(gParkRatingHistory, gParkRating / 4);
-    HistoryPushRecord<uint32_t, 32>(gGuestsInParkHistory, gNumGuestsInPark);
-    HistoryPushRecord<money64, std::size(gCashHistory)>(gCashHistory, FinanceGetCurrentCash() - gBankLoan);
-
-    // Update weekly profit history
-    auto currentWeeklyProfit = gWeeklyProfitAverageDividend;
-    if (gWeeklyProfitAverageDivisor != 0)
-    {
-        currentWeeklyProfit /= gWeeklyProfitAverageDivisor;
-    }
-    HistoryPushRecord<money64, std::size(gWeeklyProfitHistory)>(gWeeklyProfitHistory, currentWeeklyProfit);
-    gWeeklyProfitAverageDividend = 0;
-    gWeeklyProfitAverageDivisor = 0;
-
-    // Update park value history
-    HistoryPushRecord<money64, std::size(gParkValueHistory)>(gParkValueHistory, gParkValue);
-
-    // Invalidate relevant windows
-    auto intent = Intent(INTENT_ACTION_UPDATE_GUEST_COUNT);
-    ContextBroadcastIntent(&intent);
-    WindowInvalidateByClass(WindowClass::ParkInformation);
-    WindowInvalidateByClass(WindowClass::Finances);
-}
-
-int32_t ParkIsOpen()
-{
-    return GetContext()->GetGameState()->GetPark().IsOpen();
-}
-
-uint32_t ParkCalculateSize()
-{
-    auto tiles = GetContext()->GetGameState()->GetPark().CalculateParkSize();
-    if (tiles != gParkSize)
-    {
-        gParkSize = tiles;
-        WindowInvalidateByClass(WindowClass::ParkInformation);
-    }
-    return tiles;
-}
-
-uint8_t CalculateGuestInitialHappiness(uint8_t percentage)
-{
-    return Park::CalculateGuestInitialHappiness(percentage);
-}
+} // namespace OpenRCT2::Park

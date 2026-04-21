@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -10,20 +10,25 @@
 #include "../Paint.h"
 
 #include "../../Game.h"
-#include "../../config/Config.h"
+#include "../../GameState.h"
+#include "../../core/EnumUtils.hpp"
 #include "../../interface/Viewport.h"
-#include "../../localisation/Date.h"
 #include "../../object/SmallSceneryEntry.h"
 #include "../../profiling/Profiling.h"
 #include "../../ride/TrackDesign.h"
-#include "../../util/Util.h"
-#include "../../world/Map.h"
 #include "../../world/Scenery.h"
 #include "../../world/TileInspector.h"
-#include "../Supports.h"
+#include "../../world/tile_element/SmallSceneryElement.h"
+#include "../support/WoodenSupports.h"
+#include "Paint.SmallScenery.h"
 #include "Paint.TileElement.h"
+#include "Segment.h"
 
-static constexpr const CoordsXY lengths[] = {
+using namespace OpenRCT2;
+using namespace OpenRCT2::Drawing;
+using namespace OpenRCT2::Numerics;
+
+static constexpr CoordsXY kLengths[] = {
     { 12, 26 },
     { 26, 12 },
     { 12, 26 },
@@ -39,19 +44,19 @@ static void PaintSmallScenerySupports(
     if (!sceneryElement.NeedsSupports())
         return;
 
-    if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG_NO_SUPPORTS))
+    if (sceneryEntry.flags.has(SmallSceneryFlag::hasNoSupports))
         return;
 
-    auto special = 0;
+    auto transitionType = WoodenSupportTransitionType::none;
     auto supportHeight = height;
     if (supportHeight & 0xF)
     {
         supportHeight &= ~0xF;
-        special = 49;
+        transitionType = WoodenSupportTransitionType::scenery;
     }
 
     auto supportImageTemplate = ImageId().WithRemap(0);
-    if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG_PAINT_SUPPORTS))
+    if (sceneryEntry.flags.has(SmallSceneryFlag::supportsHavePrimaryColour))
     {
         supportImageTemplate = ImageId().WithPrimary(sceneryElement.GetPrimaryColour());
     }
@@ -60,8 +65,9 @@ static void PaintSmallScenerySupports(
         supportImageTemplate = imageTemplate;
     }
 
-    auto supportType = (direction & 1) ? 1 : 0;
-    WoodenBSupportsPaintSetup(session, supportType, special, supportHeight, supportImageTemplate);
+    WoodenBSupportsPaintSetupRotated(
+        session, WoodenSupportType::truss, WoodenSupportSubType::neSw, direction, supportHeight, supportImageTemplate,
+        transitionType);
 }
 
 static void SetSupportHeights(
@@ -69,37 +75,42 @@ static void SetSupportHeights(
 {
     height += sceneryEntry.height;
 
-    PaintUtilSetGeneralSupportHeight(session, Ceil2(height, 8), 0x20);
-    if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG_BUILD_DIRECTLY_ONTOP))
+    PaintUtilSetGeneralSupportHeight(session, ceil2(height, 8));
+    if (sceneryEntry.flags.has(SmallSceneryFlag::allowSupportsAbove))
     {
-        if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG_FULL_TILE))
+        if (sceneryEntry.flags.has(SmallSceneryFlag::occupiesFullTile))
         {
-            PaintUtilSetSegmentSupportHeight(session, SEGMENT_C4, height, 0x20);
-            if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG_VOFFSET_CENTRE))
+            PaintUtilSetSegmentSupportHeight(session, EnumToFlag(PaintSegment::centre), height, 0x20);
+            if (sceneryEntry.flags.has(SmallSceneryFlag::vOffsetCentre))
             {
-                PaintUtilSetSegmentSupportHeight(session, SEGMENTS_ALL & ~SEGMENT_C4, height, 0x20);
+                PaintUtilSetSegmentSupportHeight(session, kSegmentsAll & ~EnumToFlag(PaintSegment::centre), height, 0x20);
             }
         }
-        else if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG_VOFFSET_CENTRE))
+        else if (sceneryEntry.flags.has(SmallSceneryFlag::vOffsetCentre))
         {
             auto direction = (sceneryElement.GetSceneryQuadrant() + session.CurrentRotation) % 4;
             PaintUtilSetSegmentSupportHeight(
-                session, PaintUtilRotateSegments(SEGMENT_B4 | SEGMENT_C8 | SEGMENT_CC, direction), height, 0x20);
+                session,
+                PaintUtilRotateSegments(
+                    EnumsToFlags(PaintSegment::top, PaintSegment::topLeft, PaintSegment::topRight), direction),
+                height, 0x20);
         }
     }
-    else if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG27 | SMALL_SCENERY_FLAG_FULL_TILE))
+    else if (sceneryEntry.flags.hasAny(SmallSceneryFlag::flag27, SmallSceneryFlag::occupiesFullTile))
     {
-        PaintUtilSetSegmentSupportHeight(session, SEGMENT_C4, 0xFFFF, 0);
-        if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG_VOFFSET_CENTRE))
+        PaintUtilSetSegmentSupportHeight(session, EnumToFlag(PaintSegment::centre), 0xFFFF, 0);
+        if (sceneryEntry.flags.has(SmallSceneryFlag::vOffsetCentre))
         {
-            PaintUtilSetSegmentSupportHeight(session, SEGMENTS_ALL & ~SEGMENT_C4, 0xFFFF, 0);
+            PaintUtilSetSegmentSupportHeight(session, kSegmentsAll & ~EnumToFlag(PaintSegment::centre), 0xFFFF, 0);
         }
     }
-    else if (sceneryEntry.HasFlag(SMALL_SCENERY_FLAG_VOFFSET_CENTRE))
+    else if (sceneryEntry.flags.has(SmallSceneryFlag::vOffsetCentre))
     {
         auto direction = (sceneryElement.GetSceneryQuadrant() + session.CurrentRotation) % 4;
         PaintUtilSetSegmentSupportHeight(
-            session, PaintUtilRotateSegments(SEGMENT_B4 | SEGMENT_C8 | SEGMENT_CC, direction), 0xFFFF, 0);
+            session,
+            PaintUtilRotateSegments(EnumsToFlags(PaintSegment::top, PaintSegment::topLeft, PaintSegment::topRight), direction),
+            0xFFFF, 0);
     }
 }
 
@@ -112,20 +123,20 @@ static void PaintSmallSceneryBody(
     BoundBoxXYZ boundBox = { { 0, 0, height }, { 2, 2, 0 } };
 
     CoordsXYZ offset = { 0, 0, height };
-    if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_FULL_TILE))
+    if (sceneryEntry->flags.has(SmallSceneryFlag::occupiesFullTile))
     {
-        if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HALF_SPACE))
+        if (sceneryEntry->flags.has(SmallSceneryFlag::occupiesHalfTile))
         {
-            static constexpr const CoordsXY sceneryHalfTileOffsets[] = {
+            static constexpr CoordsXY kSceneryHalfTileOffsets[] = {
                 { 3, 3 },
                 { 3, 17 },
                 { 17, 3 },
                 { 3, 3 },
             };
-            boundBox.offset.x = sceneryHalfTileOffsets[direction].x;
-            boundBox.offset.y = sceneryHalfTileOffsets[direction].y;
-            boundBox.length.x = lengths[direction].x;
-            boundBox.length.y = lengths[direction].y;
+            boundBox.offset.x = kSceneryHalfTileOffsets[direction].x;
+            boundBox.offset.y = kSceneryHalfTileOffsets[direction].y;
+            boundBox.length.x = kLengths[direction].x;
+            boundBox.length.y = kLengths[direction].y;
             offset.x = 3;
             offset.y = 3;
         }
@@ -133,13 +144,13 @@ static void PaintSmallSceneryBody(
         {
             offset.x = 15;
             offset.y = 15;
-            if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_VOFFSET_CENTRE))
+            if (sceneryEntry->flags.has(SmallSceneryFlag::vOffsetCentre))
             {
                 offset.x = 3;
                 offset.y = 3;
                 boundBox.length.x = 26;
                 boundBox.length.y = 26;
-                if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_NO_WALLS))
+                if (sceneryEntry->flags.has(SmallSceneryFlag::prohibitWalls))
                 {
                     offset.x = 1;
                     offset.y = 1;
@@ -168,31 +179,31 @@ static void PaintSmallSceneryBody(
     boundBox.length.z--;
 
     ImageIndex baseImageIndex = sceneryEntry->image + direction;
-    if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_CAN_WITHER))
+    if (sceneryEntry->flags.has(SmallSceneryFlag::canWither))
     {
-        if (sceneryElement.GetAge() >= SCENERY_WITHER_AGE_THRESHOLD_1)
+        if (sceneryElement.GetAge() >= kSceneryWitherAgeThreshold1)
         {
             baseImageIndex += 4;
         }
-        if (sceneryElement.GetAge() >= SCENERY_WITHER_AGE_THRESHOLD_2)
+        if (sceneryElement.GetAge() >= kSceneryWitherAgeThreshold2)
         {
             baseImageIndex += 4;
         }
     }
-    if (!(sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_VISIBLE_WHEN_ZOOMED)))
+    if (!sceneryEntry->flags.has(SmallSceneryFlag::isVisibleWhenZoomed))
     {
         auto imageId = imageTemplate.WithIndex(baseImageIndex);
         if (!imageTemplate.IsRemap())
         {
-            if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HAS_PRIMARY_COLOUR))
+            if (sceneryEntry->flags.has(SmallSceneryFlag::hasPrimaryColour))
             {
                 imageId = imageId.WithPrimary(sceneryElement.GetPrimaryColour());
-                if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HAS_SECONDARY_COLOUR))
+                if (sceneryEntry->flags.has(SmallSceneryFlag::hasSecondaryColour))
                 {
                     imageId = imageId.WithSecondary(sceneryElement.GetSecondaryColour());
                 }
             }
-            if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HAS_TERTIARY_COLOUR))
+            if (sceneryEntry->flags.has(SmallSceneryFlag::hasTertiaryColour))
             {
                 imageId = imageId.WithTertiary(sceneryElement.GetTertiaryColour());
             }
@@ -200,41 +211,39 @@ static void PaintSmallSceneryBody(
         PaintAddImageAsParent(session, imageId, offset, boundBox);
     }
 
-    if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HAS_GLASS) && !imageTemplate.IsRemap())
+    if (sceneryEntry->flags.has(SmallSceneryFlag::hasGlass) && !imageTemplate.IsRemap())
     {
         auto imageId = ImageId(baseImageIndex + 4).WithTransparency(sceneryElement.GetPrimaryColour());
         PaintAddImageAsChild(session, imageId, offset, boundBox);
     }
 
-    if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_ANIMATED))
+    if (sceneryEntry->flags.has(SmallSceneryFlag::isAnimated))
     {
-        if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_VISIBLE_WHEN_ZOOMED) || (session.DPI.zoom_level <= ZoomLevel{ 1 }))
+        const auto currentTicks = getGameState().currentTicks;
+
+        if (sceneryEntry->flags.has(SmallSceneryFlag::isVisibleWhenZoomed) || (session.rt.zoom_level <= ZoomLevel{ 1 }))
         {
-            if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_FOUNTAIN_SPRAY_1))
+            if (sceneryEntry->flags.has(SmallSceneryFlag::isFountain))
             {
-                auto imageIndex = sceneryEntry->image + 4 + ((gCurrentTicks / 2) & 0xF);
+                auto imageIndex = sceneryEntry->image + 4 + ((currentTicks / 2) & 0xF);
                 auto imageId = imageTemplate.WithIndex(imageIndex);
                 PaintAddImageAsChild(session, imageId, offset, boundBox);
             }
-            else if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_FOUNTAIN_SPRAY_4))
+            else if (sceneryEntry->flags.has(SmallSceneryFlag::isCupidFountain))
             {
-                auto imageIndex = sceneryEntry->image + 8 + ((gCurrentTicks / 2) & 0xF);
+                auto imageIndex = sceneryEntry->image + 8 + ((currentTicks / 2) & 0xF);
                 PaintAddImageAsChild(session, imageTemplate.WithIndex(imageIndex), offset, boundBox);
 
                 imageIndex = direction + sceneryEntry->image + 4;
                 PaintAddImageAsChild(session, imageTemplate.WithIndex(imageIndex), offset, boundBox);
 
-                imageIndex = sceneryEntry->image + 24 + ((gCurrentTicks / 2) & 0xF);
+                imageIndex = sceneryEntry->image + 24 + ((currentTicks / 2) & 0xF);
                 PaintAddImageAsChild(session, imageTemplate.WithIndex(imageIndex), offset, boundBox);
             }
-            else if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_IS_CLOCK))
+            else if (sceneryEntry->flags.has(SmallSceneryFlag::isClock))
             {
                 auto minuteImageOffset = ((gRealTimeOfDay.minute + 6) * 17) / 256;
-                auto timeImageBase = gRealTimeOfDay.hour;
-                while (timeImageBase >= 12)
-                {
-                    timeImageBase -= 12;
-                }
+                auto timeImageBase = gRealTimeOfDay.hour % 12;
                 timeImageBase = (timeImageBase * 4) + minuteImageOffset;
                 if (timeImageBase >= 48)
                 {
@@ -257,19 +266,19 @@ static void PaintSmallSceneryBody(
                 imageIndex = sceneryEntry->image + 8 + imageIndex;
                 PaintAddImageAsChild(session, imageTemplate.WithIndex(imageIndex), offset, boundBox);
             }
-            else if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_SWAMP_GOO))
+            else if (sceneryEntry->flags.has(SmallSceneryFlag::isSwampGoo))
             {
-                auto imageIndex = gCurrentTicks;
+                auto imageIndex = currentTicks;
                 imageIndex += session.SpritePosition.x / 4;
                 imageIndex += session.SpritePosition.y / 4;
                 imageIndex = sceneryEntry->image + ((imageIndex / 4) % 16);
                 PaintAddImageAsChild(session, imageTemplate.WithIndex(imageIndex), offset, boundBox);
             }
-            else if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HAS_FRAME_OFFSETS))
+            else if (sceneryEntry->flags.has(SmallSceneryFlag::hasFrameOffsets))
             {
                 auto delay = sceneryEntry->animation_delay & 0xFF;
-                auto frame = gCurrentTicks;
-                if (!(sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_COG)))
+                auto frame = currentTicks;
+                if (!sceneryEntry->flags.has(SmallSceneryFlag::isCogwheel))
                 {
                     frame += ((session.SpritePosition.x / 4) + (session.SpritePosition.y / 4));
                     frame += sceneryElement.GetSceneryQuadrant() << 2;
@@ -277,12 +286,12 @@ static void PaintSmallSceneryBody(
                 frame = (frame >> delay) & sceneryEntry->animation_mask;
 
                 auto imageIndex = 0;
-                if (frame < sceneryEntry->num_frames)
+                if (frame < sceneryEntry->FrameOffsetCount)
                 {
                     imageIndex = sceneryEntry->frame_offsets[frame];
                 }
                 imageIndex = (imageIndex * 4) + direction + sceneryEntry->image;
-                if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_VISIBLE_WHEN_ZOOMED | SMALL_SCENERY_FLAG17))
+                if (sceneryEntry->flags.hasAny(SmallSceneryFlag::isVisibleWhenZoomed, SmallSceneryFlag::flag17))
                 {
                     imageIndex += 4;
                 }
@@ -290,21 +299,21 @@ static void PaintSmallSceneryBody(
                 auto imageId = imageTemplate.WithIndex(imageIndex);
                 if (!imageTemplate.IsRemap())
                 {
-                    if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HAS_PRIMARY_COLOUR))
+                    if (sceneryEntry->flags.has(SmallSceneryFlag::hasPrimaryColour))
                     {
                         imageId = ImageId(imageIndex).WithPrimary(sceneryElement.GetPrimaryColour());
-                        if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HAS_SECONDARY_COLOUR))
+                        if (sceneryEntry->flags.has(SmallSceneryFlag::hasSecondaryColour))
                         {
                             imageId = imageId.WithSecondary(sceneryElement.GetSecondaryColour());
                         }
                     }
-                    if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_HAS_TERTIARY_COLOUR))
+                    if (sceneryEntry->flags.has(SmallSceneryFlag::hasTertiaryColour))
                     {
                         imageId = imageId.WithTertiary(sceneryElement.GetTertiaryColour());
                     }
                 }
 
-                if (sceneryEntry->HasFlag(SMALL_SCENERY_FLAG_VISIBLE_WHEN_ZOOMED))
+                if (sceneryEntry->flags.has(SmallSceneryFlag::isVisibleWhenZoomed))
                 {
                     PaintAddImageAsParent(session, imageId, offset, boundBox);
                 }
@@ -332,23 +341,23 @@ void PaintSmallScenery(PaintSession& session, uint8_t direction, int32_t height,
         return;
     }
 
-    session.InteractionType = ViewportInteractionItem::Scenery;
+    session.InteractionType = ViewportInteractionItem::scenery;
     ImageId imageTemplate;
     if (gTrackDesignSaveMode)
     {
         if (!TrackDesignSaveContainsTileElement(reinterpret_cast<const TileElement*>(&sceneryElement)))
         {
-            imageTemplate = ImageId().WithRemap(FilterPaletteID::Palette46);
+            imageTemplate = ImageId().WithRemap(FilterPaletteID::palette46);
         }
     }
     if (sceneryElement.IsGhost())
     {
-        session.InteractionType = ViewportInteractionItem::None;
-        imageTemplate = ImageId().WithRemap(FilterPaletteID::Palette44);
+        session.InteractionType = ViewportInteractionItem::none;
+        imageTemplate = ImageId().WithRemap(FilterPaletteID::paletteGhost);
     }
-    else if (OpenRCT2::TileInspector::IsElementSelected(reinterpret_cast<const TileElement*>(&sceneryElement)))
+    else if (session.SelectedElement == reinterpret_cast<const TileElement*>(&sceneryElement))
     {
-        imageTemplate = ImageId().WithRemap(FilterPaletteID::Palette44);
+        imageTemplate = ImageId().WithRemap(FilterPaletteID::paletteGhost);
     }
 
     PaintSmallSceneryBody(session, direction, height, sceneryElement, sceneryEntry, imageTemplate);

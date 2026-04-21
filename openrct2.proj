@@ -8,9 +8,6 @@
        - OPENRCT2_DESCRIBE
   -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
-  <!-- Import custom build tasks -->
-  <Import Project="openrct2.targets" />
-
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
     <Platform Condition="'$(Platform)'==''">x64</Platform>
@@ -27,68 +24,29 @@
     <TargetDir>$(RootDir)bin\</TargetDir>
 
     <OutputExe>$(TargetDir)openrct2.exe</OutputExe>
-    <g2Output>$(TargetDir)data\g2.dat</g2Output>
 
     <!-- Set openrct2.sln properties -->
     <SlnProperties>$(SlnProperties);Platform=$(Platform)</SlnProperties>
     <SlnProperties Condition="'$(OPENRCT2_BUILD_SERVER)'!=''">$(SlnProperties);OPENRCT2_CL_ADDITIONALOPTIONS=$(OPENRCT2_CL_ADDITIONALOPTIONS)</SlnProperties>
   </PropertyGroup>
 
-  <!-- 3rd party libraries / dependencies -->
-  <PropertyGroup>
-    <DependenciesCheckFile>$(RootDir).dependencies</DependenciesCheckFile>
-    <LibsUrl Condition="'$(Platform)'=='Win32'">https://github.com/OpenRCT2/Dependencies/releases/download/v33/openrct2-libs-v33-x86-windows-static.zip</LibsUrl>
-    <LibsSha1 Condition="'$(Platform)'=='Win32'">35f0cb2eae5c17e81a13518961816ffa1cfbafa9</LibsSha1>
-    <LibsUrl Condition="'$(Platform)'=='x64'">https://github.com/OpenRCT2/Dependencies/releases/download/v33/openrct2-libs-v33-x64-windows-static.zip</LibsUrl>
-    <LibsSha1 Condition="'$(Platform)'=='x64'">3e9e819db4448c580a9937d0168415811c49cfff</LibsSha1>
-    <LibsUrl Condition="'$(Platform)'=='ARM64'">https://github.com/OpenRCT2/Dependencies/releases/download/v33/openrct2-libs-v33-arm64-windows-static.zip</LibsUrl>
-    <LibsSha1 Condition="'$(Platform)'=='ARM64'">f3a03c2e7b610fefa28d6962da10144f6324078d</LibsSha1>
-    <TitleSequencesUrl>https://github.com/OpenRCT2/title-sequences/releases/download/v0.4.0/title-sequences.zip</TitleSequencesUrl>
-    <TitleSequencesSha1>4ab0065e5a4d9f9c77d94718bbdfcfcd5a389da0</TitleSequencesSha1>
-    <ObjectsUrl>https://github.com/OpenRCT2/objects/releases/download/v1.3.8/objects.zip</ObjectsUrl>
-    <ObjectsSha1>2888092aab93df15bb78c4c910b13c33b1e318ef</ObjectsSha1>
-    <OpenSFXUrl>https://github.com/OpenRCT2/OpenSoundEffects/releases/download/v1.0.1/opensound.zip</OpenSFXUrl>
-    <OpenSFXSha1>8f04aea33f8034131c3069f6accacce0d94f80c1</OpenSFXSha1>
-    <OpenMSXUrl>https://github.com/OpenRCT2/OpenMusic/releases/download/v1.0.1/openmusic.zip</OpenMSXUrl>
-    <OpenMSXSha1>8ff94490180e2fbfdd13a4130eb300da726ca406</OpenMSXSha1>
-    <ReplaysUrl>https://github.com/OpenRCT2/replays/releases/download/v0.0.74/replays.zip</ReplaysUrl>
-    <ReplaysSha1>7AB14AB3B991BA4214E53BB0B0838D254C1E7BA6</ReplaysSha1>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <g2Inputs Include="$(RootDir)resources\g2\*" />
-  </ItemGroup>
-
-  <Target Name="DownloadLibs">
-    <!-- libs -->
-    <DownloadDependency Name="Libs"
-                        Url="$(LibsUrl)"
-                        Sha1="$(LibsSha1)"
-                        CheckFile="$(DependenciesCheckFile)"
-                        OutputDirectory="$(RootDir)lib\$(Platform)" />
-  </Target>
-
   <Target Name="Clean">
     <PropertyGroup>
       <SlnProperties>$(SlnProperties);Configuration=$(Configuration)</SlnProperties>
     </PropertyGroup>
     <Delete Files="@(CleanItems)" />
+    <Delete Files="$(DependenciesCheckFile)" />
     <RemoveDir Directories="$(TargetDir)data" />
-    <MSBuild Projects="openrct2.sln" Targets="Clean" Properties="$(SlnProperties)" />
+    <MSBuild Projects="openrct2.sln" Targets="Clean" Properties="$(SlnProperties);IsSolutionBuild=true" />
   </Target>
 
-  <Target Name="BeforeBuild" BeforeTargets="Build;Rebuild" DependsOnTargets="DownloadLibs">
+  <Target Name="BeforeBuild" BeforeTargets="Build;Rebuild" DependsOnTargets="DownloadAllDependencies">
     <PropertyGroup>
       <BuildString Condition="'$(OPENRCT2_SHA1_SHORT)'!=''">$(OPENRCT2_SHA1_SHORT)</BuildString>
       <BuildString Condition="'$(OPENRCT2_BRANCH)'!=''">$(BuildString) ($(OPENRCT2_BRANCH))</BuildString>
       <BuildString Condition="'$(OPENRCT2_DESCRIBE)'!=''">$(BuildString) ($(OPENRCT2_DESCRIBE))</BuildString>
     </PropertyGroup>
-    <ItemGroup>
-      <DataItems Include="$(RootDir)data\**\*" />
-    </ItemGroup>
     <Message Condition="'$(BuildString)'!=''" Text="Building $(BuildString)" Importance="high" />
-    <Copy SourceFiles="@(CopyItems)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(DataItems)" DestinationFolder="$(TargetDir)data\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="Build">
@@ -96,66 +54,18 @@
       <SlnProperties>$(SlnProperties);Configuration=$(Configuration)</SlnProperties>
     </PropertyGroup>
     <Message Text="SlnProperties: $(SlnProperties)" />
-    <MSBuild Projects="openrct2.sln" Targets="Build" Properties="$(SlnProperties)" />
+    <MSBuild Projects="openrct2.sln" Targets="Build" Properties="$(SlnProperties);IsSolutionBuild=true" />
   </Target>
   <Target Name="Rebuild">
     <PropertyGroup>
       <SlnProperties>$(SlnProperties);Configuration=$(Configuration)</SlnProperties>
     </PropertyGroup>
     <Message Text="SlnProperties: $(SlnProperties)" />
-    <MSBuild Projects="openrct2.sln" Targets="Rebuild" Properties="$(SlnProperties)" />
+    <MSBuild Projects="openrct2.sln" Targets="Rebuild" Properties="$(SlnProperties);IsSolutionBuild=true" />
   </Target>
-
-  <!-- Target to build g2.dat containing OpenRCT2 sprites -->
-  <Target Name="g2" AfterTargets="Build" Inputs="@(g2Inputs)" Outputs="$(g2Output)"
-          Condition="'$(TestConfig)'!='true' and '$(Platform)'!='ARM64'">
-    <Message Text="Building g2.dat..." Importance="high" />
-    <Exec Command="&quot;$(OutputExe)&quot; sprite build &quot;$(g2Output)&quot; &quot;$(RootDir)resources\g2\sprites.json&quot;"
-          StandardOutputImportance="normal" />
-  </Target>
-
-  <!-- Target to download the title sequences -->
-  <Target Name="DownloadTitleSequences" AfterTargets="Build">
-    <DownloadDependency Name="TitleSequences"
-                        Url="$(TitleSequencesUrl)"
-                        Sha1="$(TitleSequencesSha1)"
-                        CheckFile="$(DependenciesCheckFile)"
-                        OutputDirectory="$(TargetDir)data\sequence" />
-  </Target>
-
-  <!-- Target to download the objects -->
-  <Target Name="DownloadObjects" AfterTargets="Build">
-    <DownloadDependency Name="Objects"
-                        Url="$(ObjectsUrl)"
-                        Sha1="$(ObjectsSha1)"
-                        CheckFile="$(DependenciesCheckFile)"
-                        OutputDirectory="$(TargetDir)data\object" />
-  </Target>
-
-  <!-- Target to download OpenSFX -->
-  <Target Name="DownloadOpenSFX" AfterTargets="Build">
-    <DownloadDependency Name="OpenSFX"
-                        Url="$(OpenSFXUrl)"
-                        Sha1="$(OpenSFXSha1)"
-                        CheckFile="$(DependenciesCheckFile)"
-                        OutputDirectory="$(TargetDir)data" />
-  </Target>
-
-  <!-- Target to download OpenMSX -->
-  <Target Name="DownloadOpenMSX" AfterTargets="Build">
-    <DownloadDependency Name="OpenMSX"
-                        Url="$(OpenMSXUrl)"
-                        Sha1="$(OpenMSXSha1)"
-                        CheckFile="$(DependenciesCheckFile)"
-                        OutputDirectory="$(TargetDir)data" />
-  </Target>
-
-  <!-- Target to download replays -->
-  <Target Name="DownloadReplays" AfterTargets="Build">
-    <DownloadDependency Name="Replays"
-                        Url="$(ReplaysUrl)"
-                        Sha1="$(ReplaysSha1)"
-                        CheckFile="$(DependenciesCheckFile)"
-                        OutputDirectory="$(TargetDir)testdata\replays" />
-  </Target>
+    
+  <!-- Import custom build tasks -->
+  <Import Project="openrct2.deps.targets" />
+  <Import Project="openrct2.targets" />
+  
 </Project>

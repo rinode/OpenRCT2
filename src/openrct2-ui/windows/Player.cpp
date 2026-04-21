@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -7,622 +7,636 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "../interface/Viewport.h"
+
 #include <openrct2-ui/interface/Dropdown.h>
-#include <openrct2-ui/interface/Viewport.h>
 #include <openrct2-ui/interface/Widget.h>
-#include <openrct2-ui/windows/Window.h>
-#include <openrct2/Game.h>
+#include <openrct2-ui/windows/Windows.h>
+#include <openrct2/GameState.h>
 #include <openrct2/Input.h>
-#include <openrct2/actions/PlayerKickAction.h>
-#include <openrct2/actions/PlayerSetGroupAction.h>
-#include <openrct2/config/Config.h>
+#include <openrct2/SpriteIds.h>
+#include <openrct2/actions/GameActionRunner.h>
+#include <openrct2/actions/network/PlayerKickAction.h>
+#include <openrct2/actions/network/PlayerSetGroupAction.h>
 #include <openrct2/drawing/Drawing.h>
-#include <openrct2/interface/Colour.h>
+#include <openrct2/drawing/Text.h>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
+#include <openrct2/network/Network.h>
 #include <openrct2/network/NetworkAction.h>
-#include <openrct2/network/network.h>
-#include <openrct2/sprites.h>
-#include <openrct2/util/Util.h>
+#include <openrct2/ui/WindowManager.h>
 #include <utility>
 
-// clang-format off
-enum WindowPlayerPage {
-    WINDOW_PLAYER_PAGE_OVERVIEW,
-    WINDOW_PLAYER_PAGE_STATISTICS,
-};
+namespace OpenRCT2::Ui::Windows
+{
+    enum WindowPlayerPage
+    {
+        WINDOW_PLAYER_PAGE_OVERVIEW,
+        WINDOW_PLAYER_PAGE_STATISTICS,
+    };
 
 #pragma region Widgets
 
-enum WindowPlayerWidgetIdx {
-    WIDX_BACKGROUND,
-    WIDX_TITLE,
-    WIDX_CLOSE,
-    WIDX_PAGE_BACKGROUND,
-    WIDX_TAB_1,
-    WIDX_TAB_2,
+    enum WindowPlayerWidgetIdx
+    {
+        WIDX_BACKGROUND,
+        WIDX_TITLE,
+        WIDX_CLOSE,
+        WIDX_PAGE_BACKGROUND,
+        WIDX_TAB_1,
+        WIDX_TAB_2,
 
-    WIDX_GROUP = 6,
-    WIDX_GROUP_DROPDOWN,
-    WIDX_LOCATE,
-    WIDX_KICK,
-    WIDX_VIEWPORT,
-};
+        WIDX_GROUP = 6,
+        WIDX_GROUP_DROPDOWN,
+        WIDX_LOCATE,
+        WIDX_KICK,
+        WIDX_VIEWPORT,
+    };
 
-#define WINDOW_PLAYER_COMMON_WIDGETS                                                                                                    \
-    MakeWidget({  0,  0}, {192, 157}, WindowWidgetType::Frame,    WindowColour::Primary                                     ), /* Panel / Background */ \
-    MakeWidget({  1,  1}, {190,  14}, WindowWidgetType::Caption,  WindowColour::Primary  , STR_STRING,  STR_WINDOW_TITLE_TIP), /* Title              */ \
-    MakeWidget({179,  2}, { 11,  12}, WindowWidgetType::CloseBox, WindowColour::Primary  , STR_CLOSE_X, STR_CLOSE_WINDOW_TIP), /* Close x button     */ \
-    MakeWidget({  0, 43}, {192, 114}, WindowWidgetType::Resize,   WindowColour::Secondary                                   ), /* Resize             */ \
-    MakeTab   ({  3, 17}                                                                                      ), /* Tab 1              */ \
-    MakeTab   ({ 34, 17}                                                                                      )  /* Tab 2              */
+    static constexpr ScreenSize kWindowSize = { 192, 157 };
+    // clang-format off
 
-static Widget window_player_overview_widgets[] = {
-    WINDOW_PLAYER_COMMON_WIDGETS,
-    MakeWidget({  3, 46}, {175, 12}, WindowWidgetType::DropdownMenu, WindowColour::Secondary                                           ), // Permission group
-    MakeWidget({167, 47}, { 11, 10}, WindowWidgetType::Button,   WindowColour::Secondary, STR_DROPDOWN_GLYPH                       ),
-    MakeWidget({179, 45}, { 12, 24}, WindowWidgetType::FlatBtn,  WindowColour::Secondary, ImageId(SPR_LOCATE),         STR_LOCATE_PLAYER_TIP), // Locate button
-    MakeWidget({179, 69}, { 12, 24}, WindowWidgetType::FlatBtn,  WindowColour::Secondary, ImageId(SPR_DEMOLISH),       STR_KICK_PLAYER_TIP  ), // Kick button
-    MakeWidget({  3, 60}, {175, 61}, WindowWidgetType::Viewport, WindowColour::Secondary                                           ), // Viewport
-    WIDGETS_END,
-};
+    static constexpr auto kCommonPlayerWidgets = makeWidgets(
+        makeWindowShim(kStringIdNone, kWindowSize),
+        makeWidget({ 0, 43}, {192, 114}, WidgetType::resize, WindowColour::secondary),
+        makeTab   ({ 3, 17}                                                         ),
+        makeTab   ({34, 17}                                                         )
+    );
 
-static Widget window_player_statistics_widgets[] = {
-    WINDOW_PLAYER_COMMON_WIDGETS,
-    WIDGETS_END,
-};
+    static constexpr auto window_player_overview_widgets = makeWidgets(
+        kCommonPlayerWidgets,
+        makeWidget({  3, 46}, {175, 12}, WidgetType::dropdownMenu, WindowColour::secondary                                              ), // Permission group
+        makeWidget({167, 47}, { 11, 10}, WidgetType::button,       WindowColour::secondary, STR_DROPDOWN_GLYPH                          ),
+        makeWidget({179, 45}, { 12, 24}, WidgetType::flatBtn,      WindowColour::secondary, ImageId(SPR_LOCATE),   STR_LOCATE_PLAYER_TIP), // Locate button
+        makeWidget({179, 69}, { 12, 24}, WidgetType::flatBtn,      WindowColour::secondary, ImageId(SPR_DEMOLISH), STR_KICK_PLAYER_TIP  ), // Kick button
+        makeWidget({  3, 60}, {175, 61}, WidgetType::viewport,     WindowColour::secondary                                              )  // Viewport
+    );
 
-static Widget *window_player_page_widgets[] = {
-    window_player_overview_widgets,
-    window_player_statistics_widgets,
-};
+    static constexpr auto window_player_statistics_widgets = makeWidgets(
+        kCommonPlayerWidgets
+    );
+
+    static constexpr std::span<const Widget> window_player_page_widgets[] = {
+        window_player_overview_widgets,
+        window_player_statistics_widgets,
+    };
+    // clang-format on
 
 #pragma endregion
+
+    class PlayerWindow final : public Window
+    {
+        int16_t _previousRotation = -1;
+        bool _drawViewport = true;
+
+    public:
+        void init(const uint8_t id)
+        {
+            number = id;
+            initScrollWidgets();
+            setPage(WINDOW_PLAYER_PAGE_OVERVIEW);
+        }
 
 #pragma region Events
 
-static void WindowPlayerOverviewClose(WindowBase *w);
-static void WindowPlayerOverviewMouseUp(WindowBase *w, WidgetIndex widgetIndex);
-static void WindowPlayerOverviewResize(WindowBase *w);
-static void WindowPlayerOverviewMouseDown(WindowBase *w, WidgetIndex widgetIndex, Widget *widget);
-static void WindowPlayerOverviewDropdown(WindowBase *w, WidgetIndex widgetIndex, int32_t dropdownIndex);
-static void WindowPlayerOverviewUpdate(WindowBase* w);
-static void WindowPlayerOverviewInvalidate(WindowBase *w);
-static void WindowPlayerOverviewPaint(WindowBase *w, DrawPixelInfo *dpi);
+        void onOpen() override
+        {
+            page = 0;
+            currentFrame = 0;
+            listInformationType = 0;
 
-static WindowEventList window_player_overview_events([](auto& events)
-{
-    events.close = &WindowPlayerOverviewClose;
-    events.mouse_up = &WindowPlayerOverviewMouseUp;
-    events.resize = &WindowPlayerOverviewResize;
-    events.mouse_down = &WindowPlayerOverviewMouseDown;
-    events.dropdown = &WindowPlayerOverviewDropdown;
-    events.update = &WindowPlayerOverviewUpdate;
-    events.invalidate = &WindowPlayerOverviewInvalidate;
-    events.paint = &WindowPlayerOverviewPaint;
-});
+            WindowSetResize(*this, { 210, 134 }, { 500, 450 });
 
-static void WindowPlayerStatisticsClose(WindowBase *w);
-static void WindowPlayerStatisticsMouseUp(WindowBase *w, WidgetIndex widgetIndex);
-static void WindowPlayerStatisticsResize(WindowBase *w);
-static void WindowPlayerStatisticsUpdate(WindowBase* w);
-static void WindowPlayerStatisticsInvalidate(WindowBase *w);
-static void WindowPlayerStatisticsPaint(WindowBase *w, DrawPixelInfo *dpi);
+            holdDownWidgets = 0;
+            pressedWidgets = 0;
+            setPage(WINDOW_PLAYER_PAGE_OVERVIEW);
+        }
 
-static WindowEventList window_player_statistics_events([](auto& events)
-{
-    events.close = &WindowPlayerStatisticsClose;
-    events.mouse_up = &WindowPlayerStatisticsMouseUp;
-    events.resize = &WindowPlayerStatisticsResize;
-    events.update = &WindowPlayerStatisticsUpdate;
-    events.invalidate = &WindowPlayerStatisticsInvalidate;
-    events.paint = &WindowPlayerStatisticsPaint;
-});
+        void onResize() override
+        {
+            switch (page)
+            {
+                case WINDOW_PLAYER_PAGE_OVERVIEW:
+                    onResizeOverview();
+                    break;
 
-static WindowEventList *window_player_page_events[] = {
-    &window_player_overview_events,
-    &window_player_statistics_events,
-};
+                case WINDOW_PLAYER_PAGE_STATISTICS:
+                    onResizeStatistics();
+                    break;
+            }
+        }
+
+        void onUpdate() override
+        {
+            switch (page)
+            {
+                case WINDOW_PLAYER_PAGE_OVERVIEW:
+                    onUpdateOverview();
+                    break;
+
+                case WINDOW_PLAYER_PAGE_STATISTICS:
+                    onUpdateStatistics();
+                    break;
+            }
+        }
+
+        void onPrepareDraw() override
+        {
+            switch (page)
+            {
+                case WINDOW_PLAYER_PAGE_OVERVIEW:
+                    onPrepareDrawOverview();
+                    break;
+
+                case WINDOW_PLAYER_PAGE_STATISTICS:
+                    onPrepareDrawStatistics();
+                    break;
+            }
+        }
+
+        void onDraw(Drawing::RenderTarget& rt) override
+        {
+            switch (page)
+            {
+                case WINDOW_PLAYER_PAGE_OVERVIEW:
+                    onDrawOverview(rt);
+                    break;
+
+                case WINDOW_PLAYER_PAGE_STATISTICS:
+                    onDrawStatistics(rt);
+                    break;
+            }
+        }
+
+        void onMouseDown(WidgetIndex widgetIndex) override
+        {
+            switch (page)
+            {
+                case WINDOW_PLAYER_PAGE_OVERVIEW:
+                    onMouseDownOverview(widgetIndex);
+                    break;
+            }
+        }
+
+        void onMouseUp(WidgetIndex widgetIndex) override
+        {
+            switch (widgetIndex)
+            {
+                case WIDX_CLOSE:
+                    close();
+                    return;
+                case WIDX_TAB_1:
+                case WIDX_TAB_2:
+                    setPage(widgetIndex - WIDX_TAB_1);
+                    return;
+            }
+
+            switch (page)
+            {
+                case WINDOW_PLAYER_PAGE_OVERVIEW:
+                    onMouseUpOverview(widgetIndex);
+                    break;
+            }
+        }
+
+        void onDropdown(WidgetIndex widgetIndex, int32_t selectedIndex) override
+        {
+            switch (page)
+            {
+                case WINDOW_PLAYER_PAGE_OVERVIEW:
+                    onDropdownOverview(widgetIndex, selectedIndex);
+                    break;
+            }
+        }
 
 #pragma endregion
 
-// clang-format on
-
-static void WindowPlayerSetPage(WindowBase* w, int32_t page);
-static void WindowPlayerDrawTabImages(DrawPixelInfo* dpi, WindowBase* w);
-static void WindowPlayerUpdateViewport(WindowBase* w, bool scroll);
-static void WindowPlayerUpdateTitle(WindowBase* w);
-
-WindowBase* WindowPlayerOpen(uint8_t id)
-{
-    WindowBase* window;
-
-    window = WindowBringToFrontByNumber(WindowClass::Player, id);
-    if (window == nullptr)
-    {
-        window = WindowCreateAutoPos(240, 170, &window_player_overview_events, WindowClass::Player, WF_RESIZABLE);
-        window->number = id;
-        window->page = 0;
-        window->frame_no = 0;
-        window->list_information_type = 0;
-        window->picked_peep_frame = 0;
-        window->min_width = 210;
-        window->min_height = 134;
-        window->max_width = 500;
-        window->max_height = 450;
-
-        window->no_list_items = 0;
-        window->selected_list_item = -1;
-    }
-
-    window->page = 0;
-    window->Invalidate();
-
-    window->widgets = window_player_page_widgets[WINDOW_PLAYER_PAGE_OVERVIEW];
-    window->hold_down_widgets = 0;
-    window->event_handlers = window_player_page_events[WINDOW_PLAYER_PAGE_OVERVIEW];
-    window->pressed_widgets = 0;
-
-    WindowInitScrollWidgets(*window);
-    WindowPlayerSetPage(window, WINDOW_PLAYER_PAGE_OVERVIEW);
-
-    return window;
-}
-
-static void WindowPlayerOverviewShowGroupDropdown(WindowBase* w, Widget* widget)
-{
-    Widget* dropdownWidget;
-    int32_t numItems, i;
-    int32_t player = NetworkGetPlayerIndex(static_cast<uint8_t>(w->number));
-    if (player == -1)
-    {
-        return;
-    }
-
-    dropdownWidget = widget - 1;
-
-    numItems = NetworkGetNumGroups();
-
-    WindowDropdownShowTextCustomWidth(
-        { w->windowPos.x + dropdownWidget->left, w->windowPos.y + dropdownWidget->top }, dropdownWidget->height() + 1,
-        w->colours[1], 0, 0, numItems, widget->right - dropdownWidget->left);
-
-    for (i = 0; i < NetworkGetNumGroups(); i++)
-    {
-        gDropdownItems[i].Format = STR_OPTIONS_DROPDOWN_ITEM;
-        gDropdownItems[i].Args = reinterpret_cast<uintptr_t>(NetworkGetGroupName(i));
-    }
-
-    Dropdown::SetChecked(NetworkGetGroupIndex(NetworkGetPlayerGroup(player)), true);
-}
-
-void WindowPlayerOverviewClose(WindowBase* w)
-{
-}
-
-void WindowPlayerOverviewMouseUp(WindowBase* w, WidgetIndex widgetIndex)
-{
-    switch (widgetIndex)
-    {
-        case WIDX_CLOSE:
-            WindowClose(*w);
-            break;
-        case WIDX_TAB_1:
-        case WIDX_TAB_2:
-            WindowPlayerSetPage(w, widgetIndex - WIDX_TAB_1);
-            break;
-        case WIDX_LOCATE:
+    private:
+        void setPage(int32_t newPage)
         {
-            WindowBase* mainWindow = WindowGetMain();
-            if (mainWindow != nullptr)
+            // Skip setting page if we're already on this page, unless we're initialising the window
+            if (page == newPage && !widgets.empty())
+                return;
+
+            int32_t originalPage = page;
+
+            page = newPage;
+            currentFrame = 0;
+
+            holdDownWidgets = 0;
+            pressedWidgets = 0;
+            setWidgets(window_player_page_widgets[newPage]);
+            invalidate();
+            onResize();
+            onPrepareDraw();
+            initScrollWidgets();
+            invalidate();
+
+            if (page == WINDOW_PLAYER_PAGE_OVERVIEW)
             {
-                int32_t player = NetworkGetPlayerIndex(static_cast<uint8_t>(w->number));
-                if (player == -1)
+                if (viewport == nullptr)
                 {
-                    return;
+                    const auto viewportFocus = Focus(TileCoordsXYZ(128, 128, 0).ToCoordsXYZ());
+                    ViewportCreate(*this, windowPos, width, height, viewportFocus);
+                    flags |= WindowFlag::noScrolling;
+                    onPrepareDraw();
+                    UpdateViewport(false);
                 }
-                auto coord = NetworkGetPlayerLastActionCoord(player);
-                if (coord.x || coord.y || coord.z)
+                else if (originalPage != page)
                 {
-                    WindowScrollToLocation(*mainWindow, coord);
+                    onPrepareDraw();
+                    UpdateViewport(false);
                 }
             }
-        }
-        break;
-        case WIDX_KICK:
-        {
-            auto kickPlayerAction = PlayerKickAction(w->number);
-            GameActions::Execute(&kickPlayerAction);
-        }
-        break;
-    }
-}
-
-void WindowPlayerOverviewMouseDown(WindowBase* w, WidgetIndex widgetIndex, Widget* widget)
-{
-    switch (widgetIndex)
-    {
-        case WIDX_GROUP_DROPDOWN:
-            WindowPlayerOverviewShowGroupDropdown(w, widget);
-            break;
-    }
-}
-
-void WindowPlayerOverviewDropdown(WindowBase* w, WidgetIndex widgetIndex, int32_t dropdownIndex)
-{
-    const auto playerId = static_cast<uint8_t>(w->number);
-    const auto playerIdx = NetworkGetPlayerIndex(playerId);
-    if (playerIdx == -1)
-    {
-        return;
-    }
-    if (dropdownIndex == -1)
-    {
-        return;
-    }
-    const auto groupId = NetworkGetGroupID(dropdownIndex);
-    const auto windowHandle = std::make_pair(w->classification, w->number);
-    auto playerSetGroupAction = PlayerSetGroupAction(playerId, groupId);
-    playerSetGroupAction.SetCallback([windowHandle](const GameAction* ga, const GameActions::Result* result) {
-        if (result->Error == GameActions::Status::Ok)
-        {
-            WindowInvalidateByNumber(windowHandle.first, windowHandle.second);
-        }
-    });
-    GameActions::Execute(&playerSetGroupAction);
-}
-
-void WindowPlayerOverviewResize(WindowBase* w)
-{
-    WindowSetResize(*w, 240, 170, 500, 300);
-}
-
-void WindowPlayerOverviewUpdate(WindowBase* w)
-{
-    w->frame_no++;
-    WidgetInvalidate(*w, WIDX_TAB_1 + w->page);
-
-    if (NetworkGetPlayerIndex(static_cast<uint8_t>(w->number)) == -1)
-    {
-        WindowClose(*w);
-        return;
-    }
-
-    // Update viewport
-    bool scroll = true;
-
-    // Use this spare window field for rotation check
-    if (w->var_4AE != GetCurrentRotation())
-    {
-        w->var_4AE = GetCurrentRotation();
-        scroll = false;
-    }
-    WindowPlayerUpdateViewport(w, scroll);
-}
-
-void WindowPlayerOverviewPaint(WindowBase* w, DrawPixelInfo* dpi)
-{
-    WindowDrawWidgets(*w, dpi);
-    WindowPlayerDrawTabImages(dpi, w);
-
-    int32_t player = NetworkGetPlayerIndex(static_cast<uint8_t>(w->number));
-    if (player == -1)
-    {
-        return;
-    }
-
-    // Draw current group
-    int32_t groupindex = NetworkGetGroupIndex(NetworkGetPlayerGroup(player));
-    if (groupindex != -1)
-    {
-        Widget* widget = &window_player_overview_widgets[WIDX_GROUP];
-
-        thread_local std::string _buffer;
-        _buffer.assign("{WINDOW_COLOUR_2}");
-        _buffer += NetworkGetGroupName(groupindex);
-        auto ft = Formatter();
-        ft.Add<const char*>(_buffer.c_str());
-
-        DrawTextEllipsised(
-            *dpi, w->windowPos + ScreenCoordsXY{ widget->midX() - 5, widget->top }, widget->width() - 8, STR_STRING, ft,
-            { TextAlignment::CENTRE });
-    }
-
-    // Draw ping
-    auto screenCoords = w->windowPos + ScreenCoordsXY{ 90, 24 };
-
-    auto ft = Formatter();
-    ft.Add<StringId>(STR_PING);
-    DrawTextBasic(*dpi, screenCoords, STR_WINDOW_COLOUR_2_STRINGID, ft);
-    char ping[64];
-    snprintf(ping, 64, "%d ms", NetworkGetPlayerPing(player));
-    GfxDrawString(*dpi, screenCoords + ScreenCoordsXY(30, 0), ping, { w->colours[2] });
-
-    // Draw last action
-    screenCoords = w->windowPos + ScreenCoordsXY{ w->width / 2, w->height - 13 };
-    int32_t width = w->width - 8;
-    int32_t lastaction = NetworkGetPlayerLastAction(player, 0);
-    ft = Formatter();
-    if (lastaction != -999)
-    {
-        ft.Add<StringId>(NetworkGetActionNameStringID(lastaction));
-    }
-    else
-    {
-        ft.Add<StringId>(STR_ACTION_NA);
-    }
-    DrawTextEllipsised(*dpi, screenCoords, width, STR_LAST_ACTION_RAN, ft, { TextAlignment::CENTRE });
-
-    if (w->viewport != nullptr && w->var_492 != -1)
-    {
-        WindowDrawViewport(dpi, *w);
-    }
-}
-
-void WindowPlayerOverviewInvalidate(WindowBase* w)
-{
-    int32_t playerIndex = NetworkGetPlayerIndex(static_cast<uint8_t>(w->number));
-    if (playerIndex == -1)
-    {
-        return;
-    }
-
-    if (window_player_page_widgets[w->page] != w->widgets)
-    {
-        w->widgets = window_player_page_widgets[w->page];
-        WindowInitScrollWidgets(*w);
-    }
-
-    w->pressed_widgets &= ~(WIDX_TAB_1);
-    w->pressed_widgets &= ~(WIDX_TAB_2);
-    w->pressed_widgets |= 1uLL << (w->page + WIDX_TAB_1);
-
-    WindowPlayerUpdateTitle(w);
-
-    w->ResizeFrameWithPage();
-    w->widgets[WIDX_LOCATE].right = w->width - 2;
-    w->widgets[WIDX_LOCATE].left = w->width - 25;
-    w->widgets[WIDX_KICK].right = w->width - 2;
-    w->widgets[WIDX_KICK].left = w->width - 25;
-    w->widgets[WIDX_VIEWPORT].right = w->width - 26;
-    w->widgets[WIDX_VIEWPORT].bottom = w->height - 14;
-
-    int32_t groupDropdownWidth = w->widgets[WIDX_GROUP].width();
-    w->widgets[WIDX_GROUP].left = (w->width - groupDropdownWidth) / 2;
-    w->widgets[WIDX_GROUP].right = w->widgets[WIDX_GROUP].left + groupDropdownWidth;
-    w->widgets[WIDX_GROUP_DROPDOWN].left = w->widgets[WIDX_GROUP].right - 10;
-    w->widgets[WIDX_GROUP_DROPDOWN].right = w->widgets[WIDX_GROUP].right;
-
-    WindowAlignTabs(w, WIDX_TAB_1, WIDX_TAB_2);
-
-    Viewport* viewport = w->viewport;
-    if (viewport != nullptr)
-    {
-        Widget* viewportWidget = &window_player_overview_widgets[WIDX_VIEWPORT];
-
-        viewport->pos = w->windowPos + ScreenCoordsXY{ viewportWidget->left, viewportWidget->top };
-        viewport->width = viewportWidget->width();
-        viewport->height = viewportWidget->height();
-        viewport->view_width = viewport->zoom.ApplyTo(viewport->width);
-        viewport->view_height = viewport->zoom.ApplyTo(viewport->height);
-    }
-
-    // Only enable kick button for other players
-    const bool canKick = NetworkCanPerformAction(NetworkGetCurrentPlayerGroupIndex(), NetworkPermission::KickPlayer);
-    const bool isServer = NetworkGetPlayerFlags(playerIndex) & NETWORK_PLAYER_FLAG_ISSERVER;
-    const bool isOwnWindow = (NetworkGetCurrentPlayerId() == w->number);
-    WidgetSetEnabled(*w, WIDX_KICK, canKick && !isOwnWindow && !isServer);
-}
-
-void WindowPlayerStatisticsClose(WindowBase* w)
-{
-    if (w->error.var_480)
-    {
-        w->error.var_480 = 0;
-    }
-}
-
-void WindowPlayerStatisticsMouseUp(WindowBase* w, WidgetIndex widgetIndex)
-{
-    switch (widgetIndex)
-    {
-        case WIDX_CLOSE:
-            WindowClose(*w);
-            break;
-        case WIDX_TAB_1:
-        case WIDX_TAB_2:
-            WindowPlayerSetPage(w, widgetIndex - WIDX_TAB_1);
-            break;
-    }
-}
-
-void WindowPlayerStatisticsResize(WindowBase* w)
-{
-    WindowSetResize(*w, 210, 80, 210, 80);
-}
-
-void WindowPlayerStatisticsUpdate(WindowBase* w)
-{
-    w->frame_no++;
-    WidgetInvalidate(*w, WIDX_TAB_1 + w->page);
-
-    if (NetworkGetPlayerIndex(static_cast<uint8_t>(w->number)) == -1)
-    {
-        WindowClose(*w);
-    }
-}
-
-void WindowPlayerStatisticsInvalidate(WindowBase* w)
-{
-    if (window_player_page_widgets[w->page] != w->widgets)
-    {
-        w->widgets = window_player_page_widgets[w->page];
-        WindowInitScrollWidgets(*w);
-    }
-
-    w->pressed_widgets &= ~(WIDX_TAB_1);
-    w->pressed_widgets &= ~(WIDX_TAB_2);
-    w->pressed_widgets |= 1uLL << (w->page + WIDX_TAB_1);
-
-    WindowPlayerUpdateTitle(w);
-
-    w->ResizeFrameWithPage();
-
-    WindowAlignTabs(w, WIDX_TAB_1, WIDX_TAB_2);
-}
-
-void WindowPlayerStatisticsPaint(WindowBase* w, DrawPixelInfo* dpi)
-{
-    WindowDrawWidgets(*w, dpi);
-    WindowPlayerDrawTabImages(dpi, w);
-
-    int32_t player = NetworkGetPlayerIndex(static_cast<uint8_t>(w->number));
-    if (player == -1)
-    {
-        return;
-    }
-
-    auto screenCoords = w->windowPos
-        + ScreenCoordsXY{ window_player_overview_widgets[WIDX_PAGE_BACKGROUND].left + 4,
-                          window_player_overview_widgets[WIDX_PAGE_BACKGROUND].top + 4 };
-
-    auto ft = Formatter();
-    ft.Add<uint32_t>(NetworkGetPlayerCommandsRan(player));
-    DrawTextBasic(*dpi, screenCoords, STR_COMMANDS_RAN, ft);
-
-    screenCoords.y += LIST_ROW_HEIGHT;
-
-    ft = Formatter();
-    ft.Add<uint32_t>(NetworkGetPlayerMoneySpent(player));
-    DrawTextBasic(*dpi, screenCoords, STR_MONEY_SPENT, ft);
-}
-
-static void WindowPlayerSetPage(WindowBase* w, int32_t page)
-{
-    int32_t originalPage = w->page;
-
-    w->page = page;
-    w->frame_no = 0;
-    w->no_list_items = 0;
-    w->selected_list_item = -1;
-
-    w->hold_down_widgets = 0;
-    w->event_handlers = window_player_page_events[page];
-    w->pressed_widgets = 0;
-    w->widgets = window_player_page_widgets[page];
-    w->Invalidate();
-    WindowEventResizeCall(w);
-    WindowEventInvalidateCall(w);
-    WindowInitScrollWidgets(*w);
-    w->Invalidate();
-
-    if (page == WINDOW_PLAYER_PAGE_OVERVIEW)
-    {
-        if (w->viewport == nullptr)
-        {
-            const auto focus = Focus(TileCoordsXYZ(128, 128, 0).ToCoordsXYZ());
-            ViewportCreate(w, w->windowPos, w->width, w->height, focus);
-            w->flags |= WF_NO_SCROLLING;
-            WindowEventInvalidateCall(w);
-            WindowPlayerUpdateViewport(w, false);
-        }
-        else if (originalPage != page)
-        {
-            WindowEventInvalidateCall(w);
-            WindowPlayerUpdateViewport(w, false);
-        }
-    }
-    else
-    {
-        w->RemoveViewport();
-    }
-}
-
-static void WindowPlayerDrawTabImages(DrawPixelInfo* dpi, WindowBase* w)
-{
-    Widget* widget;
-
-    // Tab 1
-    if (!WidgetIsDisabled(*w, WIDX_TAB_1))
-    {
-        widget = &w->widgets[WIDX_TAB_1];
-        auto screenCoords = w->windowPos + ScreenCoordsXY{ widget->left, widget->top };
-        GfxDrawSprite(dpi, ImageId(SPR_PEEP_LARGE_FACE_NORMAL), screenCoords);
-    }
-
-    // Tab 2
-    if (!WidgetIsDisabled(*w, WIDX_TAB_2))
-    {
-        widget = &w->widgets[WIDX_TAB_2];
-        auto screenCoords = w->windowPos + ScreenCoordsXY{ widget->left, widget->top };
-        int32_t imageId = SPR_TAB_FINANCES_SUMMARY_0;
-
-        if (w->page == WINDOW_PLAYER_PAGE_STATISTICS)
-        {
-            imageId += (w->frame_no / 2) & 7;
+            else
+            {
+                removeViewport();
+            }
         }
 
-        GfxDrawSprite(dpi, ImageId(imageId), screenCoords);
-    }
-}
-
-static void WindowPlayerUpdateViewport(WindowBase* w, bool scroll)
-{
-    int32_t playerIndex = NetworkGetPlayerIndex(static_cast<uint8_t>(w->number));
-    if (playerIndex == -1)
-    {
-        return;
-    }
-
-    Viewport* viewport = w->viewport;
-    if (viewport != nullptr)
-    {
-        auto coord = NetworkGetPlayerLastActionCoord(playerIndex);
-        if (coord.x != 0 || coord.y != 0 || coord.z != 0)
+        void DrawTabImages(Drawing::RenderTarget& rt)
         {
-            auto centreLoc = centre_2d_coordinates(coord, viewport);
-            if (!centreLoc.has_value())
+            Widget* widget;
+
+            // Tab 1
+            if (!isWidgetDisabled(WIDX_TAB_1))
+            {
+                widget = &this->widgets[WIDX_TAB_1];
+                auto screenCoords = windowPos + ScreenCoordsXY{ widget->left, widget->top };
+                GfxDrawSprite(rt, ImageId(SPR_PEEP_LARGE_FACE_NORMAL), screenCoords);
+            }
+
+            // Tab 2
+            if (!isWidgetDisabled(WIDX_TAB_2))
+            {
+                widget = &this->widgets[WIDX_TAB_2];
+                auto screenCoords = windowPos + ScreenCoordsXY{ widget->left, widget->top };
+                int32_t imageId = SPR_TAB_FINANCES_SUMMARY_0;
+
+                if (page == WINDOW_PLAYER_PAGE_STATISTICS)
+                {
+                    imageId += (currentFrame / 2) & 7;
+                }
+
+                GfxDrawSprite(rt, ImageId(imageId), screenCoords);
+            }
+        }
+
+        void UpdateViewport(bool scroll)
+        {
+            int32_t playerIndex = Network::GetPlayerIndex(static_cast<uint8_t>(number));
+            if (playerIndex == -1)
             {
                 return;
             }
-            // Don't scroll if the view was originally undefined
-            if (w->var_492 == -1)
+
+            if (viewport != nullptr)
             {
+                auto coord = Network::GetPlayerLastActionCoord(playerIndex);
+                if (coord.x != 0 || coord.y != 0 || coord.z != 0)
+                {
+                    auto centreLoc = centre2dCoordinates(coord, viewport);
+                    if (!centreLoc.has_value())
+                    {
+                        return;
+                    }
+                    // Don't scroll if the view was originally undefined
+                    if (!_drawViewport)
+                    {
+                        scroll = false;
+                    }
+
+                    if (!scroll || savedViewPos != centreLoc.value())
+                    {
+                        flags |= WindowFlag::scrollingToLocation;
+                        savedViewPos = centreLoc.value();
+                        if (!scroll)
+                        {
+                            viewport->viewPos = centreLoc.value();
+                        }
+                        invalidateWidget(WIDX_VIEWPORT);
+                    }
+
+                    // Draw the viewport
+                    _drawViewport = true;
+                }
+                else
+                {
+                    // Don't draw the viewport
+                    _drawViewport = false;
+                }
+            }
+        }
+
+        void UpdateTitle()
+        {
+            int32_t player = Network::GetPlayerIndex(static_cast<uint8_t>(number));
+            if (player != -1)
+            {
+                widgets[WIDX_TITLE].setString(Network::GetPlayerName(player));
+            }
+            else
+            {
+                widgets[WIDX_TITLE].setString("");
+            }
+        }
+
+#pragma region Overview
+
+        void onResizeOverview()
+        {
+            WindowSetResize(*this, { 240, 170 }, { 500, 300 });
+        }
+
+        void onUpdateOverview()
+        {
+            currentFrame++;
+            invalidateWidget(WIDX_TAB_1 + page);
+
+            if (Network::GetPlayerIndex(static_cast<uint8_t>(number)) == -1)
+            {
+                close();
+                return;
+            }
+
+            // Update viewport
+            bool scroll = true;
+
+            // Use this spare window field for rotation check
+            if (_previousRotation != GetCurrentRotation())
+            {
+                _previousRotation = GetCurrentRotation();
                 scroll = false;
             }
+            UpdateViewport(scroll);
+        }
 
-            if (!scroll || w->savedViewPos != centreLoc.value())
+        void onPrepareDrawOverview()
+        {
+            int32_t playerIndex = Network::GetPlayerIndex(static_cast<uint8_t>(number));
+            if (playerIndex == -1)
             {
-                w->flags |= WF_SCROLLING_TO_LOCATION;
-                w->savedViewPos = centreLoc.value();
-                if (!scroll)
-                {
-                    w->viewport->viewPos = centreLoc.value();
-                }
-                WidgetInvalidate(*w, WIDX_VIEWPORT);
+                return;
             }
 
-            // Draw the viewport
-            w->var_492 = 0;
-        }
-        else
-        {
-            // Don't draw the viewport
-            w->var_492 = -1;
-        }
-    }
-}
+            pressedWidgets &= ~(WIDX_TAB_1);
+            pressedWidgets &= ~(WIDX_TAB_2);
+            pressedWidgets |= 1uLL << (page + WIDX_TAB_1);
 
-static void WindowPlayerUpdateTitle(WindowBase* w)
-{
-    auto ft = Formatter::Common();
-    int32_t player = NetworkGetPlayerIndex(static_cast<uint8_t>(w->number));
-    if (player != -1)
+            UpdateTitle();
+
+            widgets[WIDX_LOCATE].right = width - 2;
+            widgets[WIDX_LOCATE].left = width - 25;
+            widgets[WIDX_KICK].right = width - 2;
+            widgets[WIDX_KICK].left = width - 25;
+            widgets[WIDX_VIEWPORT].right = width - 26;
+            widgets[WIDX_VIEWPORT].bottom = height - 14;
+
+            int32_t groupDropdownWidth = widgets[WIDX_GROUP].width() - 1;
+            widgets[WIDX_GROUP].left = (width - groupDropdownWidth) / 2;
+            widgets[WIDX_GROUP].right = widgets[WIDX_GROUP].left + groupDropdownWidth;
+            widgets[WIDX_GROUP_DROPDOWN].left = widgets[WIDX_GROUP].right - 10;
+            widgets[WIDX_GROUP_DROPDOWN].right = widgets[WIDX_GROUP].right;
+
+            WindowAlignTabs(this, WIDX_TAB_1, WIDX_TAB_2);
+
+            if (viewport != nullptr)
+            {
+                Widget* viewportWidget = &widgets[WIDX_VIEWPORT];
+
+                viewport->pos = windowPos + ScreenCoordsXY{ viewportWidget->left, viewportWidget->top };
+                viewport->width = viewportWidget->width() - 1;
+                viewport->height = viewportWidget->height() - 1;
+            }
+
+            // only enable kick button for other players
+            const bool canKick = Network::CanPerformAction(
+                Network::GetCurrentPlayerGroupIndex(), Network::Permission::kickPlayer);
+            const bool isServer = Network::GetPlayerFlags(playerIndex) & Network::PlayerFlags::kIsServer;
+            const bool isOwnWindow = (Network::GetCurrentPlayerId() == number);
+            widgetSetEnabled(*this, WIDX_KICK, canKick && !isOwnWindow && !isServer);
+        }
+
+        void onDrawOverview(Drawing::RenderTarget& rt)
+        {
+            drawWidgets(rt);
+            DrawTabImages(rt);
+
+            int32_t player = Network::GetPlayerIndex(static_cast<uint8_t>(number));
+            if (player == -1)
+            {
+                return;
+            }
+
+            // Draw current group
+            int32_t groupindex = Network::GetGroupIndex(Network::GetPlayerGroup(player));
+            if (groupindex != -1)
+            {
+                Widget* widget = &widgets[WIDX_GROUP];
+
+                thread_local std::string _buffer;
+                _buffer.assign("{WINDOW_COLOUR_2}");
+                _buffer += Network::GetGroupName(groupindex);
+
+                drawTextEllipsised(
+                    rt, windowPos + ScreenCoordsXY{ widget->midX() - 5, widget->top }, widget->width() - 9, _buffer,
+                    { TextAlignment::centre });
+            }
+
+            // Draw ping
+            auto screenCoords = windowPos + ScreenCoordsXY{ 90, widgets[WIDX_TAB_1].midY() };
+
+            auto ft = Formatter();
+            ft.Add<StringId>(STR_PING);
+            drawText(rt, screenCoords, STR_WINDOW_COLOUR_2_STRINGID, ft);
+            char ping[64];
+            snprintf(ping, 64, "%d ms", Network::GetPlayerPing(player));
+            drawText(rt, screenCoords + ScreenCoordsXY(30, 0), ping, { colours[2] });
+
+            // Draw last action
+            screenCoords = windowPos + ScreenCoordsXY{ width / 2, height - 13 };
+            int32_t updatedWidth = this->width - 8;
+            int32_t lastaction = Network::GetPlayerLastAction(player, 0);
+            ft = Formatter();
+            if (lastaction != -999)
+            {
+                ft.Add<StringId>(Network::GetActionNameStringID(lastaction));
+            }
+            else
+            {
+                ft.Add<StringId>(STR_ACTION_NA);
+            }
+            drawTextEllipsised(rt, screenCoords, updatedWidth, STR_LAST_ACTION_RAN, ft, { TextAlignment::centre });
+
+            if (viewport != nullptr && _drawViewport)
+            {
+                WindowDrawViewport(rt, *this);
+            }
+        }
+
+        void onMouseDownOverview(WidgetIndex widgetIndex)
+        {
+            auto* widget = &widgets[widgetIndex];
+            switch (widgetIndex)
+            {
+                case WIDX_GROUP_DROPDOWN:
+                    ShowGroupDropdownOverview(widget);
+                    break;
+            }
+        }
+
+        void onMouseUpOverview(WidgetIndex widgetIndex)
+        {
+            switch (widgetIndex)
+            {
+                case WIDX_LOCATE:
+                {
+                    WindowBase* mainWindow = WindowGetMain();
+                    if (mainWindow != nullptr)
+                    {
+                        int32_t player = Network::GetPlayerIndex(static_cast<uint8_t>(number));
+                        if (player == -1)
+                        {
+                            return;
+                        }
+                        auto coord = Network::GetPlayerLastActionCoord(player);
+                        if (coord.x || coord.y || coord.z)
+                        {
+                            WindowScrollToLocation(*mainWindow, coord);
+                        }
+                    }
+                }
+                break;
+                case WIDX_KICK:
+                {
+                    auto kickPlayerAction = GameActions::PlayerKickAction(number);
+                    GameActions::Execute(&kickPlayerAction, getGameState());
+                }
+                break;
+            }
+        }
+
+        void onDropdownOverview(WidgetIndex widgetIndex, int32_t dropdownIndex)
+        {
+            const auto playerId = static_cast<uint8_t>(number);
+            const auto playerIdx = Network::GetPlayerIndex(playerId);
+            if (playerIdx == -1)
+            {
+                return;
+            }
+            if (dropdownIndex == -1)
+            {
+                return;
+            }
+            const auto groupId = Network::GetGroupID(dropdownIndex);
+            const auto windowHandle = std::make_pair(classification, number);
+            auto playerSetGroupAction = GameActions::PlayerSetGroupAction(playerId, groupId);
+            playerSetGroupAction.SetCallback(
+                [windowHandle](const GameActions::GameAction* ga, const GameActions::Result* result) {
+                    if (result->error == GameActions::Status::ok)
+                    {
+                        auto* windowMgr = GetWindowManager();
+                        windowMgr->InvalidateByNumber(windowHandle.first, windowHandle.second);
+                    }
+                });
+            GameActions::Execute(&playerSetGroupAction, getGameState());
+        }
+
+        void ShowGroupDropdownOverview(Widget* widget)
+        {
+            Widget* dropdownWidget;
+            int32_t numItems;
+            int32_t player = Network::GetPlayerIndex(static_cast<uint8_t>(number));
+            if (player == -1)
+            {
+                return;
+            }
+
+            dropdownWidget = widget - 1;
+
+            numItems = Network::GetNumGroups();
+
+            WindowDropdownShowTextCustomWidth(
+                { windowPos.x + dropdownWidget->left, windowPos.y + dropdownWidget->top }, dropdownWidget->height(), colours[1],
+                0, 0, numItems, widget->right - dropdownWidget->left);
+
+            for (int32_t i = 0; i < Network::GetNumGroups(); i++)
+            {
+                gDropdown.items[i] = Dropdown::MenuLabel(Network::GetGroupName(i));
+            }
+
+            gDropdown.items[Network::GetGroupIndex(Network::GetPlayerGroup(player))].setChecked(true);
+        }
+
+#pragma endregion
+
+#pragma region Statistics
+
+        void onResizeStatistics()
+        {
+            WindowSetResize(*this, { 210, 80 }, { 210, 80 });
+        }
+
+        void onUpdateStatistics()
+        {
+            currentFrame++;
+            invalidateWidget(WIDX_TAB_1 + page);
+
+            if (Network::GetPlayerIndex(static_cast<uint8_t>(number)) == -1)
+            {
+                close();
+            }
+        }
+
+        void onPrepareDrawStatistics()
+        {
+            pressedWidgets &= ~(WIDX_TAB_1);
+            pressedWidgets &= ~(WIDX_TAB_2);
+            pressedWidgets |= 1uLL << (page + WIDX_TAB_1);
+
+            UpdateTitle();
+
+            WindowAlignTabs(this, WIDX_TAB_1, WIDX_TAB_2);
+        }
+
+        void onDrawStatistics(Drawing::RenderTarget& rt)
+        {
+            drawWidgets(rt);
+            DrawTabImages(rt);
+
+            int32_t player = Network::GetPlayerIndex(static_cast<uint8_t>(number));
+            if (player == -1)
+            {
+                return;
+            }
+
+            auto screenCoords = windowPos
+                + ScreenCoordsXY{ widgets[WIDX_PAGE_BACKGROUND].left + 4, widgets[WIDX_PAGE_BACKGROUND].top + 4 };
+
+            auto ft = Formatter();
+            ft.Add<uint32_t>(Network::GetPlayerCommandsRan(player));
+            drawText(rt, screenCoords, STR_COMMANDS_RAN, ft);
+
+            screenCoords.y += kListRowHeight;
+
+            ft = Formatter();
+            ft.Add<uint32_t>(Network::GetPlayerMoneySpent(player));
+            drawText(rt, screenCoords, STR_MONEY_SPENT, ft);
+        }
+
+#pragma endregion
+    };
+
+    WindowBase* PlayerOpen(uint8_t id)
     {
-        ft.Add<const char*>(NetworkGetPlayerName(player)); // set title caption to player name
+        auto* windowMgr = GetWindowManager();
+        auto* window = static_cast<PlayerWindow*>(windowMgr->BringToFrontByNumber(WindowClass::player, id));
+        if (window == nullptr)
+        {
+            window = windowMgr->Create<PlayerWindow>(WindowClass::player, { 240, 170 }, WindowFlag::resizable);
+        }
+
+        window->init(id);
+
+        return window;
     }
-    else
-    {
-        ft.Add<const char*>("");
-    }
-}
+} // namespace OpenRCT2::Ui::Windows

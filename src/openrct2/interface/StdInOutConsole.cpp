@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -7,25 +7,35 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
-// Ignore isatty warning on WIN32
-#ifndef _CRT_NONSTDC_NO_WARNINGS
-#    define _CRT_NONSTDC_NO_WARNINGS
-#endif
+#include "StdInOutConsole.h"
 
 #include "../Context.h"
 #include "../OpenRCT2.h"
+#include "../config/ConfigTypes.h"
+#include "../localisation/FormatCodes.h"
 #include "../platform/Platform.h"
 #include "../scripting/ScriptEngine.h"
-#include "InteractiveConsole.h"
 
+#include <cstdlib>
 #include <linenoise.hpp>
 
 using namespace OpenRCT2;
+
+// Ignore isatty warning on WIN32
+#ifdef _MSC_VER
+    #pragma warning(disable : 4996)
+#endif
 
 void StdInOutConsole::Start()
 {
     // Only start if stdin/stdout is a TTY
     if (!isatty(fileno(stdin)) || !isatty(fileno(stdout)))
+    {
+        return;
+    }
+
+    // Allow user to disable the console REPL. Setting this environment variable to any value will prevent REPL from starting.
+    if (getenv("OPENRCT2_NO_REPL"))
     {
         return;
     }
@@ -47,7 +57,7 @@ void StdInOutConsole::Start()
             {
                 if (lastPromptQuit)
                 {
-                    OpenRCT2Finish();
+                    GetContext()->Finish();
                     break;
                 }
 
@@ -105,7 +115,7 @@ void StdInOutConsole::Clear()
 
 void StdInOutConsole::Close()
 {
-    OpenRCT2Finish();
+    GetContext()->Finish();
 }
 
 void StdInOutConsole::WriteLine(const std::string& s, FormatToken colourFormat)
@@ -113,10 +123,10 @@ void StdInOutConsole::WriteLine(const std::string& s, FormatToken colourFormat)
     std::string formatBegin;
     switch (colourFormat)
     {
-        case FormatToken::ColourRed:
+        case FormatToken::colourRed:
             formatBegin = "\033[31m";
             break;
-        case FormatToken::ColourYellow:
+        case FormatToken::colourYellow:
             formatBegin = "\033[33m";
             break;
         default:

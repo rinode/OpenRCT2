@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -10,204 +10,198 @@
 #pragma once
 
 #include "../Identifiers.h"
-#include "../common.h"
-#include "../interface/Viewport.h"
-#include "../object/Object.h"
+#include "../actions/CommandFlag.h"
+#include "../drawing/Colour.h"
+#include "../drawing/ImageIndexType.h"
+#include "../drawing/ScrollingText.h"
+#include "../localisation/StringIdType.h"
+#include "../object/ObjectTypes.h"
+#include "Location.hpp"
 
-class FootpathObject;
-class FootpathSurfaceObject;
-class FootpathRailingsObject;
+#include <array>
 
-enum
+namespace OpenRCT2
 {
-    PROVISIONAL_PATH_FLAG_SHOW_ARROW = (1 << 0),
-    PROVISIONAL_PATH_FLAG_1 = (1 << 1),
-    PROVISIONAL_PATH_FLAG_2 = (1 << 2),
-};
+    class FootpathObject;
+    class FootpathSurfaceObject;
+    class FootpathRailingsObject;
 
-constexpr auto FootpathMaxHeight = 248 * COORDS_Z_STEP;
-constexpr auto FootpathMinHeight = 2 * COORDS_Z_STEP;
-constexpr auto PATH_HEIGHT_STEP = 2 * COORDS_Z_STEP;
-constexpr auto PATH_CLEARANCE = 4 * COORDS_Z_STEP;
+    struct PathElement;
+    struct SurfaceElement;
+    struct TileElement;
 
-enum class RailingEntrySupportType : uint8_t
-{
-    Box = 0,
-    Pole = 1,
-    Count
-};
+    constexpr auto kFootpathMaxHeight = 248 * kCoordsZStep;
+    constexpr auto kFootpathMinHeight = 2 * kCoordsZStep;
+    constexpr auto kPathHeightStep = 2 * kCoordsZStep;
+    constexpr auto kPathClearance = 4 * kCoordsZStep;
 
-struct PathSurfaceDescriptor
-{
-    StringId Name;
-    uint32_t Image;
-    uint32_t PreviewImage;
-    uint8_t Flags;
-};
-
-struct PathRailingsDescriptor
-{
-    StringId Name;
-    uint32_t PreviewImage;
-    uint32_t BridgeImage;
-    uint32_t RailingsImage;
-    RailingEntrySupportType SupportType;
-    colour_t SupportColour;
-    uint8_t Flags;
-    uint8_t ScrollingMode;
-};
-
-using PathConstructFlags = uint8_t;
-namespace PathConstructFlag
-{
-    constexpr PathConstructFlags IsQueue = 1 << 0;
-    constexpr PathConstructFlags IsLegacyPathObject = 1 << 1;
-} // namespace PathConstructFlag
-
-struct FootpathSelection
-{
-    ObjectEntryIndex LegacyPath = OBJECT_ENTRY_INDEX_NULL;
-    ObjectEntryIndex NormalSurface = OBJECT_ENTRY_INDEX_NULL;
-    ObjectEntryIndex QueueSurface = OBJECT_ENTRY_INDEX_NULL;
-    ObjectEntryIndex Railings = OBJECT_ENTRY_INDEX_NULL;
-    bool IsQueueSelected{};
-
-    ObjectEntryIndex GetSelectedSurface() const
+    enum class RailingEntrySupportType : uint8_t
     {
-        return IsQueueSelected ? QueueSurface : NormalSurface;
-    }
-};
+        box = 0,
+        pole = 1,
+        count
+    };
 
-struct ProvisionalFootpath
-{
-    ObjectEntryIndex Type;
-    CoordsXYZ Position;
-    uint8_t Slope;
-    uint8_t Flags;
-    ObjectEntryIndex SurfaceIndex;
-    ObjectEntryIndex RailingsIndex;
-    PathConstructFlags ConstructFlags;
-};
+    struct PathSurfaceDescriptor
+    {
+        StringId name = kStringIdNone;
+        ImageIndex image{};
+        ImageIndex previewImage{};
+        uint8_t flags{};
+    };
+    constexpr PathSurfaceDescriptor kPathSurfaceDescriptorDummy{};
 
-// Masks for values stored in TileElement.type
-enum
-{
-    FOOTPATH_ELEMENT_TYPE_FLAG_IS_QUEUE = (1 << 0),
-    FOOTPATH_ELEMENT_TYPE_FLAG_IS_WIDE = (1 << 1),
-    FOOTPATH_ELEMENT_TYPE_DIRECTION_MASK = (1 << 6) | (1 << 7),
-};
+    struct PathRailingsDescriptor
+    {
+        StringId name = kStringIdNone;
+        ImageIndex previewImage{};
+        ImageIndex bridgeImage{};
+        ImageIndex railingsImage{};
+        RailingEntrySupportType supportType{};
+        Drawing::Colour supportColour = Drawing::kColourNull;
+        uint8_t flags{};
+        uint8_t scrollingMode = kScrollingModeNone;
+    };
+    constexpr PathRailingsDescriptor kPathRailingsDescriptorDummy{};
 
-// Masks and flags for values stored in TileElement.properties.path.type
-enum
-{
-    FOOTPATH_PROPERTIES_SLOPE_DIRECTION_MASK = (1 << 0) | (1 << 1),
-    FOOTPATH_PROPERTIES_FLAG_IS_SLOPED = (1 << 2),
-    FOOTPATH_PROPERTIES_FLAG_HAS_QUEUE_BANNER = (1 << 3),
-    FOOTPATH_PROPERTIES_TYPE_MASK = (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7),
-};
+    using PathConstructFlags = uint8_t;
+    namespace PathConstructFlag
+    {
+        constexpr PathConstructFlags IsQueue = 1 << 0;
+        constexpr PathConstructFlags IsLegacyPathObject = 1 << 1;
+    } // namespace PathConstructFlag
 
-// Masks and flags for values stored in TileElement.properties.path.edges
-enum
-{
-    FOOTPATH_PROPERTIES_EDGES_EDGES_MASK = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3),
-    FOOTPATH_PROPERTIES_EDGES_CORNERS_MASK = (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7),
-};
+    struct FootpathSelection
+    {
+        ObjectEntryIndex legacyPath = kObjectEntryIndexNull;
+        ObjectEntryIndex normalSurface = kObjectEntryIndexNull;
+        ObjectEntryIndex queueSurface = kObjectEntryIndexNull;
+        ObjectEntryIndex railings = kObjectEntryIndexNull;
+        bool isQueueSelected{};
 
-enum
-{
-    FOOTPATH_ELEMENT_FLAGS2_IS_SLOPED = 1 << 0,
-    FOOTPATH_ELEMENT_FLAGS2_HAS_QUEUE_BANNER = (1 << 1),
-    FOOTPATH_ELEMENT_FLAGS2_ADDITION_IS_GHOST = (1 << 2),
-    FOOTPATH_ELEMENT_FLAGS2_BLOCKED_BY_VEHICLE = (1 << 3),
-    FOOTPATH_ELEMENT_FLAGS2_ADDITION_IS_BROKEN = (1 << 4),
-    FOOTPATH_ELEMENT_FLAGS2_LEGACY_PATH_ENTRY = (1 << 5),
-};
+        ObjectEntryIndex getSelectedSurface() const
+        {
+            return isQueueSelected ? queueSurface : normalSurface;
+        }
+    };
 
-enum
-{
-    RAILING_ENTRY_FLAG_HAS_SUPPORT_BASE_SPRITE = (1 << 0),
-    RAILING_ENTRY_FLAG_DRAW_PATH_OVER_SUPPORTS = (1 << 1), // When elevated
-    RAILING_ENTRY_FLAG_NO_QUEUE_BANNER = (1 << 2),
-};
+    enum class FootpathSlopeType : uint8_t
+    {
+        flat,
+        sloped,
+        /**
+         * Land has one corner down, raise the Z coordinate and place a flat piece.
+         */
+        raise,
+        /**
+         * Terrain has a shape that allows for two different path slopes, and as such it cannot autoplace a piece
+         * without further context of the surrounding paths.
+         */
+        irregular,
+    };
 
-enum
-{
-    FOOTPATH_SEARCH_SUCCESS,
-    FOOTPATH_SEARCH_NOT_FOUND,
-    FOOTPATH_SEARCH_INCOMPLETE,
-    FOOTPATH_SEARCH_TOO_COMPLEX
-};
+    struct FootpathSlope
+    {
+        FootpathSlopeType type{};
+        Direction direction{};
 
-enum
-{
-    SLOPE_IS_IRREGULAR_FLAG = (1 << 3), // Flag set in `DefaultPathSlope[]` and checked in `footpath_place_real`
-    RAISE_FOOTPATH_FLAG = (1 << 4)
-};
+        constexpr bool operator==(const FootpathSlope& rhs) const
+        {
+            return type == rhs.type && direction == rhs.direction;
+        }
+    };
 
-enum
-{
-    FOOTPATH_CORNER_0 = (1 << 0),
-    FOOTPATH_CORNER_1 = (1 << 1),
-    FOOTPATH_CORNER_2 = (1 << 2),
-    FOOTPATH_CORNER_3 = (1 << 3),
-};
+    struct FootpathPlacementResult
+    {
+        int32_t baseZ{};
+        FootpathSlope slope{};
 
-enum
-{
-    FOOTPATH_CONNECTION_S = (1 << 0),
-    FOOTPATH_CONNECTION_NE = (1 << 1),
-    FOOTPATH_CONNECTION_W = (1 << 2),
-    FOOTPATH_CONNECTION_SE = (1 << 3),
-    FOOTPATH_CONNECTION_N = (1 << 4),
-    FOOTPATH_CONNECTION_SW = (1 << 5),
-    FOOTPATH_CONNECTION_E = (1 << 6),
-    FOOTPATH_CONNECTION_NW = (1 << 7),
-};
+        bool isValid()
+        {
+            return baseZ > 0;
+        }
+    };
 
-enum
-{
-    FOOTPATH_CONNECTED_MAP_EDGE_IGNORE_QUEUES = (1 << 0),
-    FOOTPATH_CONNECTED_MAP_EDGE_UNOWN = (1 << 5),
-    FOOTPATH_CONNECTED_MAP_EDGE_IGNORE_NO_ENTRY = (1 << 7)
-};
+    enum
+    {
+        RAILING_ENTRY_FLAG_HAS_SUPPORT_BASE_SPRITE = (1 << 0),
+        RAILING_ENTRY_FLAG_DRAW_PATH_OVER_SUPPORTS = (1 << 1), // When elevated
+        RAILING_ENTRY_FLAG_NO_QUEUE_BANNER = (1 << 2),
+    };
 
-extern FootpathSelection gFootpathSelection;
-extern ProvisionalFootpath gProvisionalFootpath;
-extern uint16_t gFootpathSelectedId;
-extern CoordsXYZ gFootpathConstructFromPosition;
-extern uint8_t gFootpathConstructSlope;
-extern uint8_t gFootpathGroundFlags;
+    enum
+    {
+        FOOTPATH_SEARCH_SUCCESS,
+        FOOTPATH_SEARCH_NOT_FOUND,
+        FOOTPATH_SEARCH_INCOMPLETE,
+        FOOTPATH_SEARCH_TOO_COMPLEX
+    };
 
-// Given a direction, this will return how to increase/decrease the x and y coordinates.
-extern const CoordsXY DirectionOffsets[NumOrthogonalDirections];
-extern const CoordsXY BinUseOffsets[NumOrthogonalDirections];
-extern const CoordsXY BenchUseOffsets[NumOrthogonalDirections * 2];
+    enum
+    {
+        SLOPE_IS_IRREGULAR_FLAG = (1 << 3), // Flag set in `DefaultPathSlope[]` and checked in `footpath_place_real`
+        RAISE_FOOTPATH_FLAG = (1 << 4)
+    };
 
-TileElement* MapGetFootpathElement(const CoordsXYZ& coords);
-void FootpathInterruptPeeps(const CoordsXYZ& footpathPos);
-money64 FootpathProvisionalSet(
-    ObjectEntryIndex type, ObjectEntryIndex railingsType, const CoordsXYZ& footpathLoc, int32_t slope,
-    PathConstructFlags constructFlags);
-void FootpathProvisionalRemove();
-void FootpathProvisionalUpdate();
-CoordsXY FootpathGetCoordinatesFromPos(const ScreenCoordsXY& screenCoords, int32_t* direction, TileElement** tileElement);
-CoordsXY FootpathBridgeGetInfoFromPos(const ScreenCoordsXY& screenCoords, int32_t* direction, TileElement** tileElement);
-void FootpathRemoveLitter(const CoordsXYZ& footpathPos);
-void FootpathConnectEdges(const CoordsXY& footpathPos, TileElement* tileElement, int32_t flags);
-void FootpathUpdateQueueChains();
-bool WallInTheWay(const CoordsXYRangedZ& fencePos, int32_t direction);
-void FootpathChainRideQueue(
-    RideId rideIndex, StationIndex entranceIndex, const CoordsXY& footpathPos, TileElement* tileElement, int32_t direction);
-void FootpathUpdatePathWideFlags(const CoordsXY& footpathPos);
-bool FootpathIsBlockedByVehicle(const TileCoordsXYZ& position);
+    enum
+    {
+        FOOTPATH_CORNER_0 = (1 << 0),
+        FOOTPATH_CORNER_1 = (1 << 1),
+        FOOTPATH_CORNER_2 = (1 << 2),
+        FOOTPATH_CORNER_3 = (1 << 3),
+    };
 
-int32_t FootpathIsConnectedToMapEdge(const CoordsXYZ& footpathPos, int32_t direction, int32_t flags);
-void FootpathRemoveEdgesAt(const CoordsXY& footpathPos, TileElement* tileElement);
+    enum
+    {
+        FOOTPATH_CONNECTION_S = (1 << 0),
+        FOOTPATH_CONNECTION_NE = (1 << 1),
+        FOOTPATH_CONNECTION_W = (1 << 2),
+        FOOTPATH_CONNECTION_SE = (1 << 3),
+        FOOTPATH_CONNECTION_N = (1 << 4),
+        FOOTPATH_CONNECTION_SW = (1 << 5),
+        FOOTPATH_CONNECTION_E = (1 << 6),
+        FOOTPATH_CONNECTION_NW = (1 << 7),
+    };
 
-bool FootpathSelectDefault();
-const FootpathObject* GetLegacyFootpathEntry(ObjectEntryIndex entryIndex);
-const FootpathSurfaceObject* GetPathSurfaceEntry(ObjectEntryIndex entryIndex);
-const FootpathRailingsObject* GetPathRailingsEntry(ObjectEntryIndex entryIndex);
+    enum
+    {
+        FOOTPATH_CONNECTED_MAP_EDGE_IGNORE_QUEUES = (1 << 0),
+        FOOTPATH_CONNECTED_MAP_EDGE_UNOWN = (1 << 5),
+        FOOTPATH_CONNECTED_MAP_EDGE_IGNORE_NO_ENTRY = (1 << 7)
+    };
 
-void FootpathQueueChainReset();
-void FootpathQueueChainPush(RideId rideIndex);
+    extern FootpathSelection gFootpathSelection;
+    extern uint8_t gFootpathGroundFlags;
+
+    // Given a direction, this will return how to increase/decrease the x and y coordinates.
+    extern const std::array<CoordsXY, kNumOrthogonalDirections> DirectionOffsets;
+    extern const std::array<CoordsXY, kNumOrthogonalDirections> BinUseOffsets;
+    extern const std::array<CoordsXY, kNumOrthogonalDirections * 2> BenchUseOffsets;
+
+    PathElement* MapGetFootpathElement(const CoordsXYZ& coords);
+    void FootpathInterruptPeeps(const CoordsXYZ& footpathPos);
+    void FootpathRemoveLitter(const CoordsXYZ& footpathPos);
+    void FootpathConnectEdges(const CoordsXY& footpathPos, TileElement* tileElement, GameActions::CommandFlags flags);
+    void FootpathUpdateQueueChains();
+    void FootpathChainRideQueue(
+        RideId rideIndex, StationIndex entranceIndex, const CoordsXY& footpathPos, TileElement* tileElement, int32_t direction);
+    void FootpathUpdatePathWideFlags(const CoordsXY& footpathPos);
+    bool FootpathIsBlockedByVehicle(const TileCoordsXYZ& position);
+
+    bool TileElementWantsPathConnectionTowards(const TileCoordsXYZD& coords, const TileElement* elementToBeRemoved);
+
+    int32_t FootpathIsConnectedToMapEdge(const CoordsXYZ& footpathPos, int32_t direction, int32_t flags);
+    void FootpathRemoveEdgesAt(const CoordsXY& footpathPos, TileElement* tileElement);
+
+    const FootpathObject* GetLegacyFootpathEntry(ObjectEntryIndex entryIndex);
+    const FootpathSurfaceObject* GetPathSurfaceEntry(ObjectEntryIndex entryIndex);
+    const FootpathRailingsObject* GetPathRailingsEntry(ObjectEntryIndex entryIndex);
+
+    void FootpathQueueChainReset();
+    void FootpathQueueChainPush(RideId rideIndex);
+    int32_t FootpathQueueCountConnections(const CoordsXY& position, const PathElement& pathElement);
+    bool FootpathIsZAndDirectionValid(const PathElement& tileElement, int32_t currentZ, int32_t currentDirection);
+
+    FootpathPlacementResult FootpathGetOnTerrainPlacement(const TileCoordsXY& location);
+    FootpathPlacementResult FootpathGetOnTerrainPlacement(const SurfaceElement& surfaceElement);
+} // namespace OpenRCT2

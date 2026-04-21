@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,31 +9,31 @@
 
 #ifdef ENABLE_SCRIPTING
 
-#    include "../UiContext.h"
-#    include "../interface/Dropdown.h"
-#    include "../interface/Widget.h"
-#    include "../scripting/ScGraphicsContext.hpp"
-#    include "../scripting/ScWidget.hpp"
-#    include "../windows/Window.h"
-#    include "CustomListView.h"
-#    include "ScUi.hpp"
-#    include "ScWindow.hpp"
+    #include "../UiStringIds.h"
+    #include "../interface/Dropdown.h"
+    #include "../interface/Widget.h"
+    #include "../scripting/ScGraphicsContext.hpp"
+    #include "../scripting/ScWidget.hpp"
+    #include "../windows/Windows.h"
+    #include "CustomListView.h"
+    #include "ScUi.hpp"
+    #include "ScWindow.h"
 
-#    include <limits>
-#    include <openrct2/drawing/Drawing.h>
-#    include <openrct2/interface/Window.h>
-#    include <openrct2/localisation/Formatter.h>
-#    include <openrct2/localisation/Language.h>
-#    include <openrct2/localisation/Localisation.h>
-#    include <openrct2/localisation/StringIds.h>
-#    include <openrct2/scripting/Plugin.h>
-#    include <openrct2/sprites.h>
-#    include <optional>
-#    include <string>
-#    include <utility>
-#    include <vector>
+    #include <limits>
+    #include <openrct2/SpriteIds.h>
+    #include <openrct2/config/Config.h>
+    #include <openrct2/drawing/Drawing.h>
+    #include <openrct2/interface/ColourWithFlags.h>
+    #include <openrct2/interface/Viewport.h>
+    #include <openrct2/interface/Window.h>
+    #include <openrct2/scripting/Plugin.h>
+    #include <optional>
+    #include <string>
+    #include <utility>
+    #include <vector>
 
 using namespace OpenRCT2;
+using namespace OpenRCT2::Drawing;
 using namespace OpenRCT2::Scripting;
 
 namespace OpenRCT2::Ui::Windows
@@ -47,12 +47,10 @@ namespace OpenRCT2::Ui::Windows
         WIDX_TAB_0,
     };
 
-    static Widget CustomDefaultWidgets[] = {
-        { WindowWidgetType::Frame, 0, 0, 0, 0, 0, 0xFFFFFFFF, STR_NONE },                  // panel / background
-        { WindowWidgetType::Caption, 0, 1, 0, 1, 14, STR_STRING, STR_WINDOW_TITLE_TIP },   // title bar
-        { WindowWidgetType::CloseBox, 0, 0, 0, 2, 13, STR_CLOSE_X, STR_CLOSE_WINDOW_TIP }, // close x button
-        { WindowWidgetType::Resize, 1, 0, 0, 14, 0, 0xFFFFFFFF, STR_NONE },                // content panel
-    };
+    static auto CustomDefaultWidgets = makeWidgets(
+        makeWindowShim(kStringIdNone, { 50, 50 }),
+        makeWidget({ 0, 14 }, { 50, 36 }, WidgetType::resize, WindowColour::secondary) // content panel
+    );
 
     struct CustomWidgetDesc
     {
@@ -66,7 +64,7 @@ namespace OpenRCT2::Ui::Windows
         ImageId Image;
         std::string Text;
         TextAlignment TextAlign{};
-        colour_t Colour{};
+        Drawing::Colour Colour{};
         std::string Tooltip;
         std::vector<std::string> Items;
         std::vector<ListViewItem> ListViewItems;
@@ -85,114 +83,118 @@ namespace OpenRCT2::Ui::Windows
         bool CanSelect{};
 
         // Event handlers
-        DukValue OnClick;
-        DukValue OnChange;
-        DukValue OnDraw;
-        DukValue OnIncrement;
-        DukValue OnDecrement;
-        DukValue OnHighlight;
+        JSCallback OnClick;
+        JSCallback OnChange;
+        JSCallback OnDraw;
+        JSCallback OnIncrement;
+        JSCallback OnDecrement;
+        JSCallback OnHighlight;
 
-        static CustomWidgetDesc FromDukValue(DukValue desc)
+        static CustomWidgetDesc FromJSValue(JSContext* ctx, JSValue desc)
         {
             CustomWidgetDesc result;
-            result.Type = desc["type"].as_string();
-            result.X = desc["x"].as_int();
-            result.Y = desc["y"].as_int();
-            result.Width = desc["width"].as_int();
-            result.Height = desc["height"].as_int();
-            result.IsDisabled = AsOrDefault(desc["isDisabled"], false);
-            result.IsVisible = AsOrDefault(desc["isVisible"], true);
-            result.Name = AsOrDefault(desc["name"], "");
-            result.Tooltip = AsOrDefault(desc["tooltip"], "");
+            result.Type = JSToStdString(ctx, desc, "type");
+            result.X = JSToInt(ctx, desc, "x");
+            result.Y = JSToInt(ctx, desc, "y");
+            result.Width = JSToInt(ctx, desc, "width");
+            result.Height = JSToInt(ctx, desc, "height");
+            result.IsDisabled = AsOrDefault(ctx, desc, "isDisabled", false);
+            result.IsVisible = AsOrDefault(ctx, desc, "isVisible", true);
+            result.Name = AsOrDefault(ctx, desc, "name", "");
+            result.Tooltip = AsOrDefault(ctx, desc, "tooltip", "");
             if (result.Type == "button")
             {
-                auto dukImage = desc["image"];
-                if (dukImage.type() == DukValue::Type::STRING || dukImage.type() == DukValue::Type::NUMBER)
+                JSValue jsImage = JS_GetPropertyStr(ctx, desc, "image");
+                if (JS_IsString(jsImage) || JS_IsNumber(jsImage))
                 {
-                    result.Image = ImageId::FromUInt32(ImageFromDuk(dukImage));
+                    result.Image = ImageId(ImageFromJSValue(ctx, jsImage));
                     result.HasBorder = false;
                 }
                 else
                 {
-                    result.Text = ProcessString(desc["text"]);
+                    result.Text = AsOrDefault(ctx, desc, "text", "");
                     result.HasBorder = true;
                 }
-                result.IsPressed = AsOrDefault(desc["isPressed"], false);
-                result.OnClick = desc["onClick"];
+                JS_FreeValue(ctx, jsImage);
+                result.IsPressed = AsOrDefault(ctx, desc, "isPressed", false);
+                result.OnClick = JSToCallback(ctx, desc, "onClick");
             }
             else if (result.Type == "checkbox")
             {
-                result.Text = ProcessString(desc["text"]);
-                result.IsChecked = AsOrDefault(desc["isChecked"], false);
-                result.OnChange = desc["onChange"];
+                result.Text = AsOrDefault(ctx, desc, "text", "");
+                result.IsChecked = AsOrDefault(ctx, desc, "isChecked", false);
+                result.OnChange = JSToCallback(ctx, desc, "onChange");
             }
             else if (result.Type == "colourpicker")
             {
-                auto colour = AsOrDefault(desc["colour"], 0);
-                if (colour < COLOUR_COUNT)
+                auto colour = AsOrDefault(ctx, desc, "colour", 0);
+                if (colour < kColourNumTotal)
                 {
-                    result.Colour = colour;
+                    result.Colour = static_cast<Drawing::Colour>(colour);
                 }
-                result.OnChange = desc["onChange"];
+                result.OnChange = JSToCallback(ctx, desc, "onChange");
             }
             else if (result.Type == "custom")
             {
-                result.OnDraw = desc["onDraw"];
+                result.OnDraw = JSToCallback(ctx, desc, "onDraw");
             }
             else if (result.Type == "dropdown")
             {
-                if (desc["items"].is_array())
-                {
-                    auto dukItems = desc["items"].as_array();
-                    for (const auto& dukItem : dukItems)
-                    {
-                        result.Items.push_back(ProcessString(dukItem));
-                    }
-                }
-                result.SelectedIndex = AsOrDefault(desc["selectedIndex"], 0);
-                result.OnChange = desc["onChange"];
+                JSIterateArray(ctx, desc, "items", [&result](JSContext* ctx2, JSValue val) {
+                    result.Items.push_back(JSToStdString(ctx2, val));
+                });
+                result.SelectedIndex = AsOrDefault(ctx, desc, "selectedIndex", 0);
+                result.OnChange = JSToCallback(ctx, desc, "onChange");
             }
             else if (result.Type == "groupbox")
             {
-                result.Text = ProcessString(desc["text"]);
+                result.Text = AsOrDefault(ctx, desc, "text", "");
             }
             else if (result.Type == "label")
             {
-                result.Text = ProcessString(desc["text"]);
-                if (ProcessString(desc["textAlign"]) == "centred")
+                result.Text = AsOrDefault(ctx, desc, "text", "");
+                if (JSToStdString(ctx, desc, "textAlign") == "centred")
                 {
-                    result.TextAlign = TextAlignment::CENTRE;
+                    result.TextAlign = TextAlignment::centre;
                 }
             }
             else if (result.Type == "listview")
             {
-                result.ListViewColumns = FromDuk<std::vector<ListViewColumn>>(desc["columns"]);
-                result.ListViewItems = FromDuk<std::vector<ListViewItem>>(desc["items"]);
-                result.SelectedCell = FromDuk<std::optional<RowColumn>>(desc["selectedCell"]);
-                result.ShowColumnHeaders = AsOrDefault(desc["showColumnHeaders"], false);
-                result.IsStriped = AsOrDefault(desc["isStriped"], false);
-                result.OnClick = desc["onClick"];
-                result.OnHighlight = desc["onHighlight"];
-                result.CanSelect = AsOrDefault(desc["canSelect"], false);
-                if (desc["scrollbars"].type() == DukValue::UNDEFINED)
+                JSValue cols = JS_GetPropertyStr(ctx, desc, "columns");
+                JSValue items = JS_GetPropertyStr(ctx, desc, "items");
+                JSValue selected = JS_GetPropertyStr(ctx, desc, "selectedCell");
+                JSValue scrollbars = JS_GetPropertyStr(ctx, desc, "scrollbars");
+                result.ListViewColumns = ListViewColumnVecFromJS(ctx, cols);
+                result.ListViewItems = ListViewItemVecFromJS(ctx, items);
+                result.SelectedCell = RowColumnFromJS(ctx, selected);
+                result.ShowColumnHeaders = AsOrDefault(ctx, desc, "showColumnHeaders", false);
+                result.IsStriped = AsOrDefault(ctx, desc, "isStriped", false);
+                result.OnClick = JSToCallback(ctx, desc, "onClick");
+                result.OnHighlight = JSToCallback(ctx, desc, "onHighlight");
+                result.CanSelect = AsOrDefault(ctx, desc, "canSelect", false);
+                if (JS_IsUndefined(scrollbars))
                     result.Scrollbars = ScrollbarType::Vertical;
                 else
-                    result.Scrollbars = FromDuk<ScrollbarType>(desc["scrollbars"]);
+                    result.Scrollbars = ScrollbarTypeFromJS(ctx, scrollbars);
+                JS_FreeValue(ctx, cols);
+                JS_FreeValue(ctx, items);
+                JS_FreeValue(ctx, selected);
+                JS_FreeValue(ctx, scrollbars);
             }
             else if (result.Type == "spinner")
             {
-                result.Text = ProcessString(desc["text"]);
-                result.OnIncrement = desc["onIncrement"];
-                result.OnDecrement = desc["onDecrement"];
-                result.OnClick = desc["onClick"];
+                result.Text = AsOrDefault(ctx, desc, "text", "");
+                result.OnIncrement = JSToCallback(ctx, desc, "onIncrement");
+                result.OnDecrement = JSToCallback(ctx, desc, "onDecrement");
+                result.OnClick = JSToCallback(ctx, desc, "onClick");
             }
             else if (result.Type == "textbox")
             {
-                result.Text = ProcessString(desc["text"]);
-                result.MaxLength = AsOrDefault(desc["maxLength"], 32);
-                result.OnChange = desc["onChange"];
+                result.Text = AsOrDefault(ctx, desc, "text", "");
+                result.MaxLength = AsOrDefault(ctx, desc, "maxLength", 32);
+                result.OnChange = JSToCallback(ctx, desc, "onChange");
             }
-            result.HasBorder = AsOrDefault(desc["border"], result.HasBorder);
+            result.HasBorder = AsOrDefault(ctx, desc, "border", result.HasBorder);
             return result;
         }
     };
@@ -205,35 +207,53 @@ namespace OpenRCT2::Ui::Windows
         ScreenCoordsXY offset;
         std::vector<CustomWidgetDesc> Widgets;
 
-        static CustomTabDesc FromDukValue(const DukValue& desc)
+        static CustomTabDesc FromJSValue(JSContext* ctx, JSValue desc)
         {
             CustomTabDesc result;
-            auto dukImage = desc["image"];
-            if (dukImage.type() == DukValue::Type::STRING || dukImage.type() == DukValue::Type::NUMBER)
+            JSValue jsImage = JS_GetPropertyStr(ctx, desc, "image");
+            if (JS_IsString(jsImage) || JS_IsNumber(jsImage))
             {
-                result.imageFrameBase = ImageId::FromUInt32(ImageFromDuk(dukImage));
+                result.imageFrameBase = ImageId(ImageFromJSValue(ctx, jsImage));
                 result.imageFrameCount = 0;
                 result.imageFrameDuration = 0;
             }
-            else if (dukImage.type() == DukValue::Type::OBJECT)
+            else if (JS_IsObject(jsImage))
             {
-                result.imageFrameBase = ImageId::FromUInt32(static_cast<uint32_t>(dukImage["frameBase"].as_int()));
-                result.imageFrameCount = AsOrDefault(dukImage["frameCount"], 0);
-                result.imageFrameDuration = AsOrDefault(dukImage["frameDuration"], 0);
+                result.imageFrameBase = ImageId(JSToInt64(ctx, jsImage, "frameBase"));
+                result.imageFrameCount = AsOrDefault(ctx, jsImage, "frameCount", 0);
+                result.imageFrameDuration = AsOrDefault(ctx, jsImage, "frameDuration", 0);
 
-                auto dukCoord = dukImage["offset"];
-                if (dukCoord.type() == DukValue::Type::OBJECT)
+                auto primaryCol = JSToOptionalInt64(ctx, jsImage, "primaryColour");
+                if (primaryCol.has_value())
                 {
-                    result.offset = { AsOrDefault(dukCoord["x"], 0), AsOrDefault(dukCoord["y"], 0) };
+                    result.imageFrameBase = result.imageFrameBase.WithPrimary(static_cast<Colour>(primaryCol.value()));
+
+                    auto secondaryCol = JSToOptionalInt64(ctx, jsImage, "secondaryColour");
+                    if (secondaryCol.has_value())
+                    {
+                        result.imageFrameBase = result.imageFrameBase.WithSecondary(static_cast<Colour>(secondaryCol.value()));
+
+                        auto tertiaryCol = JSToOptionalInt64(ctx, jsImage, "tertiaryColour");
+                        if (tertiaryCol.has_value())
+                        {
+                            result.imageFrameBase = result.imageFrameBase.WithTertiary(
+                                static_cast<Colour>(tertiaryCol.value()));
+                        }
+                    }
                 }
+
+                JSValue jsCoord = JS_GetPropertyStr(ctx, jsImage, "offset");
+                if (JS_IsObject(jsCoord))
+                {
+                    result.offset = { AsOrDefault(ctx, jsCoord, "x", 0), AsOrDefault(ctx, jsCoord, "y", 0) };
+                }
+                JS_FreeValue(ctx, jsCoord);
             }
-            if (desc["widgets"].is_array())
-            {
-                auto dukWidgets = desc["widgets"].as_array();
-                std::transform(dukWidgets.begin(), dukWidgets.end(), std::back_inserter(result.Widgets), [](const DukValue& w) {
-                    return CustomWidgetDesc::FromDukValue(w);
-                });
-            }
+            JS_FreeValue(ctx, jsImage);
+
+            JSIterateArray(ctx, desc, "widgets", [&result](JSContext* ctx2, JSValue x) {
+                result.Widgets.push_back(CustomWidgetDesc::FromJSValue(ctx2, x));
+            });
             return result;
         }
     };
@@ -243,8 +263,7 @@ namespace OpenRCT2::Ui::Windows
         std::string Classification;
         std::optional<int32_t> X;
         std::optional<int32_t> Y;
-        int32_t Width{};
-        int32_t Height{};
+        ScreenSize size{};
         std::optional<int32_t> MinWidth;
         std::optional<int32_t> MinHeight;
         std::optional<int32_t> MaxWidth;
@@ -252,14 +271,14 @@ namespace OpenRCT2::Ui::Windows
         std::string Title;
         std::optional<int32_t> Id;
         std::vector<CustomWidgetDesc> Widgets;
-        std::vector<colour_t> Colours;
+        std::vector<ColourWithFlags> Colours;
         std::vector<CustomTabDesc> Tabs;
         std::optional<int32_t> TabIndex;
 
         // Event handlers
-        DukValue OnClose;
-        DukValue OnUpdate;
-        DukValue OnTabChange;
+        JSCallback OnClose;
+        JSCallback OnUpdate;
+        JSCallback OnTabChange;
 
         CustomWindowDesc() = default;
 
@@ -268,65 +287,48 @@ namespace OpenRCT2::Ui::Windows
             return MinWidth || MinHeight || MaxWidth || MaxHeight;
         }
 
-        static CustomWindowDesc FromDukValue(DukValue desc)
+        static CustomWindowDesc FromJSValue(JSContext* ctx, JSValue desc)
         {
             CustomWindowDesc result;
-            result.Classification = desc["classification"].as_string();
-            result.X = GetOptionalInt(desc["x"]);
-            result.Y = GetOptionalInt(desc["y"]);
-            result.Width = desc["width"].as_int();
-            result.Height = desc["height"].as_int();
-            result.MinWidth = GetOptionalInt(desc["minWidth"]);
-            result.MaxWidth = GetOptionalInt(desc["maxWidth"]);
-            result.MinHeight = GetOptionalInt(desc["minHeight"]);
-            result.MaxHeight = GetOptionalInt(desc["maxHeight"]);
-            result.Title = desc["title"].as_string();
-            result.Id = GetOptionalInt(desc["id"]);
-            result.TabIndex = GetOptionalInt(desc["tabIndex"]);
+            result.Classification = JSToStdString(ctx, desc, "classification");
+            result.X = JSToOptionalInt(ctx, desc, "x");
+            result.Y = JSToOptionalInt(ctx, desc, "y");
+            result.size.width = JSToInt(ctx, desc, "width");
+            result.size.height = JSToInt(ctx, desc, "height");
+            result.MinWidth = JSToOptionalInt(ctx, desc, "minWidth");
+            result.MaxWidth = JSToOptionalInt(ctx, desc, "maxWidth");
+            result.MinHeight = JSToOptionalInt(ctx, desc, "minHeight");
+            result.MaxHeight = JSToOptionalInt(ctx, desc, "maxHeight");
+            result.Title = JSToStdString(ctx, desc, "title");
+            result.Id = JSToOptionalInt(ctx, desc, "id");
+            result.TabIndex = JSToOptionalInt(ctx, desc, "tabIndex");
 
-            if (desc["widgets"].is_array())
-            {
-                auto dukWidgets = desc["widgets"].as_array();
-                std::transform(dukWidgets.begin(), dukWidgets.end(), std::back_inserter(result.Widgets), [](const DukValue& w) {
-                    return CustomWidgetDesc::FromDukValue(w);
-                });
-            }
+            JSIterateArray(ctx, desc, "widgets", [&result](JSContext* ctx2, JSValue val) {
+                result.Widgets.push_back(CustomWidgetDesc::FromJSValue(ctx2, val));
+            });
 
-            if (desc["tabs"].is_array())
-            {
-                auto dukTabs = desc["tabs"].as_array();
-                std::transform(dukTabs.begin(), dukTabs.end(), std::back_inserter(result.Tabs), [](const DukValue& w) {
-                    return CustomTabDesc::FromDukValue(w);
-                });
-            }
+            JSIterateArray(ctx, desc, "tabs", [&result](JSContext* ctx2, JSValue x) {
+                result.Tabs.push_back(CustomTabDesc::FromJSValue(ctx2, x));
+            });
 
-            if (desc["colours"].is_array())
-            {
-                auto dukColours = desc["colours"].as_array();
-                std::transform(dukColours.begin(), dukColours.end(), std::back_inserter(result.Colours), [](const DukValue& w) {
-                    colour_t c = COLOUR_BLACK;
-                    if (w.type() == DukValue::Type::NUMBER)
-                    {
-                        c = std::clamp<int32_t>(BASE_COLOUR(w.as_int()), COLOUR_BLACK, COLOUR_COUNT - 1);
-                        if (w.as_int() & COLOUR_FLAG_TRANSLUCENT)
-                        {
-                            c = TRANSLUCENT(c);
-                        }
-                    }
-                    return c;
-                });
-            }
+            JSIterateArray(ctx, desc, "colours", [&result](JSContext* ctx2, JSValue x) {
+                ColourWithFlags c = { Colour::black };
+                if (JS_IsNumber(x))
+                {
+                    int32_t xValue = JSToInt(ctx2, x);
+                    uint8_t colour = (xValue & ~kLegacyColourFlagTranslucent) % kColourNumTotal;
+                    bool isTranslucent = (xValue & kLegacyColourFlagTranslucent);
+                    c.colour = static_cast<Colour>(colour);
+                    c.flags.set(ColourFlag::translucent, isTranslucent);
+                }
+                result.Colours.push_back(c);
+            });
 
-            result.OnClose = desc["onClose"];
-            result.OnUpdate = desc["onUpdate"];
-            result.OnTabChange = desc["onTabChange"];
+            result.OnClose = JSToCallback(ctx, desc, "onClose");
+            result.OnUpdate = JSToCallback(ctx, desc, "onUpdate");
+            result.OnTabChange = JSToCallback(ctx, desc, "onTabChange");
 
             return result;
-        }
-
-        static std::optional<int32_t> GetOptionalInt(DukValue input)
-        {
-            return input.type() == DukValue::Type::NUMBER ? std::make_optional(input.as_int()) : std::nullopt;
         }
     };
 
@@ -377,150 +379,147 @@ namespace OpenRCT2::Ui::Windows
         }
     };
 
-    static CustomWindowInfo& GetInfo(WindowBase* w);
-    static void InvokeEventHandler(const std::shared_ptr<Plugin>& owner, const DukValue& dukHandler);
+    class CustomWindow;
+    static CustomWindowInfo& GetInfo(CustomWindow* w);
+    static void InvokeEventHandler(const std::shared_ptr<Plugin>& owner, const JSCallback& jsCallback);
     static void InvokeEventHandler(
-        const std::shared_ptr<Plugin>& owner, const DukValue& dukHandler, const std::vector<DukValue>& args);
+        const std::shared_ptr<Plugin>& owner, const JSCallback& jsCallback, const std::vector<JSValue>& args);
 
     class CustomWindow final : public Window
     {
     private:
-        static rct_windownumber _nextWindowNumber;
+        static WindowNumber _nextWindowNumber;
+        CustomWindowInfo _info;
 
     public:
-        void Initialise(std::shared_ptr<Plugin> owner, const CustomWindowDesc& desc)
+        CustomWindow(std::shared_ptr<Plugin> owner, const CustomWindowDesc& desc)
+            : _info(owner, desc)
+        {
+        }
+
+        void onOpen() override
         {
             number = GetNewWindowNumber();
-            custom_info = new CustomWindowInfo(owner, desc);
 
             // Set window tab
-            page = desc.TabIndex.value_or(0);
+            page = _info.Desc.TabIndex.value_or(0);
 
             // Set window colours
-            colours[0] = COLOUR_GREY;
-            colours[1] = COLOUR_GREY;
-            colours[2] = COLOUR_GREY;
-            auto numColours = std::min(std::size(colours), std::size(desc.Colours));
+            colours[0] = Colour::grey;
+            colours[1] = Colour::grey;
+            colours[2] = Colour::grey;
+            auto numColours = std::min(std::size(colours), std::size(_info.Desc.Colours));
             for (size_t i = 0; i < numColours; i++)
             {
-                colours[i] = desc.Colours[i];
+                colours[i] = _info.Desc.Colours[i];
             }
 
-            if (desc.IsResizable())
+            if (_info.Desc.IsResizable())
             {
-                min_width = desc.MinWidth.value_or(0);
-                min_height = desc.MinHeight.value_or(0);
-                max_width = desc.MaxWidth.value_or(std::numeric_limits<uint16_t>::max());
-                max_height = desc.MaxHeight.value_or(std::numeric_limits<uint16_t>::max());
+                minWidth = _info.Desc.MinWidth.value_or(0);
+                minHeight = _info.Desc.MinHeight.value_or(0);
+                maxWidth = _info.Desc.MaxWidth.value_or(kMaxWindowSize.width);
+                maxHeight = _info.Desc.MaxHeight.value_or(kMaxWindowSize.height);
             }
             RefreshWidgets();
         }
 
-        void OnClose() override
+        void onClose() override
         {
-            auto info = static_cast<CustomWindowInfo*>(custom_info);
-            if (info != nullptr)
-            {
-                InvokeEventHandler(info->Owner, info->Desc.OnClose);
-                delete info;
-                custom_info = nullptr;
-            }
+            InvokeEventHandler(_info.Owner, _info.Desc.OnClose);
         }
 
-        void OnResize() override
+        void onResize() override
         {
-            if (width < min_width)
+            if (width < minWidth)
             {
-                Invalidate();
-                width = min_width;
+                invalidate();
+                width = minWidth;
             }
-            if (height < min_height)
+            if (height < minHeight)
             {
-                Invalidate();
-                height = min_height;
+                invalidate();
+                height = minHeight;
             }
             UpdateViewport();
         }
 
-        void OnUpdate() override
+        void onUpdate() override
         {
-            const auto& info = GetInfo(this);
-            if (info.Desc.Tabs.size() > static_cast<size_t>(page))
+            if (_info.Desc.Tabs.size() > static_cast<size_t>(page))
             {
-                const auto& tab = info.Desc.Tabs[page];
+                const auto& tab = _info.Desc.Tabs[page];
                 if (tab.imageFrameCount != 0)
                 {
-                    frame_no++;
-                    if (frame_no >= tab.imageFrameCount * tab.imageFrameDuration)
+                    currentFrame++;
+                    if (currentFrame >= tab.imageFrameCount * tab.imageFrameDuration)
                     {
-                        frame_no = 0;
+                        currentFrame = 0;
                     }
-                    WidgetInvalidate(*this, WIDX_TAB_0 + this->page);
+
+                    invalidateWidget(WIDX_TAB_0 + this->page);
                 }
             }
 
-            InvokeEventHandler(info.Owner, info.Desc.OnUpdate);
+            InvokeEventHandler(_info.Owner, _info.Desc.OnUpdate);
 
             // Since the plugin may alter widget positions and sizes during an update event,
             // we need to force an update for all list view scrollbars
             WidgetIndex widgetIndex = 0;
-            for (auto widget = widgets; widget->type != WindowWidgetType::Empty; widget++)
+            for (auto& widget : widgets)
             {
-                if (widget->type == WindowWidgetType::Scroll)
+                if (widget.type == WidgetType::scroll)
                 {
-                    WidgetScrollUpdateThumbs(*this, widgetIndex);
+                    widgetScrollUpdateThumbs(*this, widgetIndex);
                 }
                 widgetIndex++;
             }
+
+            UpdateViewport();
         }
 
-        void OnPrepareDraw() override
+        void onPrepareDraw() override
         {
-            widgets[WIDX_BACKGROUND].right = width - 1;
-            widgets[WIDX_BACKGROUND].bottom = height - 1;
-            widgets[WIDX_TITLE].right = width - 2;
-            widgets[WIDX_CLOSE].left = width - 13;
-            widgets[WIDX_CLOSE].right = width - 3;
-            widgets[WIDX_CONTENT_PANEL].right = width - 1;
-            widgets[WIDX_CONTENT_PANEL].bottom = height - 1;
-            widgets[WIDX_CLOSE].text = (colours[0] & COLOUR_FLAG_TRANSLUCENT) ? STR_CLOSE_X_WHITE : STR_CLOSE_X;
+            auto& closeButton = widgets[WIDX_CLOSE];
+            bool translucent = colours[closeButton.colour].flags.has(ColourFlag::translucent);
+            if (Config::Get().interface.enlargedUi)
+                closeButton.string = !translucent ? kCloseBoxStringBlackLarge : kCloseBoxStringWhiteLarge;
+            else
+                closeButton.string = !translucent ? kCloseBoxStringBlackNormal : kCloseBoxStringWhiteNormal;
 
             // Having the content panel visible for transparent windows makes the borders darker than they should be
             // For now just hide it if there are no tabs and the window is not resizable
-            auto& info = GetInfo(this);
-            auto canResize = (flags & WF_RESIZABLE) != 0 && (min_width != max_width || min_height != max_height);
-            auto numTabs = info.Desc.Tabs.size();
-            if (canResize || numTabs != 0)
+            auto numTabs = _info.Desc.Tabs.size();
+            if (canBeResized() || numTabs != 0)
             {
-                widgets[WIDX_CONTENT_PANEL].flags &= ~WIDGET_FLAGS::IS_HIDDEN;
+                widgets[WIDX_CONTENT_PANEL].flags.unset(WidgetFlag::isHidden);
             }
             else
             {
-                widgets[WIDX_CONTENT_PANEL].flags |= WIDGET_FLAGS::IS_HIDDEN;
+                widgets[WIDX_CONTENT_PANEL].flags.set(WidgetFlag::isHidden);
             }
 
             SetPressedTab();
 
-            const auto& desc = info.Desc;
-            auto ft = Formatter::Common();
-            ft.Add<const char*>(desc.Title.c_str());
+            const auto& desc = _info.Desc;
+            widgets[WIDX_TITLE].setString(desc.Title.c_str());
 
             size_t scrollIndex = 0;
-            for (auto widget = widgets; widget->type != WindowWidgetType::Last; widget++)
+            for (const auto& widget : widgets)
             {
-                if (widget->type == WindowWidgetType::Scroll)
+                if (widget.type == WidgetType::scroll)
                 {
-                    auto& listView = info.ListViews[scrollIndex];
-                    auto wwidth = widget->width() + 1 - 2;
-                    auto wheight = widget->height() + 1 - 2;
+                    auto& listView = _info.ListViews[scrollIndex];
+                    auto wwidth = widget.width() - 2;
+                    auto wheight = widget.height() - 2;
                     if (listView.GetScrollbars() == ScrollbarType::Horizontal
                         || listView.GetScrollbars() == ScrollbarType::Both)
                     {
-                        wheight -= SCROLLBAR_WIDTH + 1;
+                        wheight -= kScrollBarWidth + 1;
                     }
                     if (listView.GetScrollbars() == ScrollbarType::Vertical || listView.GetScrollbars() == ScrollbarType::Both)
                     {
-                        wwidth -= SCROLLBAR_WIDTH + 1;
+                        wwidth -= kScrollBarWidth + 1;
                     }
                     listView.Resize({ wwidth, wheight });
                     scrollIndex++;
@@ -528,92 +527,93 @@ namespace OpenRCT2::Ui::Windows
             }
         }
 
-        void OnDraw(DrawPixelInfo& dpi) override
+        void onDraw(Drawing::RenderTarget& rt) override
         {
-            WindowDrawWidgets(*this, &dpi);
-            DrawTabImages(dpi);
+            WindowDrawWidgets(*this, rt);
+            DrawTabImages(rt);
             if (viewport != nullptr)
             {
                 auto widgetIndex = GetViewportWidgetIndex();
-                if (WidgetIsVisible(*this, widgetIndex.value_or(false)))
+                if (widgetIsVisible(*this, widgetIndex.value_or(false)))
                 {
-                    WindowDrawViewport(&dpi, *this);
+                    WindowDrawViewport(rt, *this);
                 }
             }
         }
 
-        void OnDrawWidget(WidgetIndex widgetIndex, DrawPixelInfo& dpi) override
+        void onDrawWidget(WidgetIndex widgetIndex, RenderTarget& rt) override
         {
             const auto& widget = widgets[widgetIndex];
-            const auto& info = GetInfo(this);
-            const auto widgetDesc = info.GetCustomWidgetDesc(this, widgetIndex);
+            const auto widgetDesc = _info.GetCustomWidgetDesc(this, widgetIndex);
             if (widgetDesc != nullptr && widgetDesc->Type == "custom")
             {
                 auto& onDraw = widgetDesc->OnDraw;
-                if (onDraw.is_function())
+                if (onDraw.IsValid())
                 {
-                    DrawPixelInfo widgetDpi;
-                    if (ClipDrawPixelInfo(
-                            &widgetDpi, &dpi, { windowPos.x + widget.left, windowPos.y + widget.top }, widget.width(),
-                            widget.height()))
+                    RenderTarget widgetRT;
+                    if (ClipRenderTarget(
+                            widgetRT, rt, { windowPos.x + widget.left, windowPos.y + widget.top }, widget.width() - 1,
+                            widget.height() - 1))
                     {
-                        auto ctx = onDraw.context();
-                        auto dukWidget = ScWidget::ToDukValue(ctx, this, widgetIndex);
-                        auto dukG = GetObjectAsDukValue(ctx, std::make_shared<ScGraphicsContext>(ctx, widgetDpi));
+                        auto ctx = onDraw.context;
+                        auto jsWidget = gScWidget.New(ctx, this, widgetIndex);
+                        auto gfx = gScGraphicsContext.New(ctx, widgetRT);
                         auto& scriptEngine = GetContext()->GetScriptEngine();
-                        scriptEngine.ExecutePluginCall(info.Owner, widgetDesc->OnDraw, dukWidget, { dukG }, false);
+                        scriptEngine.ExecutePluginCall(_info.Owner, onDraw.callback, jsWidget, { gfx }, false);
+                        JS_FreeValue(ctx, jsWidget);
                     }
                 }
             }
             else
             {
-                Window::OnDrawWidget(widgetIndex, dpi);
+                Window::onDrawWidget(widgetIndex, rt);
             }
         }
 
-        void OnMouseUp(WidgetIndex widgetIndex) override
+        void onMouseUp(WidgetIndex widgetIndex) override
         {
             switch (widgetIndex)
             {
                 case WIDX_CLOSE:
-                    WindowClose(*this);
+                {
+                    auto* windowMgr = GetWindowManager();
+                    windowMgr->Close(*this);
                     break;
+                }
                 default:
                 {
-                    const auto& info = GetInfo(this);
-                    if (widgetIndex >= WIDX_TAB_0 && widgetIndex < static_cast<WidgetIndex>(WIDX_TAB_0 + info.Desc.Tabs.size()))
+                    if (widgetIndex >= WIDX_TAB_0
+                        && widgetIndex < static_cast<WidgetIndex>(WIDX_TAB_0 + _info.Desc.Tabs.size()))
                     {
                         ChangeTab(widgetIndex - WIDX_TAB_0);
                         break;
                     }
 
-                    const auto widgetDesc = info.GetCustomWidgetDesc(this, widgetIndex);
+                    const auto widgetDesc = _info.GetCustomWidgetDesc(this, widgetIndex);
                     if (widgetDesc != nullptr)
                     {
                         if (widgetDesc->Type == "button")
                         {
-                            InvokeEventHandler(info.Owner, widgetDesc->OnClick);
+                            InvokeEventHandler(_info.Owner, widgetDesc->OnClick);
                         }
                         else if (widgetDesc->Type == "checkbox")
                         {
                             auto& widget = widgets[widgetIndex];
-                            widget.flags ^= WIDGET_FLAGS::IS_PRESSED;
-                            bool isChecked = widget.flags & WIDGET_FLAGS::IS_PRESSED;
+                            widget.flags.flip(WidgetFlag::isPressed);
+                            bool isChecked = widget.flags.has(WidgetFlag::isPressed);
 
-                            WidgetSetCheckboxValue(*this, widgetIndex, isChecked);
+                            widgetSetCheckboxValue(*this, widgetIndex, isChecked);
 
-                            std::vector<DukValue> args;
-                            auto ctx = widgetDesc->OnChange.context();
-                            duk_push_boolean(ctx, isChecked);
-                            args.push_back(DukValue::take_from_stack(ctx));
-                            InvokeEventHandler(info.Owner, widgetDesc->OnChange, args);
+                            std::vector<JSValue> args;
+                            args.push_back(JS_NewBool(widgetDesc->OnChange.context, isChecked));
+                            InvokeEventHandler(_info.Owner, widgetDesc->OnChange, args);
                         }
                         else if (widgetDesc->Type == "spinner")
                         {
                             auto& widget = widgets[widgetIndex];
                             if (widget.text != STR_NUMERIC_DOWN && widget.text != STR_NUMERIC_UP)
                             {
-                                InvokeEventHandler(info.Owner, widgetDesc->OnClick);
+                                InvokeEventHandler(_info.Owner, widgetDesc->OnClick);
                             }
                         }
                     }
@@ -622,11 +622,10 @@ namespace OpenRCT2::Ui::Windows
             }
         }
 
-        void OnMouseDown(WidgetIndex widgetIndex) override
+        void onMouseDown(WidgetIndex widgetIndex) override
         {
             auto* widget = &widgets[widgetIndex];
-            const auto& info = GetInfo(this);
-            const auto widgetDesc = info.GetCustomWidgetDesc(this, widgetIndex);
+            const auto widgetDesc = _info.GetCustomWidgetDesc(this, widgetIndex);
             if (widgetDesc != nullptr)
             {
                 if (widgetDesc->Type == "colourpicker")
@@ -638,49 +637,47 @@ namespace OpenRCT2::Ui::Windows
                     widget--;
                     auto selectedIndex = widgetDesc->SelectedIndex;
                     const auto& items = widgetDesc->Items;
-                    const auto numItems = std::min<size_t>(items.size(), Dropdown::ItemsMaxSize);
+                    const auto numItems = std::min<size_t>(items.size(), Dropdown::kItemsMaxSize);
                     for (size_t i = 0; i < numItems; i++)
                     {
-                        gDropdownItems[i].Format = selectedIndex == static_cast<int32_t>(i) ? STR_OPTIONS_DROPDOWN_ITEM_SELECTED
-                                                                                            : STR_OPTIONS_DROPDOWN_ITEM;
-                        auto sz = items[i].c_str();
-                        std::memcpy(&gDropdownItems[i].Args, &sz, sizeof(const char*));
+                        gDropdown.items[i] = Dropdown::MenuLabel(items[i].c_str());
                     }
                     WindowDropdownShowTextCustomWidth(
-                        { windowPos.x + widget->left, windowPos.y + widget->top }, widget->height() + 1,
-                        colours[widget->colour], 0, Dropdown::Flag::StayOpen, numItems, widget->width() - 3);
+                        { windowPos.x + widget->left, windowPos.y + widget->top }, widget->height(), colours[widget->colour], 0,
+                        Dropdown::Flag::StayOpen, numItems, widget->width() - 4);
+
+                    if (selectedIndex >= 0 && selectedIndex < static_cast<int32_t>(numItems))
+                        gDropdown.items[selectedIndex].setChecked(true);
                 }
                 else if (widgetDesc->Type == "spinner")
                 {
                     if (widget->text == STR_NUMERIC_DOWN)
                     {
-                        InvokeEventHandler(info.Owner, widgetDesc->OnDecrement);
+                        InvokeEventHandler(_info.Owner, widgetDesc->OnDecrement);
                     }
                     else if (widget->text == STR_NUMERIC_UP)
                     {
-                        InvokeEventHandler(info.Owner, widgetDesc->OnIncrement);
+                        InvokeEventHandler(_info.Owner, widgetDesc->OnIncrement);
                     }
                 }
                 else if (widgetDesc->Type == "textbox")
                 {
-                    auto* text = const_cast<char*>(widgetDesc->Text.c_str());
-                    WindowStartTextbox(*this, widgetIndex, STR_STRING, text, widgetDesc->MaxLength + 1);
+                    WindowStartTextbox(*this, widgetIndex, widgetDesc->Text, widgetDesc->MaxLength + 1);
                 }
             }
         }
 
-        void OnDropdown(WidgetIndex widgetIndex, int32_t dropdownIndex) override
+        void onDropdown(WidgetIndex widgetIndex, int32_t dropdownIndex) override
         {
             if (dropdownIndex == -1)
                 return;
 
-            auto& info = GetInfo(this);
-            auto widgetDesc = info.GetCustomWidgetDesc(this, widgetIndex);
+            auto widgetDesc = _info.GetCustomWidgetDesc(this, widgetIndex);
             if (widgetDesc != nullptr)
             {
                 if (widgetDesc->Type == "colourpicker")
                 {
-                    UpdateWidgetColour(this, widgetIndex, dropdownIndex);
+                    UpdateWidgetColour(this, widgetIndex, ColourDropDownIndexToColour(dropdownIndex));
                 }
                 else if (widgetDesc->Type == "dropdown")
                 {
@@ -689,96 +686,99 @@ namespace OpenRCT2::Ui::Windows
             }
         }
 
-        void OnTextInput(WidgetIndex widgetIndex, std::string_view text) override
+        void onTextInput(WidgetIndex widgetIndex, std::string_view text) override
         {
-            auto& info = GetInfo(this);
-            auto widgetDesc = info.GetCustomWidgetDesc(this, widgetIndex);
+            auto widgetDesc = _info.GetCustomWidgetDesc(this, widgetIndex);
             if (widgetDesc != nullptr)
             {
                 if (widgetDesc->Type == "textbox")
                 {
                     UpdateWidgetText(this, widgetIndex, text);
 
-                    std::vector<DukValue> args;
-                    auto ctx = widgetDesc->OnChange.context();
-                    duk_push_lstring(ctx, text.data(), text.size());
-                    args.push_back(DukValue::take_from_stack(ctx));
-                    InvokeEventHandler(info.Owner, widgetDesc->OnChange, args);
+                    std::vector<JSValue> args;
+                    std::string textStr(text);
+                    args.push_back(JSFromStdString(widgetDesc->OnChange.context, textStr));
+                    InvokeEventHandler(_info.Owner, widgetDesc->OnChange, args);
                 }
             }
         }
 
-        ScreenSize OnScrollGetSize(int32_t scrollIndex) override
+        ScreenSize onScrollGetSize(int32_t scrollIndex) override
         {
-            auto& info = GetInfo(this);
-            if (scrollIndex < static_cast<int32_t>(info.ListViews.size()))
+            if (scrollIndex < static_cast<int32_t>(_info.ListViews.size()))
             {
-                auto size = info.ListViews[scrollIndex].GetSize();
+                auto size = _info.ListViews[scrollIndex].GetSize();
                 return { size.width, size.height };
             }
             return {};
         }
 
-        void OnScrollMouseDown(int32_t scrollIndex, const ScreenCoordsXY& screenCoords) override
+        void onScrollMouseDown(int32_t scrollIndex, const ScreenCoordsXY& screenCoords) override
         {
-            auto& info = GetInfo(this);
-            if (scrollIndex < static_cast<int32_t>(info.ListViews.size()))
+            if (scrollIndex < static_cast<int32_t>(_info.ListViews.size()))
             {
-                info.ListViews[scrollIndex].MouseDown(screenCoords);
+                _info.ListViews[scrollIndex].MouseDown(screenCoords);
             }
         }
 
-        void OnScrollMouseDrag(int32_t scrollIndex, const ScreenCoordsXY& screenCoords) override
+        void onScrollMouseDrag(int32_t scrollIndex, const ScreenCoordsXY& screenCoords) override
         {
-            auto& info = GetInfo(this);
-            if (scrollIndex < static_cast<int32_t>(info.ListViews.size()))
+            if (scrollIndex < static_cast<int32_t>(_info.ListViews.size()))
             {
-                info.ListViews[scrollIndex].MouseOver(screenCoords, true);
+                _info.ListViews[scrollIndex].MouseOver(screenCoords, true);
             }
         }
 
-        void OnScrollMouseOver(int32_t scrollIndex, const ScreenCoordsXY& screenCoords) override
+        void onScrollMouseOver(int32_t scrollIndex, const ScreenCoordsXY& screenCoords) override
         {
-            auto& info = GetInfo(this);
-            if (scrollIndex < static_cast<int32_t>(info.ListViews.size()))
+            if (scrollIndex < static_cast<int32_t>(_info.ListViews.size()))
             {
-                info.ListViews[scrollIndex].MouseOver(screenCoords, false);
+                _info.ListViews[scrollIndex].MouseOver(screenCoords, false);
             }
         }
 
-        void OnScrollDraw(int32_t scrollIndex, DrawPixelInfo& dpi) override
+        void onScrollDraw(int32_t scrollIndex, RenderTarget& rt) override
         {
-            const auto& info = GetInfo(this);
-            if (scrollIndex < static_cast<int32_t>(info.ListViews.size()))
+            if (scrollIndex < static_cast<int32_t>(_info.ListViews.size()))
             {
-                info.ListViews[scrollIndex].Paint(this, &dpi, &scrolls[scrollIndex]);
+                _info.ListViews[scrollIndex].Paint(this, rt, &scrolls[scrollIndex]);
             }
         }
 
         void ChangeTab(size_t tabIndex)
         {
-            const auto& info = GetInfo(this);
+            if (page == static_cast<int16_t>(tabIndex) && !widgets.empty())
+                return;
 
             page = static_cast<int16_t>(tabIndex);
-            frame_no = 0;
+            currentFrame = 0;
             RefreshWidgets();
 
-            Invalidate();
-            WindowEventResizeCall(this);
-            WindowEventInvalidateCall(this);
+            invalidate();
+            onResize();
+            onPrepareDraw();
             WindowInitScrollWidgets(*this);
-            Invalidate();
+            invalidate();
 
-            InvokeEventHandler(info.Owner, info.Desc.OnTabChange);
+            InvokeEventHandler(_info.Owner, _info.Desc.OnTabChange);
+        }
+
+        const CustomWindowInfo& getInfo() const
+        {
+            return _info;
+        }
+        CustomWindowInfo& getInfo()
+        {
+            return _info;
         }
 
     private:
         std::optional<WidgetIndex> GetViewportWidgetIndex()
         {
             WidgetIndex widgetIndex = 0;
-            for (auto widget = widgets; widget->type != WindowWidgetType::Last; widget++)
+            for (auto& widget : widgets)
             {
-                if (widget->type == WindowWidgetType::Viewport)
+                if (widget.type == WidgetType::viewport)
                 {
                     return widgetIndex;
                 }
@@ -793,19 +793,18 @@ namespace OpenRCT2::Ui::Windows
             if (viewportWidgetIndex)
             {
                 auto viewportWidget = &widgets[*viewportWidgetIndex];
-                auto& customInfo = GetInfo(this);
-                auto widgetInfo = customInfo.GetCustomWidgetDesc(this, *viewportWidgetIndex);
+                auto widgetInfo = _info.GetCustomWidgetDesc(this, *viewportWidgetIndex);
                 if (widgetInfo != nullptr)
                 {
                     auto left = windowPos.x + viewportWidget->left + 1;
                     auto top = windowPos.y + viewportWidget->top + 1;
-                    auto wwidth = viewportWidget->width() - 1;
-                    auto wheight = viewportWidget->height() - 1;
+                    auto wwidth = viewportWidget->width() - 2;
+                    auto wheight = viewportWidget->height() - 2;
                     if (viewport == nullptr)
                     {
-                        ViewportCreate(this, { left, top }, wwidth, wheight, Focus(CoordsXYZ(0, 0, 0)));
-                        flags |= WF_NO_SCROLLING;
-                        Invalidate();
+                        ViewportCreate(*this, { left, top }, wwidth, wheight, Focus(CoordsXYZ(0, 0, 0)));
+                        flags |= WindowFlag::noScrolling;
+                        invalidate();
                     }
                     else
                     {
@@ -816,57 +815,53 @@ namespace OpenRCT2::Ui::Windows
                             viewport->pos.y = top;
                             viewport->width = wwidth;
                             viewport->height = wheight;
-                            viewport->view_width = viewport->zoom.ApplyTo(wwidth);
-                            viewport->view_height = viewport->zoom.ApplyTo(wheight);
-                            Invalidate();
+                            invalidate();
                         }
                     }
                 }
                 else
                 {
-                    RemoveViewport();
+                    removeViewport();
                 }
             }
             else
             {
-                RemoveViewport();
+                removeViewport();
             }
         }
 
         void SetPressedTab()
         {
-            const auto& info = GetInfo(this);
-            auto numTabs = info.Desc.Tabs.size();
+            auto numTabs = _info.Desc.Tabs.size();
             if (numTabs != 0)
             {
                 for (size_t i = 0; i < numTabs; i++)
                 {
-                    SetWidgetPressed(static_cast<WidgetIndex>(WIDX_TAB_0 + i), false);
+                    setWidgetPressed(static_cast<WidgetIndex>(WIDX_TAB_0 + i), false);
                 }
-                SetWidgetPressed(WIDX_TAB_0 + page, true);
+                setWidgetPressed(WIDX_TAB_0 + page, true);
             }
         }
 
-        void DrawTabImages(DrawPixelInfo& dpi)
+        void DrawTabImages(RenderTarget& rt)
         {
-            const auto& customInfo = GetInfo(this);
-            const auto& tabs = customInfo.Desc.Tabs;
+            const auto& tabs = _info.Desc.Tabs;
             size_t tabIndex = 0;
             for (const auto& tab : tabs)
             {
                 auto widgetIndex = static_cast<WidgetIndex>(WIDX_TAB_0 + tabIndex);
                 auto widget = &widgets[widgetIndex];
-                if (WidgetIsVisible(*this, widgetIndex))
+                if (widgetIsVisible(*this, widgetIndex))
                 {
                     auto leftTop = windowPos + tab.offset + ScreenCoordsXY{ widget->left, widget->top };
                     auto image = tab.imageFrameBase;
                     if (static_cast<size_t>(page) == tabIndex && tab.imageFrameDuration != 0 && tab.imageFrameCount != 0)
                     {
-                        auto frame = frame_no / tab.imageFrameDuration;
+                        auto frame = currentFrame / tab.imageFrameDuration;
                         auto imageOffset = frame % tab.imageFrameCount;
                         image = image.WithIndex(image.GetIndex() + imageOffset);
                     }
-                    GfxDrawSprite(&dpi, image, leftTop);
+                    GfxDrawSprite(rt, image, leftTop);
                 }
                 tabIndex++;
             }
@@ -874,64 +869,63 @@ namespace OpenRCT2::Ui::Windows
 
         void RefreshWidgets()
         {
-            auto& info = GetInfo(this);
-            auto& widgetList = info.Widgets;
+            auto& widgetList = _info.Widgets;
 
             widgetList.clear();
-            info.WidgetIndexMap.clear();
-            info.ListViews.clear();
+            _info.WidgetIndexMap.clear();
+            _info.ListViews.clear();
 
             // Add default widgets (window shim)
             widgetList.insert(widgetList.begin(), std::begin(CustomDefaultWidgets), std::end(CustomDefaultWidgets));
             for (size_t i = 0; i < widgetList.size(); i++)
             {
-                info.WidgetIndexMap.push_back(std::numeric_limits<size_t>::max());
+                _info.WidgetIndexMap.push_back(std::numeric_limits<size_t>::max());
             }
 
             // Add window tabs
-            if (info.Desc.Tabs.size() != 0)
+            if (!_info.Desc.Tabs.empty())
             {
-                widgetList[WIDX_CONTENT_PANEL].top = 43;
+                widgetList[WIDX_CONTENT_PANEL].top = kTabBarHeight;
             }
-            for (size_t tabDescIndex = 0; tabDescIndex < info.Desc.Tabs.size(); tabDescIndex++)
+            for (size_t tabDescIndex = 0; tabDescIndex < _info.Desc.Tabs.size(); tabDescIndex++)
             {
                 Widget widget{};
-                widget.type = WindowWidgetType::Tab;
+                widget.type = WidgetType::tab;
                 widget.colour = 1;
                 widget.left = static_cast<int16_t>(3 + (tabDescIndex * 31));
                 widget.right = widget.left + 30;
                 widget.top = 17;
-                widget.bottom = 43;
-                widget.image = ImageId(SPR_TAB, FilterPaletteID::PaletteNull);
-                widget.tooltip = STR_NONE;
+                widget.bottom = kTabBarHeight;
+                widget.image = ImageId(SPR_TAB, FilterPaletteID::paletteNull);
+                widget.tooltip = kStringIdNone;
                 widgetList.push_back(widget);
-                info.WidgetIndexMap.push_back(std::numeric_limits<size_t>::max());
+                _info.WidgetIndexMap.push_back(std::numeric_limits<size_t>::max());
             }
 
             // Add custom widgets
-            auto totalWidgets = info.Desc.Widgets.size();
+            auto totalWidgets = _info.Desc.Widgets.size();
             auto tabWidgetsOffset = totalWidgets;
-            if (info.Desc.Tabs.size() != 0)
+            if (!_info.Desc.Tabs.empty())
             {
-                totalWidgets += info.Desc.Tabs[page].Widgets.size();
+                totalWidgets += _info.Desc.Tabs[page].Widgets.size();
             }
             for (size_t widgetDescIndex = 0; widgetDescIndex < totalWidgets; widgetDescIndex++)
             {
-                const auto& widgetDesc = widgetDescIndex < info.Desc.Widgets.size()
-                    ? info.Desc.Widgets[widgetDescIndex]
-                    : info.Desc.Tabs[page].Widgets[widgetDescIndex - tabWidgetsOffset];
+                const auto& widgetDesc = widgetDescIndex < _info.Desc.Widgets.size()
+                    ? _info.Desc.Widgets[widgetDescIndex]
+                    : _info.Desc.Tabs[page].Widgets[widgetDescIndex - tabWidgetsOffset];
                 auto preWidgetSize = widgetList.size();
                 CreateWidget(widgetList, widgetDesc);
-                auto numWidetsAdded = widgetList.size() - preWidgetSize;
-                for (size_t i = 0; i < numWidetsAdded; i++)
+                auto numWidgetsAdded = widgetList.size() - preWidgetSize;
+                for (size_t i = 0; i < numWidgetsAdded; i++)
                 {
-                    info.WidgetIndexMap.push_back(widgetDescIndex);
+                    _info.WidgetIndexMap.push_back(widgetDescIndex);
                 }
 
                 if (widgetDesc.Type == "listview")
                 {
-                    CustomListView listView(this, info.ListViews.size());
-                    listView.Owner = info.Owner;
+                    CustomListView listView(this, _info.ListViews.size());
+                    listView.Owner = _info.Owner;
                     listView.SetScrollbars(widgetDesc.Scrollbars, true);
                     listView.SetColumns(widgetDesc.ListViewColumns, true);
                     listView.SetItems(widgetDesc.ListViewItems, true);
@@ -941,12 +935,11 @@ namespace OpenRCT2::Ui::Windows
                     listView.OnClick = widgetDesc.OnClick;
                     listView.OnHighlight = widgetDesc.OnHighlight;
                     listView.CanSelect = widgetDesc.CanSelect;
-                    info.ListViews.push_back(std::move(listView));
+                    _info.ListViews.push_back(std::move(listView));
                 }
             }
 
-            widgetList.push_back(WIDGETS_END);
-            widgets = widgetList.data();
+            setWidgets(widgetList);
 
             WindowInitScrollWidgets(*this);
             UpdateViewport();
@@ -961,104 +954,101 @@ namespace OpenRCT2::Ui::Windows
             widget.right = desc.X + desc.Width - 1;
             widget.bottom = desc.Y + desc.Height - 1;
             widget.content = std::numeric_limits<uint32_t>::max();
-            widget.tooltip = STR_NONE;
+            widget.tooltip = kStringIdNone;
             widget.sztooltip = const_cast<utf8*>(desc.Tooltip.c_str());
-            widget.flags |= WIDGET_FLAGS::TOOLTIP_IS_STRING;
+            widget.flags.set(WidgetFlag::tooltipIsString);
             if (desc.IsDisabled)
-                widget.flags |= WIDGET_FLAGS::IS_DISABLED;
+                widget.flags.set(WidgetFlag::isDisabled);
             if (!desc.IsVisible)
-                widget.flags |= WIDGET_FLAGS::IS_HIDDEN;
+                widget.flags.set(WidgetFlag::isHidden);
 
             if (desc.Type == "button")
             {
                 if (desc.Image.HasValue())
                 {
-                    widget.type = desc.HasBorder ? WindowWidgetType::ImgBtn : WindowWidgetType::FlatBtn;
+                    widget.type = desc.HasBorder ? WidgetType::imgBtn : WidgetType::flatBtn;
                     widget.image = desc.Image;
                 }
                 else
                 {
-                    widget.type = WindowWidgetType::Button;
-                    widget.string = const_cast<utf8*>(desc.Text.c_str());
-                    widget.flags |= WIDGET_FLAGS::TEXT_IS_STRING;
+                    widget.type = WidgetType::button;
+                    widget.setString(desc.Text.c_str());
                 }
                 if (desc.IsPressed)
                 {
-                    widget.flags |= WIDGET_FLAGS::IS_PRESSED;
+                    widget.flags.set(WidgetFlag::isPressed);
                 }
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "checkbox")
             {
-                widget.type = WindowWidgetType::Checkbox;
+                widget.type = WidgetType::checkbox;
                 widget.string = const_cast<utf8*>(desc.Text.c_str());
-                widget.flags |= WIDGET_FLAGS::TEXT_IS_STRING;
+                widget.flags.set(WidgetFlag::textIsString);
                 if (desc.IsChecked)
                 {
-                    widget.flags |= WIDGET_FLAGS::IS_PRESSED;
+                    widget.flags.set(WidgetFlag::isPressed);
                 }
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "colourpicker")
             {
-                widget.type = WindowWidgetType::ColourBtn;
-                widget.image = GetColourButtonImage(desc.Colour);
+                widget.type = WidgetType::colourBtn;
+                widget.image = getColourButtonImage(desc.Colour);
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "custom")
             {
-                widget.type = WindowWidgetType::Custom;
+                widget.type = WidgetType::custom;
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "dropdown")
             {
-                widget.type = WindowWidgetType::DropdownMenu;
+                widget.type = WidgetType::dropdownMenu;
                 if (desc.SelectedIndex >= 0 && static_cast<size_t>(desc.SelectedIndex) < desc.Items.size())
                 {
-                    widget.string = const_cast<utf8*>(desc.Items[desc.SelectedIndex].c_str());
+                    widget.setString(desc.Items[desc.SelectedIndex].c_str());
                 }
                 else
                 {
-                    widget.string = const_cast<utf8*>("");
+                    widget.setString("");
                 }
-                widget.flags |= WIDGET_FLAGS::TEXT_IS_STRING;
                 widgetList.push_back(widget);
 
                 // Add the dropdown button
                 widget = {};
-                widget.type = WindowWidgetType::Button;
+                widget.type = WidgetType::button;
                 widget.colour = 1;
                 widget.left = desc.X + desc.Width - 12;
                 widget.right = desc.X + desc.Width - 2;
                 widget.top = desc.Y + 1;
                 widget.bottom = desc.Y + desc.Height - 2;
                 widget.text = STR_DROPDOWN_GLYPH;
-                widget.tooltip = STR_NONE;
+                widget.tooltip = kStringIdNone;
                 if (desc.IsDisabled)
-                    widget.flags |= WIDGET_FLAGS::IS_DISABLED;
+                    widget.flags.set(WidgetFlag::isDisabled);
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "groupbox")
             {
-                widget.type = WindowWidgetType::Groupbox;
+                widget.type = WidgetType::groupbox;
                 widget.string = const_cast<utf8*>(desc.Text.c_str());
-                widget.flags |= WIDGET_FLAGS::TEXT_IS_STRING;
+                widget.flags.set(WidgetFlag::textIsString);
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "label")
             {
-                widget.type = WindowWidgetType::Label;
-                widget.string = const_cast<utf8*>(desc.Text.c_str());
-                widget.flags |= WIDGET_FLAGS::TEXT_IS_STRING;
-                if (desc.TextAlign == TextAlignment::CENTRE)
+                widget.type = WidgetType::label;
+                widget.setString(desc.Text.c_str());
+                if (desc.TextAlign == TextAlignment::centre)
                 {
-                    widget.type = WindowWidgetType::LabelCentred;
+                    widget.type = WidgetType::labelCentred;
                 }
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "listview")
             {
-                widget.type = WindowWidgetType::Scroll;
+                widget.type = WidgetType::scroll;
                 widget.content = 0;
                 if (desc.Scrollbars == ScrollbarType::Horizontal)
                     widget.content = SCROLL_HORIZONTAL;
@@ -1070,51 +1060,51 @@ namespace OpenRCT2::Ui::Windows
             }
             else if (desc.Type == "spinner")
             {
-                widget.type = WindowWidgetType::Spinner;
+                widget.type = WidgetType::spinner;
                 widget.string = const_cast<utf8*>(desc.Text.c_str());
-                widget.flags |= WIDGET_FLAGS::TEXT_IS_STRING;
-                widgetList.push_back(widget);
-
-                // Add the decrement button
-                widget = {};
-                widget.type = WindowWidgetType::Button;
-                widget.colour = 1;
-                widget.left = desc.X + desc.Width - 26;
-                widget.right = widget.left + 12;
-                widget.top = desc.Y + 1;
-                widget.bottom = desc.Y + desc.Height - 2;
-                widget.text = STR_NUMERIC_DOWN;
-                widget.tooltip = STR_NONE;
-                if (desc.IsDisabled)
-                    widget.flags |= WIDGET_FLAGS::IS_DISABLED;
-                widget.flags |= WIDGET_FLAGS::IS_HOLDABLE;
+                widget.flags.set(WidgetFlag::textIsString);
                 widgetList.push_back(widget);
 
                 // Add the increment button
+                widget = {};
+                widget.type = WidgetType::button;
+                widget.colour = 1;
                 widget.left = desc.X + desc.Width - 13;
                 widget.right = widget.left + 11;
+                widget.top = desc.Y + 1;
+                widget.bottom = desc.Y + desc.Height - 2;
                 widget.text = STR_NUMERIC_UP;
+                widget.tooltip = kStringIdNone;
+                if (desc.IsDisabled)
+                    widget.flags.set(WidgetFlag::isDisabled);
+                widget.flags.set(WidgetFlag::isHoldable);
+                widgetList.push_back(widget);
+
+                // Add the decrement button
+                widget.left = desc.X + desc.Width - 26;
+                widget.right = widget.left + 12;
+                widget.text = STR_NUMERIC_DOWN;
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "textbox")
             {
-                widget.type = WindowWidgetType::TextBox;
-                widget.string = const_cast<utf8*>(desc.Text.c_str());
-                widget.flags |= WIDGET_FLAGS::TEXT_IS_STRING;
+                widget.type = WidgetType::textBox;
+                widget.setString(desc.Text.c_str());
                 widgetList.push_back(widget);
             }
             else if (desc.Type == "viewport")
             {
-                widget.type = WindowWidgetType::Viewport;
-                widget.text = STR_NONE;
+                widget.type = WidgetType::viewport;
+                widget.text = kStringIdNone;
                 widgetList.push_back(widget);
             }
         }
 
-        static rct_windownumber GetNewWindowNumber()
+        static WindowNumber GetNewWindowNumber()
         {
             auto result = _nextWindowNumber++;
-            while (WindowFindByNumber(WindowClass::Custom, result) != nullptr)
+            auto* windowMgr = GetWindowManager();
+            while (windowMgr->FindByNumber(WindowClass::custom, result) != nullptr)
             {
                 result++;
             }
@@ -1122,52 +1112,50 @@ namespace OpenRCT2::Ui::Windows
         }
     };
 
-    rct_windownumber CustomWindow::_nextWindowNumber;
+    WindowNumber CustomWindow::_nextWindowNumber;
 
-    WindowBase* WindowCustomOpen(std::shared_ptr<Plugin> owner, DukValue dukDesc)
+    WindowBase* WindowCustomOpen(JSContext* ctx, std::shared_ptr<Plugin> owner, JSValue descVal)
     {
-        auto desc = CustomWindowDesc::FromDukValue(dukDesc);
-        uint16_t windowFlags = WF_RESIZABLE | WF_TRANSPARENT;
+        auto desc = CustomWindowDesc::FromJSValue(ctx, descVal);
+        WindowFlags windowFlags = { WindowFlag::resizable, WindowFlag::transparent };
+        auto* windowMgr = GetWindowManager();
+
         CustomWindow* window{};
         if (desc.X && desc.Y)
         {
-            window = WindowCreate<CustomWindow>(
-                WindowClass::Custom, { *desc.X, *desc.Y }, desc.Width, desc.Height, windowFlags);
+            window = windowMgr->Create<CustomWindow>(
+                WindowClass::custom, { *desc.X, *desc.Y }, desc.size, windowFlags, owner, desc);
         }
         else
         {
-            window = WindowCreate<CustomWindow>(WindowClass::Custom, desc.Width, desc.Height, windowFlags);
-        }
-        if (window != nullptr)
-        {
-            window->Initialise(owner, desc);
+            window = windowMgr->Create<CustomWindow>(WindowClass::custom, desc.size, windowFlags, owner, desc);
         }
         return window;
     }
 
-    static CustomWindowInfo& GetInfo(WindowBase* w)
+    static CustomWindowInfo& GetInfo(CustomWindow* w)
     {
-        return *(static_cast<CustomWindowInfo*>(w->custom_info));
+        return w->getInfo();
     }
 
-    static void InvokeEventHandler(const std::shared_ptr<Plugin>& owner, const DukValue& dukHandler)
+    static void InvokeEventHandler(const std::shared_ptr<Plugin>& owner, const JSCallback& jsCallback)
     {
-        std::vector<DukValue> args;
-        InvokeEventHandler(owner, dukHandler, args);
+        std::vector<JSValue> args;
+        InvokeEventHandler(owner, jsCallback, args);
     }
 
     static void InvokeEventHandler(
-        const std::shared_ptr<Plugin>& owner, const DukValue& dukHandler, const std::vector<DukValue>& args)
+        const std::shared_ptr<Plugin>& owner, const JSCallback& jsCallback, const std::vector<JSValue>& args)
     {
         auto& scriptEngine = GetContext()->GetScriptEngine();
-        scriptEngine.ExecutePluginCall(owner, dukHandler, args, false);
+        scriptEngine.ExecutePluginCall(owner, jsCallback.callback, args, false);
     }
 
     std::string GetWindowTitle(WindowBase* w)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             return customInfo.Desc.Title;
         }
         return {};
@@ -1175,18 +1163,18 @@ namespace OpenRCT2::Ui::Windows
 
     void UpdateWindowTitle(WindowBase* w, std::string_view value)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             customInfo.Desc.Title = value;
         }
     }
 
     void UpdateWindowTab(WindowBase* w, int32_t tabIndex)
     {
-        if (w->classification == WindowClass::Custom && w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             if (tabIndex >= 0 && tabIndex < static_cast<int32_t>(customInfo.Desc.Tabs.size()))
             {
                 static_cast<CustomWindow*>(w)->ChangeTab(tabIndex);
@@ -1196,24 +1184,26 @@ namespace OpenRCT2::Ui::Windows
 
     void UpdateWidgetText(WindowBase* w, WidgetIndex widgetIndex, std::string_view value)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
                 customWidgetInfo->Text = value;
                 w->widgets[widgetIndex].string = customWidgetInfo->Text.data();
-                WidgetInvalidate(*w, widgetIndex);
+
+                auto* windowMgr = GetWindowManager();
+                windowMgr->InvalidateWidget(*w, widgetIndex);
             }
         }
     }
 
     void UpdateWidgetItems(WindowBase* w, WidgetIndex widgetIndex, const std::vector<std::string>& items)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1223,27 +1213,27 @@ namespace OpenRCT2::Ui::Windows
         }
     }
 
-    void UpdateWidgetColour(WindowBase* w, WidgetIndex widgetIndex, colour_t colour)
+    void UpdateWidgetColour(WindowBase* w, WidgetIndex widgetIndex, Colour colour)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
                 auto& widget = w->widgets[widgetIndex];
 
                 auto lastColour = customWidgetInfo->Colour;
-                if (lastColour != colour && colour < COLOUR_COUNT)
+                if (lastColour != colour && colourIsValid(colour))
                 {
                     customWidgetInfo->Colour = colour;
-                    widget.image = GetColourButtonImage(colour);
-                    WidgetInvalidate(*w, widgetIndex);
+                    widget.image = getColourButtonImage(colour);
 
-                    std::vector<DukValue> args;
-                    auto ctx = customWidgetInfo->OnChange.context();
-                    duk_push_int(ctx, colour);
-                    args.push_back(DukValue::take_from_stack(ctx));
+                    auto* windowMgr = GetWindowManager();
+                    windowMgr->InvalidateWidget(*w, widgetIndex);
+
+                    std::vector<JSValue> args;
+                    args.push_back(JS_NewInt32(customWidgetInfo->OnChange.context, EnumValue(colour)));
                     InvokeEventHandler(customInfo.Owner, customWidgetInfo->OnChange, args);
                 }
             }
@@ -1252,16 +1242,16 @@ namespace OpenRCT2::Ui::Windows
 
     void UpdateWidgetSelectedIndex(WindowBase* w, WidgetIndex widgetIndex, int32_t selectedIndex)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
                 auto& widget = w->widgets[widgetIndex];
 
                 auto lastSelectedIndex = customWidgetInfo->SelectedIndex;
-                if (customWidgetInfo->Items.size() == 0)
+                if (customWidgetInfo->Items.empty())
                 {
                     selectedIndex = -1;
                 }
@@ -1283,14 +1273,13 @@ namespace OpenRCT2::Ui::Windows
                 }
                 customWidgetInfo->SelectedIndex = selectedIndex;
 
-                WidgetInvalidate(*w, widgetIndex);
+                auto* windowMgr = GetWindowManager();
+                windowMgr->InvalidateWidget(*w, widgetIndex);
 
                 if (lastSelectedIndex != selectedIndex)
                 {
-                    std::vector<DukValue> args;
-                    auto ctx = customWidgetInfo->OnChange.context();
-                    duk_push_int(ctx, selectedIndex);
-                    args.push_back(DukValue::take_from_stack(ctx));
+                    std::vector<JSValue> args;
+                    args.push_back(JS_NewInt32(customWidgetInfo->OnChange.context, selectedIndex));
                     InvokeEventHandler(customInfo.Owner, customWidgetInfo->OnChange, args);
                 }
             }
@@ -1299,9 +1288,9 @@ namespace OpenRCT2::Ui::Windows
 
     std::vector<std::string> GetWidgetItems(WindowBase* w, WidgetIndex widgetIndex)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1311,25 +1300,25 @@ namespace OpenRCT2::Ui::Windows
         return {};
     }
 
-    colour_t GetWidgetColour(WindowBase* w, WidgetIndex widgetIndex)
+    Colour GetWidgetColour(WindowBase* w, WidgetIndex widgetIndex)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
                 return customWidgetInfo->Colour;
             }
         }
-        return COLOUR_BLACK;
+        return Colour::black;
     }
 
     int32_t GetWidgetSelectedIndex(WindowBase* w, WidgetIndex widgetIndex)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1341,11 +1330,11 @@ namespace OpenRCT2::Ui::Windows
 
     WindowBase* FindCustomWindowByClassification(std::string_view classification)
     {
-        for (const auto& w : g_window_list)
+        for (const auto& w : gWindowList)
         {
-            if (w->classification == WindowClass::Custom)
+            if (w->classification == WindowClass::custom)
             {
-                const auto& customInfo = GetInfo(w.get());
+                const auto& customInfo = GetInfo(static_cast<CustomWindow*>(w.get()));
                 if (customInfo.Desc.Classification == classification)
                 {
                     return w.get();
@@ -1357,9 +1346,9 @@ namespace OpenRCT2::Ui::Windows
 
     std::optional<WidgetIndex> FindWidgetIndexByName(WindowBase* w, std::string_view name)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             for (size_t i = 0; i < customInfo.Widgets.size(); i++)
             {
                 auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, i);
@@ -1377,9 +1366,9 @@ namespace OpenRCT2::Ui::Windows
 
     std::string GetWidgetName(WindowBase* w, WidgetIndex widgetIndex)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            const auto& customInfo = GetInfo(w);
+            const auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1391,9 +1380,9 @@ namespace OpenRCT2::Ui::Windows
 
     void SetWidgetName(WindowBase* w, WidgetIndex widgetIndex, std::string_view name)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1404,9 +1393,9 @@ namespace OpenRCT2::Ui::Windows
 
     std::string GetWidgetTooltip(WindowBase* w, WidgetIndex widgetIndex)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            const auto& customInfo = GetInfo(w);
+            const auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1418,9 +1407,9 @@ namespace OpenRCT2::Ui::Windows
 
     void SetWidgetTooltip(WindowBase* w, WidgetIndex widgetIndex, std::string_view tooltip)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1431,9 +1420,9 @@ namespace OpenRCT2::Ui::Windows
 
     CustomListView* GetCustomListView(WindowBase* w, WidgetIndex widgetIndex)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& info = GetInfo(w);
+            auto& info = GetInfo(static_cast<CustomWindow*>(w));
             auto scrollIndex = WindowGetScrollDataIndex(*w, widgetIndex);
             if (scrollIndex < static_cast<int32_t>(info.ListViews.size()))
             {
@@ -1445,9 +1434,9 @@ namespace OpenRCT2::Ui::Windows
 
     int32_t GetWidgetMaxLength(WindowBase* w, WidgetIndex widgetIndex)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1459,9 +1448,9 @@ namespace OpenRCT2::Ui::Windows
 
     void SetWidgetMaxLength(WindowBase* w, WidgetIndex widgetIndex, int32_t value)
     {
-        if (w->custom_info != nullptr)
+        if (w->classification == WindowClass::custom)
         {
-            auto& customInfo = GetInfo(w);
+            auto& customInfo = GetInfo(static_cast<CustomWindow*>(w));
             auto customWidgetInfo = customInfo.GetCustomWidgetDesc(w, widgetIndex);
             if (customWidgetInfo != nullptr)
             {
@@ -1473,26 +1462,26 @@ namespace OpenRCT2::Ui::Windows
     void CloseWindowsOwnedByPlugin(std::shared_ptr<Plugin> plugin)
     {
         // Get all the windows that need closing
-        std::vector<std::shared_ptr<WindowBase>> customWindows;
-        for (const auto& window : g_window_list)
+        std::vector<WindowBase*> customWindows;
+        for (const auto& window : gWindowList)
         {
-            if (window->classification == WindowClass::Custom)
+            if (window->classification == WindowClass::custom)
             {
                 auto customWindow = reinterpret_cast<CustomWindow*>(window.get());
-                auto customInfo = reinterpret_cast<CustomWindowInfo*>(customWindow->custom_info);
-                if (customInfo != nullptr && customInfo->Owner == plugin)
+                auto& customInfo = GetInfo(customWindow);
+                if (customInfo.Owner == plugin)
                 {
-                    customWindows.push_back(window);
+                    customWindows.push_back(window.get());
                 }
             }
         }
 
         for (auto& window : customWindows)
         {
-            WindowClose(*window.get());
+            auto* windowMgr = GetWindowManager();
+            windowMgr->Close(*window);
         }
     }
-
 } // namespace OpenRCT2::Ui::Windows
 
 #endif

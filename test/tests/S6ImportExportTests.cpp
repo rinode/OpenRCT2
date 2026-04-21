@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2025 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -10,31 +10,26 @@
 #include "TestData.h"
 
 #include <gtest/gtest.h>
-#include <openrct2/Cheats.h>
 #include <openrct2/Context.h>
+#include <openrct2/Diagnostic.h>
 #include <openrct2/Game.h>
 #include <openrct2/GameState.h>
 #include <openrct2/GameStateSnapshots.h>
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/ParkImporter.h>
 #include <openrct2/audio/AudioContext.h>
-#include <openrct2/config/Config.h>
 #include <openrct2/core/Crypt.h>
-#include <openrct2/core/File.h>
 #include <openrct2/core/MemoryStream.h>
-#include <openrct2/core/Path.hpp>
 #include <openrct2/core/String.hpp>
+#include <openrct2/drawing/Drawing.h>
 #include <openrct2/entity/EntityRegistry.h>
 #include <openrct2/entity/EntityTweener.h>
-#include <openrct2/network/network.h>
 #include <openrct2/object/ObjectManager.h>
 #include <openrct2/park/ParkFile.h>
-#include <openrct2/platform/Platform.h>
+#include <openrct2/rct2/RCT2.h>
 #include <openrct2/ride/Ride.h>
 #include <openrct2/scenario/Scenario.h>
 #include <openrct2/world/MapAnimation.h>
-#include <openrct2/world/Scenery.h>
-#include <stdio.h>
 #include <string>
 
 using namespace OpenRCT2;
@@ -60,14 +55,14 @@ static bool LoadFileToBuffer(MemoryStream& stream, const std::string& filePath)
 
 static void GameInit(bool retainSpatialIndices)
 {
+    auto& gameState = getGameState();
     if (!retainSpatialIndices)
-        ResetEntitySpatialIndices();
+        gameState.entities.ResetEntitySpatialIndices();
 
     ResetAllSpriteQuadrantPlacements();
-    ScenerySetDefaultPlacementConfiguration();
     LoadPalette();
     EntityTweener::Get().Reset();
-    MapAnimationAutoCreate();
+    MapAnimations::MarkAllTiles();
     FixInvalidVehicleSpriteSizes();
 
     gGameSpeed = 1;
@@ -82,7 +77,11 @@ static bool ImportS6(MemoryStream& stream, std::unique_ptr<IContext>& context, b
     auto importer = ParkImporter::CreateS6(context->GetObjectRepository());
     auto loadResult = importer->LoadFromStream(&stream, false);
     objManager.LoadObjects(loadResult.RequiredObjects);
-    importer->Import();
+
+    MapAnimations::ClearAll();
+    // TODO: Have a separate GameState and exchange once loaded.
+    auto& gameState = getGameState();
+    importer->Import(gameState);
 
     GameInit(retainSpatialIndices);
 
@@ -98,7 +97,10 @@ static bool ImportPark(MemoryStream& stream, std::unique_ptr<IContext>& context,
     auto importer = ParkImporter::CreateParkFile(context->GetObjectRepository());
     auto loadResult = importer->LoadFromStream(&stream, false);
     objManager.LoadObjects(loadResult.RequiredObjects);
-    importer->Import();
+
+    // TODO: Have a separate GameState and exchange once loaded.
+    auto& gameState = getGameState();
+    importer->Import(gameState);
 
     GameInit(retainSpatialIndices);
 
@@ -111,7 +113,9 @@ static bool ExportSave(MemoryStream& stream, std::unique_ptr<IContext>& context)
 
     auto exporter = std::make_unique<ParkFileExporter>();
     exporter->ExportObjectsList = objManager.GetPackableObjects();
-    exporter->Export(stream);
+
+    auto& gameState = getGameState();
+    exporter->Export(gameState, stream, kParkFileSaveCompressionLevel);
 
     return true;
 }
@@ -122,17 +126,16 @@ static void RecordGameStateSnapshot(std::unique_ptr<IContext>& context, MemorySt
 
     auto& snapshot = snapshots->CreateSnapshot();
     snapshots->Capture(snapshot);
-    snapshots->LinkSnapshot(snapshot, gCurrentTicks, ScenarioRandState().s0);
+    snapshots->LinkSnapshot(snapshot, getGameState().currentTicks, ScenarioRandState().s0);
     DataSerialiser snapShotDs(true, snapshotStream);
     snapshots->SerialiseSnapshot(snapshot, snapShotDs);
 }
 
 static void AdvanceGameTicks(uint32_t ticks, std::unique_ptr<IContext>& context)
 {
-    auto* gameState = context->GetGameState();
     for (uint32_t i = 0; i < ticks; i++)
     {
-        gameState->UpdateLogic();
+        gameStateUpdateLogic();
     }
 }
 
@@ -187,8 +190,6 @@ TEST(S6ImportExportBasic, all)
     gOpenRCT2Headless = true;
     gOpenRCT2NoGraphics = true;
 
-    Platform::CoreInit();
-
     MemoryStream importBuffer;
     MemoryStream exportBuffer;
     MemoryStream snapshotStream;
@@ -232,8 +233,6 @@ TEST(S6ImportExportAdvanceTicks, all)
 {
     gOpenRCT2Headless = true;
     gOpenRCT2NoGraphics = true;
-
-    Platform::CoreInit();
 
     MemoryStream importBuffer;
     MemoryStream exportBuffer;

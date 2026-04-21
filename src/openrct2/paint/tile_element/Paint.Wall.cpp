@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -10,37 +10,40 @@
 #include "../Paint.h"
 
 #include "../../Game.h"
-#include "../../common.h"
+#include "../../GameState.h"
 #include "../../config/Config.h"
+#include "../../drawing/ColourMap.h"
 #include "../../drawing/Drawing.h"
-#include "../../interface/Colour.h"
+#include "../../drawing/ScrollingText.h"
 #include "../../interface/Viewport.h"
+#include "../../localisation/Formatter.h"
 #include "../../localisation/Formatting.h"
-#include "../../localisation/Localisation.h"
+#include "../../localisation/StringIds.h"
 #include "../../object/WallSceneryEntry.h"
 #include "../../profiling/Profiling.h"
-#include "../../ride/Track.h"
 #include "../../ride/TrackDesign.h"
-#include "../../world/Banner.h"
-#include "../../world/Map.h"
 #include "../../world/Scenery.h"
 #include "../../world/TileInspector.h"
-#include "../../world/Wall.h"
+#include "../../world/tile_element/WallElement.h"
 #include "Paint.TileElement.h"
+#include "Paint.Wall.h"
 
-static constexpr const uint8_t DirectionToDoorImageOffset0[] = {
+using namespace OpenRCT2;
+using namespace OpenRCT2::Drawing;
+
+static constexpr uint8_t DirectionToDoorImageOffset0[] = {
     2, 2, 22, 26, 30, 34, 34, 34, 34, 34, 30, 26, 22, 2, 6, 2, 2, 2, 6, 10, 14, 18, 18, 18, 18, 18, 14, 10, 6, 2, 22, 2,
 };
 
-static constexpr const uint8_t DirectionToDoorImageOffset1[] = {
+static constexpr uint8_t DirectionToDoorImageOffset1[] = {
     0, 0, 4, 8, 12, 16, 16, 16, 16, 16, 12, 8, 4, 0, 20, 0, 0, 0, 20, 24, 28, 32, 32, 32, 32, 32, 28, 24, 20, 0, 4, 0,
 };
 
-static constexpr const uint8_t DirectionToDoorImageOffset2[] = {
+static constexpr uint8_t DirectionToDoorImageOffset2[] = {
     2, 2, 6, 10, 14, 18, 18, 18, 18, 18, 14, 10, 6, 2, 22, 2, 2, 2, 22, 26, 30, 34, 34, 34, 34, 34, 30, 26, 22, 2, 6, 2,
 };
 
-static constexpr const uint8_t DirectionToDoorImageOffset3[] = {
+static constexpr uint8_t DirectionToDoorImageOffset3[] = {
     0, 0, 20, 24, 28, 32, 32, 32, 32, 32, 28, 24, 20, 0, 4, 0, 0, 0, 4, 8, 12, 16, 16, 16, 16, 16, 12, 8, 4, 0, 20, 0,
 };
 
@@ -55,7 +58,7 @@ static void PaintWallDoor(
 
     auto newImageId0 = imageId;
     auto newImageId1 = imageId.WithIndexOffset(1);
-    if (wallEntry.flags & WALL_SCENERY_IS_DOUBLE_SIDED)
+    if (wallEntry.flags & WALL_SCENERY_CANT_BUILD_ON_SLOPE)
     {
         PaintAddImageAsParent(session, newImageId0, offset, bbR1);
         PaintAddImageAsParent(session, newImageId1, offset, bbR2);
@@ -86,7 +89,7 @@ static void PaintWallDoor(
         case 0:
         {
             BoundBoxXYZ bbR1 = { { 1, 1, height + 1 }, { 1, 3, bbHeight - 5 } };
-            BoundBoxXYZ bbR2 = { { 1, 1, height + bbHeight - 9 }, { 1, 28, 3 } };
+            BoundBoxXYZ bbR2 = { { 1, 1, height + bbHeight - 4 }, { 1, 28, 3 } };
 
             BoundBoxXYZ bbL = { { 1, 1, height + 1 }, { 1, 28, bbHeight } };
 
@@ -98,7 +101,7 @@ static void PaintWallDoor(
         case 1:
         {
             BoundBoxXYZ bbR1 = { { 1, 30, height + 1 }, { 3, 3, bbHeight - 5 } };
-            BoundBoxXYZ bbR2 = { { 1, 30, height + bbHeight - 8 }, { 29, 3, 2 } };
+            BoundBoxXYZ bbR2 = { { 1, 30, height + bbHeight - 3 }, { 29, 3, 2 } };
             BoundBoxXYZ bbL = { { 2, 30, height + 1 }, { 29, 1, bbHeight } };
 
             CoordsXYZ offset = { 1, 31, height };
@@ -109,7 +112,7 @@ static void PaintWallDoor(
         case 2:
         {
             BoundBoxXYZ bbR1 = { { 30, 1, height + 1 }, { 3, 3, bbHeight - 5 } };
-            BoundBoxXYZ bbR2 = { { 30, 1, height + bbHeight - 8 }, { 3, 29, 2 } };
+            BoundBoxXYZ bbR2 = { { 30, 1, height + bbHeight - 3 }, { 3, 29, 2 } };
             BoundBoxXYZ bbL = { { 30, 2, height + 1 }, { 1, 29, bbHeight } };
 
             CoordsXYZ offset = { 31, 0, height };
@@ -120,7 +123,7 @@ static void PaintWallDoor(
         case 3:
         {
             BoundBoxXYZ bbR1 = { { 1, 1, height + 1 }, { 3, 1, bbHeight - 5 } };
-            BoundBoxXYZ bbR2 = { { 1, 1, height + bbHeight - 9 }, { 28, 1, 3 } };
+            BoundBoxXYZ bbR2 = { { 1, 1, height + bbHeight - 4 }, { 28, 1, 3 } };
             BoundBoxXYZ bbL = { { 1, 1, height + 1 }, { 28, 1, bbHeight } };
 
             CoordsXYZ offset = { 2, 1, height };
@@ -137,7 +140,7 @@ static void PaintWallWall(
 {
     PROFILED_FUNCTION();
 
-    auto frameNum = (wallEntry.flags2 & WALL_SCENERY_2_ANIMATED) ? (gCurrentTicks & 7) * 2 : 0;
+    auto frameNum = (wallEntry.flags2 & WALL_SCENERY_2_ANIMATED) ? (getGameState().currentTicks & 7) * 2 : 0;
     auto imageIndex = wallEntry.image + imageOffset + frameNum;
     PaintAddImageAsParent(session, imageTemplate.WithIndex(imageIndex), offset, boundBox);
     if ((wallEntry.flags & WALL_SCENERY_HAS_GLASS) && !isGhost)
@@ -157,35 +160,23 @@ static void PaintWallScrollingText(
         return;
 
     auto scrollingMode = wallEntry.scrolling_mode;
-    if (scrollingMode == SCROLLING_MODE_NONE)
+    if (scrollingMode == kScrollingModeNone)
         return;
 
     scrollingMode = wallEntry.scrolling_mode + ((direction + 1) & 3);
-    if (scrollingMode >= MAX_SCROLLING_TEXT_MODES)
+    if (scrollingMode >= ScrollingText::kMaxModes)
         return;
 
     auto banner = wallElement.GetBanner();
     if (banner == nullptr)
         return;
 
-    auto textColour = isGhost ? static_cast<colour_t>(COLOUR_GREY) : wallElement.GetSecondaryColour();
-    auto textPaletteIndex = direction == 0 ? ColourMapA[textColour].mid_dark : ColourMapA[textColour].light;
+    auto textColour = isGhost ? static_cast<OpenRCT2::Drawing::Colour>(OpenRCT2::Drawing::Colour::grey)
+                              : wallElement.GetSecondaryColour();
+    auto textPaletteIndex = direction == 0 ? getColourMap(textColour).midDark : getColourMap(textColour).light;
 
-    auto ft = Formatter();
-    banner->FormatTextTo(ft);
-    char signString[256];
-    if (gConfigGeneral.UpperCaseBanners)
-    {
-        FormatStringToUpper(signString, sizeof(signString), STR_SCROLLING_SIGN_TEXT, ft.Data());
-    }
-    else
-    {
-        OpenRCT2::FormatStringLegacy(signString, sizeof(signString), STR_SCROLLING_SIGN_TEXT, ft.Data());
-    }
-
-    auto stringWidth = GfxGetStringWidth(signString, FontStyle::Tiny);
-    auto scroll = stringWidth > 0 ? (gCurrentTicks / 2) % stringWidth : 0;
-    auto imageId = ScrollingTextSetup(session, STR_SCROLLING_SIGN_TEXT, ft, scroll, scrollingMode, textPaletteIndex);
+    auto bannerText = banner->getText();
+    auto imageId = ScrollingText::setup(session, bannerText, scrollingMode, textPaletteIndex);
     PaintAddImageAsChild(session, imageId, { 0, 0, height + 8 }, { boundsOffset, { 1, 1, 13 } });
 }
 
@@ -302,13 +293,18 @@ void PaintWall(PaintSession& session, uint8_t direction, int32_t height, const W
 {
     PROFILED_FUNCTION();
 
+    if (session.ViewFlags & VIEWPORT_FLAG_HIGHLIGHT_PATH_ISSUES)
+    {
+        return;
+    }
+
     auto* wallEntry = wallElement.GetEntry();
     if (wallEntry == nullptr)
     {
         return;
     }
 
-    session.InteractionType = ViewportInteractionItem::Wall;
+    session.InteractionType = ViewportInteractionItem::wall;
 
     ImageId imageTemplate;
     if (wallEntry->flags & WALL_SCENERY_HAS_PRIMARY_COLOUR)
@@ -324,27 +320,27 @@ void PaintWall(PaintSession& session, uint8_t direction, int32_t height, const W
         imageTemplate = imageTemplate.WithTertiary(wallElement.GetTertiaryColour());
     }
 
-    PaintUtilSetGeneralSupportHeight(session, 8 * wallElement.ClearanceHeight, 0x20);
+    PaintUtilSetGeneralSupportHeight(session, 8 * wallElement.ClearanceHeight);
 
     auto isGhost = false;
-    if (gTrackDesignSaveMode || (session.ViewFlags & VIEWPORT_FLAG_HIGHLIGHT_PATH_ISSUES))
+    if (gTrackDesignSaveMode)
     {
         if (!TrackDesignSaveContainsTileElement(reinterpret_cast<const TileElement*>(&wallElement)))
         {
-            imageTemplate = ImageId().WithRemap(FilterPaletteID::Palette46);
+            imageTemplate = ImageId().WithRemap(FilterPaletteID::palette46);
             isGhost = true;
         }
     }
 
     if (wallElement.IsGhost())
     {
-        session.InteractionType = ViewportInteractionItem::None;
-        imageTemplate = ImageId().WithRemap(FilterPaletteID::Palette44);
+        session.InteractionType = ViewportInteractionItem::none;
+        imageTemplate = ImageId().WithRemap(FilterPaletteID::paletteGhost);
         isGhost = true;
     }
-    else if (OpenRCT2::TileInspector::IsElementSelected(reinterpret_cast<const TileElement*>(&wallElement)))
+    else if (session.SelectedElement == reinterpret_cast<const TileElement*>(&wallElement))
     {
-        imageTemplate = ImageId().WithRemap(FilterPaletteID::Palette44);
+        imageTemplate = ImageId().WithRemap(FilterPaletteID::paletteGhost);
         isGhost = true;
     }
 

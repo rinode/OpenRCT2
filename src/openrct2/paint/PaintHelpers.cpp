@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -7,6 +7,7 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "../drawing/Drawing.h"
 #include "../interface/Viewport.h"
 #include "../ride/TrackPaint.h"
 #include "Paint.h"
@@ -38,16 +39,4 @@ PaintStruct* PaintAddImageAsChildRotated(
     }
 
     return PaintAddImageAsChild(session, image_id, offset, boundBox);
-}
-
-void PaintUtilPushTunnelRotated(PaintSession& session, uint8_t direction, uint16_t height, uint8_t type)
-{
-    if (direction & 1)
-    {
-        PaintUtilPushTunnelRight(session, height, type);
-    }
-    else
-    {
-        PaintUtilPushTunnelLeft(session, height, type);
-    }
 }

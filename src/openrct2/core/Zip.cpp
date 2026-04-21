@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -11,9 +11,8 @@
 
 #include "IStream.hpp"
 
-#include <algorithm>
 #ifndef __ANDROID__
-#    include <zip.h>
+    #include <zip.h>
 #endif
 
 using namespace OpenRCT2;
@@ -71,14 +70,14 @@ class ZipArchive final : public IZipArchive
 {
 private:
     zip_t* _zip;
-    ZIP_ACCESS _access;
+    ZipAccess _access;
     std::vector<std::vector<uint8_t>> _writeBuffers;
 
 public:
-    ZipArchive(std::string_view path, ZIP_ACCESS access)
+    ZipArchive(std::string_view path, ZipAccess access)
     {
         auto zipOpenMode = ZIP_RDONLY;
-        if (access == ZIP_ACCESS::WRITE)
+        if (access == ZipAccess::write)
         {
             zipOpenMode = ZIP_CREATE;
         }
@@ -169,13 +168,19 @@ public:
 
         auto source = zip_source_buffer(_zip, writeBuffer.data(), writeBuffer.size(), 0);
         auto index = GetIndexFromPath(path);
+        zip_int64_t res = 0;
         if (index.has_value())
         {
-            zip_replace(_zip, index.value(), source);
+            res = zip_file_replace(_zip, index.value(), source, 0);
         }
         else
         {
-            zip_add(_zip, path.data(), source);
+            res = zip_file_add(_zip, path.data(), source, 0);
+        }
+        if (res == -1)
+        {
+            zip_source_free(source);
+            throw std::runtime_error(std::string(zip_strerror(_zip)));
         }
     }
 
@@ -314,11 +319,6 @@ private:
             return static_cast<uint64_t>(readBytes);
         }
 
-        const void* GetData() const override
-        {
-            return nullptr;
-        }
-
     private:
         void Close()
         {
@@ -371,14 +371,14 @@ private:
     };
 };
 
-namespace Zip
+namespace OpenRCT2::Zip
 {
-    std::unique_ptr<IZipArchive> Open(std::string_view path, ZIP_ACCESS access)
+    std::unique_ptr<IZipArchive> Open(std::string_view path, ZipAccess access)
     {
         return std::make_unique<ZipArchive>(path, access);
     }
 
-    std::unique_ptr<IZipArchive> TryOpen(std::string_view path, ZIP_ACCESS access)
+    std::unique_ptr<IZipArchive> TryOpen(std::string_view path, ZipAccess access)
     {
         std::unique_ptr<IZipArchive> result;
         try
@@ -390,6 +390,6 @@ namespace Zip
         }
         return result;
     }
-} // namespace Zip
+} // namespace OpenRCT2::Zip
 
 #endif

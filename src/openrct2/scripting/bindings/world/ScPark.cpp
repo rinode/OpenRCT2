@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,318 +9,382 @@
 
 #ifdef ENABLE_SCRIPTING
 
-#    include "ScPark.hpp"
+    #include "ScPark.hpp"
 
-#    include "../../../Context.h"
-#    include "../../../GameState.h"
-#    include "../../../common.h"
-#    include "../../../core/String.hpp"
-#    include "../../../entity/Guest.h"
-#    include "../../../management/Finance.h"
-#    include "../../../management/NewsItem.h"
-#    include "../../../windows/Intent.h"
-#    include "../../../world/Park.h"
-#    include "../../Duktape.hpp"
-#    include "../../ScriptEngine.h"
-#    include "ScParkMessage.hpp"
-
-#    include <algorithm>
+    #include "../../../Context.h"
+    #include "../../../Date.h"
+    #include "../../../GameState.h"
+    #include "../../../core/String.hpp"
+    #include "../../../drawing/Drawing.h"
+    #include "../../../entity/Guest.h"
+    #include "../../../management/Finance.h"
+    #include "../../../management/NewsItem.h"
+    #include "../../../ui/WindowManager.h"
+    #include "../../../windows/Intent.h"
+    #include "../../../world/Park.h"
+    #include "../../ScriptEngine.h"
+    #include "../entity/ScGuest.hpp"
+    #include "ScParkMessage.hpp"
 
 namespace OpenRCT2::Scripting
 {
-    static const DukEnumMap<uint64_t> ParkFlagMap({
-        { "open", PARK_FLAGS_PARK_OPEN },
-        { "scenarioCompleteNameInput", PARK_FLAGS_SCENARIO_COMPLETE_NAME_INPUT },
-        { "forbidLandscapeChanges", PARK_FLAGS_FORBID_LANDSCAPE_CHANGES },
-        { "forbidTreeRemoval", PARK_FLAGS_FORBID_TREE_REMOVAL },
-        { "forbidHighConstruction", PARK_FLAGS_FORBID_HIGH_CONSTRUCTION },
-        { "preferLessIntenseRides", PARK_FLAGS_PREF_LESS_INTENSE_RIDES },
-        { "forbidMarketingCampaigns", PARK_FLAGS_FORBID_MARKETING_CAMPAIGN },
-        { "preferMoreIntenseRides", PARK_FLAGS_PREF_MORE_INTENSE_RIDES },
-        { "noMoney", PARK_FLAGS_NO_MONEY },
-        { "difficultGuestGeneration", PARK_FLAGS_DIFFICULT_GUEST_GENERATION },
-        { "freeParkEntry", PARK_FLAGS_PARK_FREE_ENTRY },
-        { "difficultParkRating", PARK_FLAGS_DIFFICULT_PARK_RATING },
-        { "unlockAllPrices", PARK_FLAGS_UNLOCK_ALL_PRICES },
-    });
-
-    money64 ScPark::cash_get() const
-    {
-        return gCash;
-    }
-    void ScPark::cash_set(money64 value)
-    {
-        ThrowIfGameStateNotMutable();
-
-        if (gCash != value)
+    static const EnumMap<uint64_t> ParkFlagMap(
         {
-            gCash = value;
+            { "open", PARK_FLAGS_PARK_OPEN },
+            { "scenarioCompleteNameInput", PARK_FLAGS_SCENARIO_COMPLETE_NAME_INPUT },
+            { "forbidLandscapeChanges", PARK_FLAGS_FORBID_LANDSCAPE_CHANGES },
+            { "forbidTreeRemoval", PARK_FLAGS_FORBID_TREE_REMOVAL },
+            { "forbidHighConstruction", PARK_FLAGS_FORBID_HIGH_CONSTRUCTION },
+            { "preferLessIntenseRides", PARK_FLAGS_PREF_LESS_INTENSE_RIDES },
+            { "forbidMarketingCampaigns", PARK_FLAGS_FORBID_MARKETING_CAMPAIGN },
+            { "preferMoreIntenseRides", PARK_FLAGS_PREF_MORE_INTENSE_RIDES },
+            { "noMoney", PARK_FLAGS_NO_MONEY },
+            { "difficultGuestGeneration", PARK_FLAGS_DIFFICULT_GUEST_GENERATION },
+            { "freeParkEntry", PARK_FLAGS_PARK_FREE_ENTRY },
+            { "difficultParkRating", PARK_FLAGS_DIFFICULT_PARK_RATING },
+            { "unlockAllPrices", PARK_FLAGS_UNLOCK_ALL_PRICES },
+        });
+
+    JSValue ScPark::cash_get(JSContext* ctx, JSValue thisVal)
+    {
+        return JS_NewInt64(ctx, getGameState().park.cash);
+    }
+    JSValue ScPark::cash_set(JSContext* ctx, JSValue thisVal, JSValue value)
+    {
+        JS_UNPACK_INT64(valueInt, ctx, value)
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+
+        auto& gameState = getGameState();
+        if (gameState.park.cash != valueInt)
+        {
+            gameState.park.cash = valueInt;
             auto intent = Intent(INTENT_ACTION_UPDATE_CASH);
             ContextBroadcastIntent(&intent);
         }
+        return JS_UNDEFINED;
     }
 
-    int32_t ScPark::rating_get() const
+    JSValue ScPark::rating_get(JSContext* ctx, JSValue thisVal)
     {
-        return gParkRating;
+        return JS_NewInt32(ctx, getGameState().park.rating);
     }
-    void ScPark::rating_set(int32_t value)
+    JSValue ScPark::rating_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_INT32(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
 
-        auto valueClamped = std::min(std::max(0, value), 999);
-        if (gParkRating != valueClamped)
+        auto valueClamped = std::min(std::max(0, valueInt), 999);
+        auto& gameState = getGameState();
+        if (gameState.park.rating != valueClamped)
         {
-            gParkRating = std::min(std::max(0, value), 999);
+            gameState.park.rating = std::min(std::max(0, valueInt), 999);
             auto intent = Intent(INTENT_ACTION_UPDATE_PARK_RATING);
             ContextBroadcastIntent(&intent);
         }
+        return JS_UNDEFINED;
     }
 
-    money64 ScPark::bankLoan_get() const
+    JSValue ScPark::bankLoan_get(JSContext* ctx, JSValue thisVal)
     {
-        return gBankLoan;
+        return JS_NewInt64(ctx, getGameState().park.bankLoan);
     }
-    void ScPark::bankLoan_set(money64 value)
+    JSValue ScPark::bankLoan_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
 
-        if (gBankLoan != value)
+        auto& gameState = getGameState();
+
+        if (gameState.park.bankLoan != valueInt)
         {
-            gBankLoan = value;
+            gameState.park.bankLoan = valueInt;
             auto intent = Intent(INTENT_ACTION_UPDATE_CASH);
             ContextBroadcastIntent(&intent);
         }
+        return JS_UNDEFINED;
     }
 
-    money64 ScPark::maxBankLoan_get() const
+    JSValue ScPark::maxBankLoan_get(JSContext* ctx, JSValue thisVal)
     {
-        return gMaxBankLoan;
+        return JS_NewInt64(ctx, getGameState().park.maxBankLoan);
     }
-    void ScPark::maxBankLoan_set(money64 value)
+    JSValue ScPark::maxBankLoan_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE()
 
-        if (gMaxBankLoan != value)
+        auto& gameState = getGameState();
+        if (gameState.park.maxBankLoan != valueInt)
         {
-            gMaxBankLoan = value;
+            gameState.park.maxBankLoan = valueInt;
             auto intent = Intent(INTENT_ACTION_UPDATE_CASH);
             ContextBroadcastIntent(&intent);
         }
+        return JS_UNDEFINED;
     }
 
-    money64 ScPark::entranceFee_get() const
+    JSValue ScPark::entranceFee_get(JSContext* ctx, JSValue thisVal)
     {
-        return gParkEntranceFee;
+        return JS_NewInt64(ctx, getGameState().park.entranceFee);
     }
-    void ScPark::entranceFee_set(money64 value)
+    JSValue ScPark::entranceFee_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
 
-        if (gParkEntranceFee != value)
+        auto& gameState = getGameState();
+        if (gameState.park.entranceFee != valueInt)
         {
-            gParkEntranceFee = value;
-            WindowInvalidateByClass(WindowClass::ParkInformation);
+            gameState.park.entranceFee = valueInt;
+            auto* windowMgr = Ui::GetWindowManager();
+            windowMgr->InvalidateByClass(WindowClass::parkInformation);
         }
+        return JS_UNDEFINED;
     }
 
-    uint32_t ScPark::guests_get() const
+    JSValue ScPark::guests_get(JSContext* ctx, JSValue thisVal)
     {
-        return gNumGuestsInPark;
+        return JS_NewInt64(ctx, getGameState().park.numGuestsInPark);
     }
 
-    uint32_t ScPark::suggestedGuestMaximum_get() const
+    JSValue ScPark::suggestedGuestMaximum_get(JSContext* ctx, JSValue thisVal)
     {
-        return _suggestedGuestMaximum;
+        return JS_NewInt64(ctx, getGameState().park.suggestedGuestMaximum);
     }
 
-    int32_t ScPark::guestGenerationProbability_get() const
+    JSValue ScPark::guestGenerationProbability_get(JSContext* ctx, JSValue thisVal)
     {
-        return _guestGenerationProbability;
+        return JS_NewInt32(ctx, getGameState().park.guestGenerationProbability);
     }
 
-    money64 ScPark::guestInitialCash_get() const
+    JSValue ScPark::generateGuest(JSContext* ctx, JSValue thisVal, int argc, JSValue* argv)
     {
-        return gGuestInitialCash;
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+        auto guest = Park::GenerateGuest();
+        return ScGuest::New(ctx, guest->Id);
     }
 
-    uint8_t ScPark::guestInitialHappiness_get() const
+    JSValue ScPark::guestInitialCash_get(JSContext* ctx, JSValue thisVal)
     {
-        return gGuestInitialHappiness;
+        return JS_NewInt64(ctx, getGameState().scenarioOptions.guestInitialCash);
     }
 
-    uint8_t ScPark::guestInitialHunger_get() const
+    JSValue ScPark::guestInitialHappiness_get(JSContext* ctx, JSValue thisVal)
     {
-        return gGuestInitialHunger;
+        return JS_NewInt32(ctx, getGameState().scenarioOptions.guestInitialHappiness);
     }
 
-    uint8_t ScPark::guestInitialThirst_get() const
+    JSValue ScPark::guestInitialHunger_get(JSContext* ctx, JSValue thisVal)
     {
-        return gGuestInitialThirst;
+        return JS_NewInt32(ctx, getGameState().scenarioOptions.guestInitialHunger);
     }
 
-    money64 ScPark::value_get() const
+    JSValue ScPark::guestInitialThirst_get(JSContext* ctx, JSValue thisVal)
     {
-        return gParkValue;
+        return JS_NewInt32(ctx, getGameState().scenarioOptions.guestInitialThirst);
     }
-    void ScPark::value_set(money64 value)
-    {
-        ThrowIfGameStateNotMutable();
 
-        if (gParkValue != value)
+    JSValue ScPark::value_get(JSContext* ctx, JSValue thisVal)
+    {
+        return JS_NewInt64(ctx, getGameState().park.value);
+    }
+    JSValue ScPark::value_set(JSContext* ctx, JSValue thisVal, JSValue value)
+    {
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+
+        auto& gameState = getGameState();
+        if (gameState.park.value != valueInt)
         {
-            gParkValue = value;
+            gameState.park.value = valueInt;
             auto intent = Intent(INTENT_ACTION_UPDATE_CASH);
             ContextBroadcastIntent(&intent);
         }
+        return JS_UNDEFINED;
     }
 
-    money64 ScPark::companyValue_get() const
+    JSValue ScPark::companyValue_get(JSContext* ctx, JSValue thisVal)
     {
-        return gCompanyValue;
+        return JS_NewInt64(ctx, getGameState().park.companyValue);
     }
-    void ScPark::companyValue_set(money64 value)
+    JSValue ScPark::companyValue_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
 
-        if (gCompanyValue != value)
+        auto& gameState = getGameState();
+
+        if (gameState.park.companyValue != valueInt)
         {
-            gCompanyValue = value;
+            gameState.park.companyValue = valueInt;
             auto intent = Intent(INTENT_ACTION_UPDATE_CASH);
             ContextBroadcastIntent(&intent);
         }
+        return JS_UNDEFINED;
     }
 
-    money64 ScPark::totalRideValueForMoney_get() const
+    JSValue ScPark::totalRideValueForMoney_get(JSContext* ctx, JSValue thisVal)
     {
-        return gTotalRideValueForMoney;
+        return JS_NewInt64(ctx, getGameState().park.totalRideValueForMoney);
     }
 
-    uint32_t ScPark::totalAdmissions_get() const
+    JSValue ScPark::totalAdmissions_get(JSContext* ctx, JSValue thisVal)
     {
-        return gTotalAdmissions;
+        return JS_NewInt64(ctx, getGameState().park.totalAdmissions);
     }
-    void ScPark::totalAdmissions_set(uint32_t value)
+    JSValue ScPark::totalAdmissions_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
 
-        if (gTotalAdmissions != value)
+        auto& gameState = getGameState();
+
+        if (gameState.park.totalAdmissions != static_cast<uint64_t>(valueInt))
         {
-            gTotalAdmissions = value;
-            WindowInvalidateByClass(WindowClass::ParkInformation);
+            gameState.park.totalAdmissions = static_cast<uint64_t>(valueInt);
+            auto* windowMgr = Ui::GetWindowManager();
+            windowMgr->InvalidateByClass(WindowClass::parkInformation);
         }
+        return JS_UNDEFINED;
     }
 
-    money64 ScPark::totalIncomeFromAdmissions_get() const
+    JSValue ScPark::totalIncomeFromAdmissions_get(JSContext* ctx, JSValue thisVal)
     {
-        return gTotalIncomeFromAdmissions;
+        return JS_NewInt64(ctx, getGameState().park.totalIncomeFromAdmissions);
     }
-    void ScPark::totalIncomeFromAdmissions_set(money64 value)
+    JSValue ScPark::totalIncomeFromAdmissions_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
 
-        if (gTotalIncomeFromAdmissions != value)
+        auto& gameState = getGameState();
+
+        if (gameState.park.totalIncomeFromAdmissions != valueInt)
         {
-            gTotalIncomeFromAdmissions = value;
-            WindowInvalidateByClass(WindowClass::ParkInformation);
+            gameState.park.totalIncomeFromAdmissions = valueInt;
+            auto* windowMgr = Ui::GetWindowManager();
+            windowMgr->InvalidateByClass(WindowClass::parkInformation);
         }
+        return JS_UNDEFINED;
     }
 
-    money64 ScPark::landPrice_get() const
+    JSValue ScPark::landPrice_get(JSContext* ctx, JSValue thisVal)
     {
-        return gLandPrice;
+        return JS_NewInt64(ctx, getGameState().scenarioOptions.landPrice);
     }
-    void ScPark::landPrice_set(money64 value)
+    JSValue ScPark::landPrice_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
-        gLandPrice = value;
-    }
-
-    money64 ScPark::constructionRightsPrice_get() const
-    {
-        return gConstructionRightsPrice;
-    }
-    void ScPark::constructionRightsPrice_set(money64 value)
-    {
-        ThrowIfGameStateNotMutable();
-        gConstructionRightsPrice = value;
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+        getGameState().scenarioOptions.landPrice = valueInt;
+        return JS_UNDEFINED;
     }
 
-    int16_t ScPark::casualtyPenalty_get() const
+    JSValue ScPark::constructionRightsPrice_get(JSContext* ctx, JSValue thisVal)
     {
-        return gParkRatingCasualtyPenalty;
+        return JS_NewInt64(ctx, getGameState().scenarioOptions.constructionRightsPrice);
     }
-    void ScPark::casualtyPenalty_set(int16_t value)
+    JSValue ScPark::constructionRightsPrice_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
-        gParkRatingCasualtyPenalty = value;
-    }
-
-    uint16_t ScPark::parkSize_get() const
-    {
-        return gParkSize;
+        JS_UNPACK_INT64(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+        getGameState().scenarioOptions.constructionRightsPrice = valueInt;
+        return JS_UNDEFINED;
     }
 
-    std::string ScPark::name_get() const
+    JSValue ScPark::casualtyPenalty_get(JSContext* ctx, JSValue thisVal)
     {
-        return GetContext()->GetGameState()->GetPark().Name;
+        return JS_NewInt32(ctx, getGameState().park.ratingCasualtyPenalty);
     }
-    void ScPark::name_set(std::string value)
+    JSValue ScPark::casualtyPenalty_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_INT32(valueInt, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+        getGameState().park.ratingCasualtyPenalty = valueInt;
+        return JS_UNDEFINED;
+    }
 
-        auto& park = GetContext()->GetGameState()->GetPark();
-        if (park.Name != value)
+    JSValue ScPark::parkSize_get(JSContext* ctx, JSValue thisVal)
+    {
+        return JS_NewInt64(ctx, getGameState().park.size);
+    }
+
+    JSValue ScPark::name_get(JSContext* ctx, JSValue thisVal)
+    {
+        return JSFromStdString(ctx, getGameState().park.name);
+    }
+    JSValue ScPark::name_set(JSContext* ctx, JSValue thisVal, JSValue value)
+    {
+        JS_UNPACK_STR(valueStr, ctx, value);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+
+        auto& park = getGameState().park;
+        if (park.name != valueStr)
         {
-            park.Name = std::move(value);
+            park.name = std::move(valueStr);
             GfxInvalidateScreen();
         }
+        return JS_UNDEFINED;
     }
 
-    bool ScPark::getFlag(const std::string& key) const
+    JSValue ScPark::getFlag(JSContext* ctx, JSValue thisVal, int argc, JSValue* argv)
     {
+        JS_UNPACK_STR(key, ctx, argv[0])
         auto mask = ParkFlagMap[key];
-        return (gParkFlags & mask) != 0;
+        return JS_NewBool(ctx, (getGameState().park.flags & mask) != 0);
     }
 
-    void ScPark::setFlag(const std::string& key, bool value)
+    JSValue ScPark::setFlag(JSContext* ctx, JSValue thisVal, int argc, JSValue* argv)
     {
-        ThrowIfGameStateNotMutable();
+        JS_UNPACK_STR(key, ctx, argv[0]);
+        JS_UNPACK_BOOL(value, ctx, argv[1]);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+
         auto mask = ParkFlagMap[key];
+        auto& gameState = getGameState();
         if (value)
-            gParkFlags |= mask;
+            gameState.park.flags |= mask;
         else
-            gParkFlags &= ~mask;
+            gameState.park.flags &= ~mask;
         GfxInvalidateScreen();
+        return JS_UNDEFINED;
     }
 
-    std::vector<std::shared_ptr<ScParkMessage>> ScPark::messages_get() const
+    JSValue ScPark::research_get(JSContext* ctx, JSValue thisVal)
     {
-        std::vector<std::shared_ptr<ScParkMessage>> result;
-        for (size_t i = 0, newsSize = gNewsItems.GetRecent().size(); i < newsSize; i++)
+        return gScResearch.New(ctx);
+    }
+
+    JSValue ScPark::messages_get(JSContext* ctx, JSValue thisVal)
+    {
+        JSValue result = JS_NewArray(ctx);
+        int64_t resultIdx = 0;
+        auto& gameState = getGameState();
+        for (size_t i = 0, newsSize = gameState.newsItems.GetRecent().size(); i < newsSize; i++)
         {
-            result.push_back(std::make_shared<ScParkMessage>(i));
+            JS_SetPropertyInt64(ctx, result, resultIdx++, gScParkMessage.New(ctx, i));
         }
-        for (size_t i = 0, newsSize = gNewsItems.GetArchived().size(); i < newsSize; i++)
+        for (size_t i = 0, newsSize = gameState.newsItems.GetArchived().size(); i < newsSize; i++)
         {
-            result.push_back(std::make_shared<ScParkMessage>(i + News::ItemHistoryStart));
+            auto offset = i + News::ItemHistoryStart;
+            JS_SetPropertyInt64(ctx, result, resultIdx++, gScParkMessage.New(ctx, offset));
         }
         return result;
     }
 
-    void ScPark::messages_set(const std::vector<DukValue>& value)
+    JSValue ScPark::messages_set(JSContext* ctx, JSValue thisVal, JSValue value)
     {
         int32_t index = 0;
         int32_t archiveIndex = News::ItemHistoryStart;
-        for (const auto& item : value)
-        {
-            auto isArchived = item["isArchived"].as_bool();
-            auto newsItem = FromDuk<News::Item>(item);
+        auto& gameState = getGameState();
+        JSIterateArray(ctx, value, [&index, &archiveIndex, &gameState](JSContext* ctx2, JSValue item) {
+            auto isArchived = AsOrDefault(ctx2, item, "isArchived", false);
+            auto newsItem = NewsItemFromJS(ctx2, item);
             if (isArchived)
             {
                 if (archiveIndex < News::MaxItems)
                 {
-                    gNewsItems[archiveIndex] = newsItem;
+                    gameState.newsItems[archiveIndex] = newsItem;
                     archiveIndex++;
                 }
             }
@@ -328,90 +392,157 @@ namespace OpenRCT2::Scripting
             {
                 if (index < News::ItemHistoryStart)
                 {
-                    gNewsItems[index] = newsItem;
+                    gameState.newsItems[index] = newsItem;
                     index++;
                 }
             }
-        }
+        });
 
         // End the lists by setting next item to null
         if (index < News::ItemHistoryStart)
         {
-            gNewsItems[index].Type = News::ItemType::Null;
+            gameState.newsItems[index].type = News::ItemType::null;
         }
         if (archiveIndex < News::MaxItems)
         {
-            gNewsItems[archiveIndex].Type = News::ItemType::Null;
+            gameState.newsItems[archiveIndex].type = News::ItemType::null;
         }
+        return JS_UNDEFINED;
     }
 
-    void ScPark::postMessage(DukValue message)
+    JSValue ScPark::postMessage(JSContext* ctx, JSValue thisVal, int argc, JSValue* argv)
     {
-        ThrowIfGameStateNotMutable();
-        try
-        {
-            uint32_t assoc = std::numeric_limits<uint32_t>::max();
-            auto type = News::ItemType::Blank;
-            std::string text;
-            if (message.type() == DukValue::Type::STRING)
-            {
-                text = message.as_string();
-            }
-            else
-            {
-                type = GetParkMessageType(message["type"].as_string());
-                text = message["text"].as_string();
-                if (type == News::ItemType::Blank)
-                {
-                    assoc = static_cast<uint32_t>(((COORDS_NULL & 0xFFFF) << 16) | (COORDS_NULL & 0xFFFF));
-                }
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
 
-                auto dukSubject = message["subject"];
-                if (dukSubject.type() == DukValue::Type::NUMBER)
-                {
-                    assoc = static_cast<uint32_t>(dukSubject.as_int());
-                }
-            }
-            News::AddItemToQueue(type, text.c_str(), assoc);
-        }
-        catch (const DukException&)
+        uint32_t assoc = std::numeric_limits<uint32_t>::max();
+        auto type = News::ItemType::blank;
+        std::string text;
+        if (JS_IsString(argv[0]))
         {
-            duk_error(message.context(), DUK_ERR_ERROR, "Invalid message argument.");
+            text = JSToStdString(ctx, argv[0]);
         }
+        else
+        {
+            auto textOption = JSToOptionalStdString(ctx, argv[0], "text");
+            auto typeOption = JSToOptionalStdString(ctx, argv[0], "type");
+            if (!textOption.has_value() || !typeOption.has_value())
+            {
+                return JS_ThrowPlainError(ctx, "Invalid message argument.");
+            }
+
+            type = GetParkMessageType(typeOption.value());
+            text = textOption.value();
+            if (type == News::ItemType::blank)
+            {
+                assoc = static_cast<uint32_t>(((kCoordsNull & 0xFFFF) << 16) | (kCoordsNull & 0xFFFF));
+            }
+
+            auto subject = JS_GetPropertyStr(ctx, argv[0], "subject");
+            if (JS_IsNumber(subject))
+            {
+                assoc = JSToUint(ctx, subject);
+            }
+        }
+        News::AddItemToQueue(type, text.c_str(), assoc);
+        return JS_UNDEFINED;
     }
 
-    void ScPark::Register(duk_context* ctx)
+    JSValue ScPark::getMonthlyExpenditure(JSContext* ctx, JSValue thisVal, int argc, JSValue* argv)
     {
-        dukglue_register_property(ctx, &ScPark::cash_get, &ScPark::cash_set, "cash");
-        dukglue_register_property(ctx, &ScPark::rating_get, &ScPark::rating_set, "rating");
-        dukglue_register_property(ctx, &ScPark::bankLoan_get, &ScPark::bankLoan_set, "bankLoan");
-        dukglue_register_property(ctx, &ScPark::maxBankLoan_get, &ScPark::maxBankLoan_set, "maxBankLoan");
-        dukglue_register_property(ctx, &ScPark::entranceFee_get, &ScPark::entranceFee_set, "entranceFee");
-        dukglue_register_property(ctx, &ScPark::guests_get, nullptr, "guests");
-        dukglue_register_property(ctx, &ScPark::suggestedGuestMaximum_get, nullptr, "suggestedGuestMaximum");
-        dukglue_register_property(ctx, &ScPark::guestGenerationProbability_get, nullptr, "guestGenerationProbability");
-        dukglue_register_property(ctx, &ScPark::guestInitialCash_get, nullptr, "guestInitialCash");
-        dukglue_register_property(ctx, &ScPark::guestInitialHappiness_get, nullptr, "guestInitialHappiness");
-        dukglue_register_property(ctx, &ScPark::guestInitialHunger_get, nullptr, "guestInitialHunger");
-        dukglue_register_property(ctx, &ScPark::guestInitialThirst_get, nullptr, "guestInitialThirst");
-        dukglue_register_property(ctx, &ScPark::value_get, &ScPark::value_set, "value");
-        dukglue_register_property(ctx, &ScPark::companyValue_get, &ScPark::companyValue_set, "companyValue");
-        dukglue_register_property(ctx, &ScPark::totalRideValueForMoney_get, nullptr, "totalRideValueForMoney");
-        dukglue_register_property(ctx, &ScPark::totalAdmissions_get, &ScPark::totalAdmissions_set, "totalAdmissions");
-        dukglue_register_property(
-            ctx, &ScPark::totalIncomeFromAdmissions_get, &ScPark::totalIncomeFromAdmissions_set, "totalIncomeFromAdmissions");
-        dukglue_register_property(ctx, &ScPark::landPrice_get, &ScPark::landPrice_set, "landPrice");
-        dukglue_register_property(
-            ctx, &ScPark::constructionRightsPrice_get, &ScPark::constructionRightsPrice_set, "constructionRightsPrice");
-        dukglue_register_property(ctx, &ScPark::parkSize_get, nullptr, "parkSize");
-        dukglue_register_property(ctx, &ScPark::name_get, &ScPark::name_set, "name");
-        dukglue_register_property(ctx, &ScPark::messages_get, &ScPark::messages_set, "messages");
-        dukglue_register_property(ctx, &ScPark::casualtyPenalty_get, &ScPark::casualtyPenalty_set, "casualtyPenalty");
-        dukglue_register_method(ctx, &ScPark::getFlag, "getFlag");
-        dukglue_register_method(ctx, &ScPark::setFlag, "setFlag");
-        dukglue_register_method(ctx, &ScPark::postMessage, "postMessage");
+        JS_UNPACK_STR(expenditureType, ctx, argv[0]);
+
+        auto recordedMonths = std::clamp(
+            GetDate().GetMonthsElapsed() + 1, static_cast<uint32_t>(0), static_cast<uint32_t>(kExpenditureTableMonthCount));
+        JSValue result = JS_NewArray(ctx);
+        auto type = ScriptEngine::StringToExpenditureType(expenditureType);
+        if (type != ExpenditureType::count)
+        {
+            auto& gameState = getGameState();
+            for (size_t i = 0; i < recordedMonths; ++i)
+            {
+                JS_SetPropertyInt64(ctx, result, i, JS_NewInt64(ctx, gameState.park.expenditureTable[i][EnumValue(type)]));
+            }
+        }
+        return result;
     }
 
+    JSValue ScPark::awards_get(JSContext* ctx, JSValue thisVal)
+    {
+        JSValue result = JS_NewArray(ctx);
+
+        auto& gameState = getGameState();
+        for (size_t i = 0; i < gameState.park.currentAwards.size(); i++)
+        {
+            JS_SetPropertyInt64(ctx, result, i, gScAward.New(ctx, i));
+        }
+
+        return result;
+    }
+
+    JSValue ScPark::clearAwards(JSContext* ctx, JSValue thisVal, int argc, JSValue* argv)
+    {
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+        AwardReset();
+        return JS_UNDEFINED;
+    }
+
+    JSValue ScPark::grantAward(JSContext* ctx, JSValue thisVal, int argc, JSValue* argv)
+    {
+        JS_UNPACK_STR(awardType, ctx, argv[0]);
+        JS_THROW_IF_GAME_STATE_NOT_MUTABLE();
+
+        auto optType = StringToAwardType(awardType);
+        if (optType.has_value())
+        {
+            AwardGrant(optType.value());
+        }
+        return JS_UNDEFINED;
+    }
+
+    JSValue ScPark::New(JSContext* ctx)
+    {
+        return MakeWithOpaque(ctx, nullptr);
+    } // namespace OpenRCT2::Scripting
+
+    void ScPark::Register(JSContext* ctx)
+    {
+        static constexpr JSCFunctionListEntry funcs[] = {
+            JS_CGETSET_DEF("cash", ScPark::cash_get, ScPark::cash_set),
+            JS_CGETSET_DEF("rating", ScPark::rating_get, ScPark::rating_set),
+            JS_CGETSET_DEF("bankLoan", ScPark::bankLoan_get, ScPark::bankLoan_set),
+            JS_CGETSET_DEF("maxBankLoan", ScPark::maxBankLoan_get, ScPark::maxBankLoan_set),
+            JS_CGETSET_DEF("entranceFee", ScPark::entranceFee_get, ScPark::entranceFee_set),
+            JS_CGETSET_DEF("guests", ScPark::guests_get, nullptr),
+            JS_CGETSET_DEF("suggestedGuestMaximum", ScPark::suggestedGuestMaximum_get, nullptr),
+            JS_CGETSET_DEF("guestGenerationProbability", ScPark::guestGenerationProbability_get, nullptr),
+            JS_CFUNC_DEF("generateGuest", 0, ScPark::generateGuest),
+            JS_CGETSET_DEF("guestInitialCash", ScPark::guestInitialCash_get, nullptr),
+            JS_CGETSET_DEF("guestInitialHappiness", ScPark::guestInitialHappiness_get, nullptr),
+            JS_CGETSET_DEF("guestInitialHunger", ScPark::guestInitialHunger_get, nullptr),
+            JS_CGETSET_DEF("guestInitialThirst", ScPark::guestInitialThirst_get, nullptr),
+            JS_CGETSET_DEF("value", ScPark::value_get, ScPark::value_set),
+            JS_CGETSET_DEF("companyValue", ScPark::companyValue_get, ScPark::companyValue_set),
+            JS_CGETSET_DEF("totalRideValueForMoney", ScPark::totalRideValueForMoney_get, nullptr),
+            JS_CGETSET_DEF("totalAdmissions", ScPark::totalAdmissions_get, ScPark::totalAdmissions_set),
+            JS_CGETSET_DEF(
+                "totalIncomeFromAdmissions", ScPark::totalIncomeFromAdmissions_get, ScPark::totalIncomeFromAdmissions_set),
+            JS_CGETSET_DEF("landPrice", ScPark::landPrice_get, ScPark::landPrice_set),
+            JS_CGETSET_DEF("constructionRightsPrice", ScPark::constructionRightsPrice_get, ScPark::constructionRightsPrice_set),
+            JS_CGETSET_DEF("parkSize", ScPark::parkSize_get, nullptr),
+            JS_CGETSET_DEF("name", ScPark::name_get, ScPark::name_set),
+            JS_CGETSET_DEF("research", ScPark::research_get, nullptr),
+            JS_CGETSET_DEF("messages", ScPark::messages_get, ScPark::messages_set),
+            JS_CGETSET_DEF("casualtyPenalty", ScPark::casualtyPenalty_get, ScPark::casualtyPenalty_set),
+            JS_CFUNC_DEF("getFlag", 1, ScPark::getFlag),
+            JS_CFUNC_DEF("setFlag", 2, ScPark::setFlag),
+            JS_CFUNC_DEF("postMessage", 1, ScPark::postMessage),
+            JS_CFUNC_DEF("getMonthlyExpenditure", 1, ScPark::getMonthlyExpenditure),
+            JS_CGETSET_DEF("awards", ScPark::awards_get, nullptr),
+            JS_CFUNC_DEF("clearAwards", 0, ScPark::clearAwards),
+            JS_CFUNC_DEF("grantAward", 1, ScPark::grantAward),
+        };
+        RegisterBase(ctx, "Park", nullptr, funcs);
+    }
 } // namespace OpenRCT2::Scripting
 
 #endif

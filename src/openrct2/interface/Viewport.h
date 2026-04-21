@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -14,168 +14,230 @@
 
 #include <limits>
 #include <optional>
+#include <sfl/static_vector.hpp>
 #include <vector>
 
 struct PaintSession;
-struct RecordedPaintSession;
 struct PaintStruct;
-struct DrawPixelInfo;
-struct TileElement;
-struct WindowBase;
-struct EntityBase;
-struct Guest;
-struct Staff;
 struct PaintEntry;
 
-// Flags must currenly retain their values to avoid breaking plugins.
-// Values can be changed when plugins move to using named constants.
-enum
+namespace OpenRCT2::Drawing
 {
-    VIEWPORT_FLAG_GRIDLINES = (1 << 7),
-    VIEWPORT_FLAG_UNDERGROUND_INSIDE = (1 << 0),
-    VIEWPORT_FLAG_HIDE_BASE = (1 << 12),
-    VIEWPORT_FLAG_HIDE_VERTICAL = (1 << 13),
+    struct RenderTarget;
+}
 
-    VIEWPORT_FLAG_SOUND_ON = (1 << 10),
-    VIEWPORT_FLAG_LAND_OWNERSHIP = (1 << 8),
-    VIEWPORT_FLAG_CONSTRUCTION_RIGHTS = (1 << 9),
-    VIEWPORT_FLAG_HIDE_ENTITIES = (1 << 14),
-    VIEWPORT_FLAG_CLIP_VIEW = (1 << 17),
-    VIEWPORT_FLAG_HIGHLIGHT_PATH_ISSUES = (1 << 18),
-    VIEWPORT_FLAG_TRANSPARENT_BACKGROUND = (1 << 19),
+namespace OpenRCT2
+{
+    struct EntityBase;
+    struct Guest;
+    struct Staff;
+    struct TileElement;
+    struct WindowBase;
 
-    VIEWPORT_FLAG_LAND_HEIGHTS = (1 << 4),
-    VIEWPORT_FLAG_TRACK_HEIGHTS = (1 << 5),
-    VIEWPORT_FLAG_PATH_HEIGHTS = (1 << 6),
+    struct Viewport
+    {
+        int32_t width{};
+        int32_t height{};
+        ScreenCoordsXY pos{};
+        ScreenCoordsXY viewPos{};
+        uint32_t flags{};
+        ZoomLevel zoom{};
+        uint8_t rotation{};
+        bool isVisible = false;
 
-    VIEWPORT_FLAG_HIDE_RIDES = (1 << 1),
-    VIEWPORT_FLAG_HIDE_VEHICLES = (1 << 20),
-    VIEWPORT_FLAG_HIDE_VEGETATION = (1 << 21),
-    VIEWPORT_FLAG_HIDE_SCENERY = (1 << 2),
-    VIEWPORT_FLAG_HIDE_PATHS = (1 << 16),
-    VIEWPORT_FLAG_HIDE_SUPPORTS = (1 << 3),
-    VIEWPORT_FLAG_HIDE_GUESTS = (1 << 11),
-    VIEWPORT_FLAG_HIDE_STAFF = (1 << 23),
+        [[nodiscard]] constexpr int32_t ViewWidth() const
+        {
+            return zoom.ApplyTo(width);
+        }
 
-    VIEWPORT_FLAG_INVISIBLE_RIDES = (1 << 24),
-    VIEWPORT_FLAG_INVISIBLE_VEHICLES = (1 << 25),
-    VIEWPORT_FLAG_INVISIBLE_VEGETATION = (1 << 26),
-    VIEWPORT_FLAG_INVISIBLE_SCENERY = (1 << 27),
-    VIEWPORT_FLAG_INVISIBLE_PATHS = (1 << 28),
-    VIEWPORT_FLAG_INVISIBLE_SUPPORTS = (1 << 29),
-};
+        [[nodiscard]] constexpr int32_t ViewHeight() const
+        {
+            return zoom.ApplyTo(height);
+        }
+
+        // Use this function on coordinates that are relative to the viewport zoom i.e. a peeps x, y position after transforming
+        // from its x, y, z
+        [[nodiscard]] constexpr bool Contains(const ScreenCoordsXY& vpos) const
+        {
+            return (
+                vpos.y >= viewPos.y && vpos.y < viewPos.y + ViewHeight() && vpos.x >= viewPos.x
+                && vpos.x < viewPos.x + ViewWidth());
+        }
+
+        // Use this function on coordinates that are relative to the screen that is been drawn i.e. the cursor position
+        [[nodiscard]] constexpr bool ContainsScreen(const ScreenCoordsXY& sPos) const
+        {
+            return (sPos.x >= pos.x && sPos.x < pos.x + width && sPos.y >= pos.y && sPos.y < pos.y + height);
+        }
+
+        [[nodiscard]] bool ContainsTile(TileCoordsXY coords) const noexcept;
+
+        [[nodiscard]] ScreenCoordsXY ScreenToViewportCoord(const ScreenCoordsXY& screenCoord) const;
+
+        void Invalidate() const;
+
+        void Invalidate(int32_t x, int32_t y, int32_t z0, int32_t z1, ZoomLevel maxZoom) const;
+    };
+
+    struct Focus;
+
+    // Flags must currenly retain their values to avoid breaking plugins.
+    // Values can be changed when plugins move to using named constants.
+    enum : uint32_t
+    {
+        VIEWPORT_FLAG_NONE = 0u,
+
+        VIEWPORT_FLAG_GRIDLINES = (1u << 7),
+        VIEWPORT_FLAG_UNDERGROUND_INSIDE = (1u << 0),
+        VIEWPORT_FLAG_HIDE_BASE = (1u << 12),
+        VIEWPORT_FLAG_HIDE_VERTICAL = (1u << 13),
+
+        VIEWPORT_FLAG_SOUND_ON = (1u << 10),
+        VIEWPORT_FLAG_LAND_OWNERSHIP = (1u << 8),
+        VIEWPORT_FLAG_CONSTRUCTION_RIGHTS = (1u << 9),
+        VIEWPORT_FLAG_HIDE_ENTITIES = (1u << 14),
+        VIEWPORT_FLAG_CLIP_VIEW = (1u << 15),
+        VIEWPORT_FLAG_CLIP_VIEW_SEE_THROUGH = (1u << 17),
+        VIEWPORT_FLAG_HIGHLIGHT_PATH_ISSUES = (1u << 18),
+        VIEWPORT_FLAG_TRANSPARENT_BACKGROUND = (1u << 19),
+
+        VIEWPORT_FLAG_LAND_HEIGHTS = (1u << 4),
+        VIEWPORT_FLAG_TRACK_HEIGHTS = (1u << 5),
+        VIEWPORT_FLAG_PATH_HEIGHTS = (1u << 6),
+
+        VIEWPORT_FLAG_HIDE_RIDES = (1u << 1),
+        VIEWPORT_FLAG_HIDE_VEHICLES = (1u << 20),
+        VIEWPORT_FLAG_HIDE_VEGETATION = (1u << 21),
+        VIEWPORT_FLAG_HIDE_SCENERY = (1u << 2),
+        VIEWPORT_FLAG_HIDE_PATHS = (1u << 16),
+        VIEWPORT_FLAG_HIDE_SUPPORTS = (1u << 3),
+        VIEWPORT_FLAG_HIDE_GUESTS = (1u << 11),
+        VIEWPORT_FLAG_HIDE_STAFF = (1u << 23),
+
+        VIEWPORT_FLAG_INVISIBLE_RIDES = (1u << 24),
+        VIEWPORT_FLAG_INVISIBLE_VEHICLES = (1u << 25),
+        VIEWPORT_FLAG_INVISIBLE_VEGETATION = (1u << 26),
+        VIEWPORT_FLAG_INVISIBLE_SCENERY = (1u << 27),
+        VIEWPORT_FLAG_INVISIBLE_PATHS = (1u << 28),
+        VIEWPORT_FLAG_INVISIBLE_SUPPORTS = (1u << 29),
+
+        VIEWPORT_FLAG_INDEPENDENT_ROTATION = (1u << 30),
+        VIEWPORT_FLAG_RENDERING_INHIBITED = (1u << 31),
+    };
+} // namespace OpenRCT2
 
 enum class VisibilityKind
 {
-    Visible,
-    Partial,
-    Hidden
+    visible,
+    partial,
+    hidden
 };
 
 enum class ViewportInteractionItem : uint8_t
 {
-    None,
-    Terrain,
-    Entity,
-    Ride,
-    Water,
-    Scenery,
-    Footpath,
-    FootpathItem,
-    ParkEntrance,
-    Wall,
-    LargeScenery,
-    Label,
-    Banner,
-    Pool
+    none,
+    terrain,
+    entity,
+    ride,
+    water,
+    scenery,
+    footpath,
+    pathAddition,
+    parkEntrance,
+    wall,
+    largeScenery,
+    label,
+    banner
 };
 
-constexpr uint16_t ViewportInteractionItemAll = std::numeric_limits<uint16_t>::max();
-
-struct InteractionInfo
+enum class ViewportVisibility : uint8_t
 {
-    InteractionInfo() = default;
-    InteractionInfo(const PaintStruct* ps);
-    CoordsXY Loc;
-    TileElement* Element{};
-    EntityBase* Entity{};
-    ViewportInteractionItem SpriteType = ViewportInteractionItem::None;
+    standard = 0,
+    undergroundViewOn = 1,
+    trackHeights = 2,
+    undergroundViewOff = 3,
+    undergroundViewGhostOn = 4,
+    undergroundViewGhostOff = 5,
 };
 
-#define MAX_VIEWPORT_COUNT WINDOW_LIMIT_MAX
+namespace OpenRCT2
+{
+    constexpr uint16_t kViewportInteractionItemAll = std::numeric_limits<uint16_t>::max();
 
-/**
- * A reference counter for whether something is forcing the grid lines to show. When the counter
- * is decremented to 0, the grid lines are hidden.
- */
-extern uint8_t gShowGridLinesRefCount;
-extern uint8_t gShowLandRightsRefCount;
-extern uint8_t gShowConstructionRightsRefCount;
+    struct InteractionInfo
+    {
+        InteractionInfo() = default;
+        InteractionInfo(const PaintStruct* ps);
+        CoordsXY Loc;
+        TileElement* Element{};
+        EntityBase* Entity{};
+        ViewportInteractionItem interactionType = ViewportInteractionItem::none;
+    };
 
-// rct2: 0x014234BC
-extern Viewport* g_music_tracking_viewport;
-extern ScreenCoordsXY gSavedView;
-extern ZoomLevel gSavedViewZoom;
-extern uint8_t gSavedViewRotation;
+    constexpr int32_t kMaxViewportCount = kWindowLimitMax;
 
-extern uint8_t gCurrentRotation;
+    /**
+     * A reference counter for whether something is forcing the grid lines to show. When the counter
+     * is decremented to 0, the grid lines are hidden.
+     */
+    extern uint8_t gShowGridLinesRefCount;
+    extern uint8_t gShowLandRightsRefCount;
+    extern uint8_t gShowConstructionRightsRefCount;
 
-void ViewportInitAll();
-std::optional<ScreenCoordsXY> centre_2d_coordinates(const CoordsXYZ& loc, Viewport* viewport);
-void ViewportCreate(WindowBase* w, const ScreenCoordsXY& screenCoords, int32_t width, int32_t height, const Focus& focus);
-void ViewportRemove(Viewport* viewport);
-void ViewportsInvalidate(const ScreenRect& screenRect, ZoomLevel maxZoom = ZoomLevel{ -1 });
-void ViewportUpdatePosition(WindowBase* window);
-void ViewportUpdateFollowSprite(WindowBase* window);
-void ViewportUpdateSmartFollowEntity(WindowBase* window);
-void ViewportUpdateSmartFollowGuest(WindowBase* window, const Guest* peep);
-void ViewportUpdateSmartFollowStaff(WindowBase* window, const Staff* peep);
-void ViewportUpdateSmartFollowVehicle(WindowBase* window);
-void ViewportRender(
-    DrawPixelInfo* dpi, const Viewport* viewport, const ScreenRect& screenRect,
-    std::vector<RecordedPaintSession>* sessions = nullptr);
-void ViewportPaint(
-    const Viewport* viewport, DrawPixelInfo* dpi, const ScreenRect& screenRect,
-    std::vector<RecordedPaintSession>* sessions = nullptr);
+    // rct2: 0x014234BC
+    extern Viewport* gMusicTrackingViewport;
 
-CoordsXYZ ViewportAdjustForMapHeight(const ScreenCoordsXY& startCoords);
+    std::optional<ScreenCoordsXY> centre2dCoordinates(const CoordsXYZ& loc, Viewport* viewport);
+    void ViewportCreate(WindowBase& w, const ScreenCoordsXY& screenCoords, int32_t width, int32_t height, const Focus& focus);
+    void ViewportRemove(Viewport* viewport);
 
-CoordsXY ViewportPosToMapPos(const ScreenCoordsXY& coords, int32_t z);
-std::optional<CoordsXY> ScreenPosToMapPos(const ScreenCoordsXY& screenCoords, int32_t* direction);
+    const std::list<Viewport>& GetAllViewports();
 
-void ShowGridlines();
-void HideGridlines();
-void ShowLandRights();
-void HideLandRights();
-void ShowConstructionRights();
-void HideConstructionRights();
-void ViewportSetVisibility(uint8_t mode);
+    void ViewportsInvalidate(int32_t x, int32_t y, int32_t z0, int32_t z1, ZoomLevel maxZoom);
+    void ViewportsInvalidate(const CoordsXYZ& pos, int32_t width, int32_t minHeight, int32_t maxHeight, ZoomLevel maxZoom);
+    void ViewportsInvalidate(const ScreenRect& screenRect, ZoomLevel maxZoom = ZoomLevel{ -1 });
+    void ViewportUpdatePosition(WindowBase* window);
+    void ViewportUpdateSmartFollowGuest(WindowBase* window, const Guest& peep);
+    void ViewportRotateSingle(WindowBase* window, int32_t direction);
+    void ViewportRotateAll(int32_t direction);
+    void ViewportRender(Drawing::RenderTarget& rt, const Viewport* viewport);
 
-InteractionInfo GetMapCoordinatesFromPos(const ScreenCoordsXY& screenCoords, int32_t flags);
-InteractionInfo GetMapCoordinatesFromPosWindow(WindowBase* window, const ScreenCoordsXY& screenCoords, int32_t flags);
+    CoordsXYZ ViewportAdjustForMapHeight(const ScreenCoordsXY& startCoords, uint8_t rotation);
 
-InteractionInfo SetInteractionInfoFromPaintSession(PaintSession* session, uint32_t viewFlags, uint16_t filter);
-InteractionInfo ViewportInteractionGetItemLeft(const ScreenCoordsXY& screenCoords);
-bool ViewportInteractionLeftOver(const ScreenCoordsXY& screenCoords);
-bool ViewportInteractionLeftClick(const ScreenCoordsXY& screenCoords);
-InteractionInfo ViewportInteractionGetItemRight(const ScreenCoordsXY& screenCoords);
-bool ViewportInteractionRightOver(const ScreenCoordsXY& screenCoords);
-bool ViewportInteractionRightClick(const ScreenCoordsXY& screenCoords);
+    CoordsXY ViewportPosToMapPos(const ScreenCoordsXY& coords, int32_t z, uint8_t rotation);
+    std::optional<CoordsXY> ScreenPosToMapPos(const ScreenCoordsXY& screenCoords, int32_t* direction);
 
-CoordsXY ViewportInteractionGetTileStartAtCursor(const ScreenCoordsXY& screenCoords);
+    void ShowGridlines();
+    void HideGridlines();
+    void ShowLandRights();
+    void HideLandRights();
+    void ShowConstructionRights();
+    void HideConstructionRights();
+    void ViewportSetVisibility(ViewportVisibility mode);
 
-void ViewportInvalidate(const Viewport* viewport, const ScreenRect& screenRect);
+    InteractionInfo GetMapCoordinatesFromPos(const ScreenCoordsXY& screenCoords, int32_t flags);
+    InteractionInfo GetMapCoordinatesFromPosWindow(WindowBase* window, const ScreenCoordsXY& screenCoords, int32_t flags);
 
-std::optional<CoordsXY> ScreenGetMapXY(const ScreenCoordsXY& screenCoords, Viewport** viewport);
-std::optional<CoordsXY> ScreenGetMapXYWithZ(const ScreenCoordsXY& screenCoords, int32_t z);
-std::optional<CoordsXY> ScreenGetMapXYQuadrant(const ScreenCoordsXY& screenCoords, uint8_t* quadrant);
-std::optional<CoordsXY> ScreenGetMapXYQuadrantWithZ(const ScreenCoordsXY& screenCoords, int32_t z, uint8_t* quadrant);
-std::optional<CoordsXY> ScreenGetMapXYSide(const ScreenCoordsXY& screenCoords, uint8_t* side);
-std::optional<CoordsXY> ScreenGetMapXYSideWithZ(const ScreenCoordsXY& screenCoords, int32_t z, uint8_t* side);
+    InteractionInfo SetInteractionInfoFromPaintSession(PaintSession* session, uint32_t viewFlags, uint16_t filter);
 
-uint8_t GetCurrentRotation();
-int32_t GetHeightMarkerOffset();
+    std::optional<CoordsXY> ScreenGetMapXY(const ScreenCoordsXY& screenCoords, Viewport** viewport);
+    std::optional<CoordsXY> ScreenGetMapXYWithZ(const ScreenCoordsXY& screenCoords, int32_t z);
+    std::optional<CoordsXY> ScreenGetMapXYQuadrant(const ScreenCoordsXY& screenCoords, uint8_t* quadrant);
+    std::optional<CoordsXY> ScreenGetMapXYQuadrantWithZ(const ScreenCoordsXY& screenCoords, int32_t z, uint8_t* quadrant);
+    std::optional<CoordsXY> ScreenGetMapXYSide(const ScreenCoordsXY& screenCoords, uint8_t* side);
+    std::optional<CoordsXY> ScreenGetMapXYSideWithZ(const ScreenCoordsXY& screenCoords, int32_t z, uint8_t* side);
+    Viewport* ViewportFindFromPoint(const ScreenCoordsXY& screenCoords);
 
-void ViewportSetSavedView();
+    ScreenCoordsXY Translate3DTo2DWithZ(int32_t rotation, const CoordsXYZ& pos);
 
-VisibilityKind GetPaintStructVisibility(const PaintStruct* ps, uint32_t viewFlags);
+    uint8_t GetCurrentRotation();
+    int32_t GetHeightMarkerOffset();
+
+    void ViewportSetSavedView();
+
+    VisibilityKind GetPaintStructVisibility(const PaintStruct* ps, uint32_t viewFlags);
+
+    using ViewportList = sfl::static_vector<Viewport*, kMaxViewportCount>;
+
+    ViewportList GetVisibleViewports() noexcept;
+} // namespace OpenRCT2

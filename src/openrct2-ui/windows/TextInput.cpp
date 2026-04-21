@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -7,424 +7,432 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include <SDL.h>
 #include <SDL_keycode.h>
-#include <algorithm>
 #include <iterator>
 #include <openrct2-ui/interface/Widget.h>
-#include <openrct2-ui/windows/Window.h>
+#include <openrct2-ui/windows/Windows.h>
 #include <openrct2/Context.h>
-#include <openrct2/config/Config.h>
+#include <openrct2/Input.h>
 #include <openrct2/core/String.hpp>
+#include <openrct2/core/UTF8.h>
+#include <openrct2/drawing/ColourMap.h>
+#include <openrct2/drawing/Drawing.String.h>
 #include <openrct2/drawing/Drawing.h>
-#include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
-#include <openrct2/util/Util.h>
+#include <openrct2/drawing/Rectangle.h>
+#include <openrct2/drawing/Text.h>
+#include <openrct2/localisation/Formatting.h>
+#include <openrct2/localisation/StringIds.h>
+#include <openrct2/ui/WindowManager.h>
 
-static constexpr const int32_t WW = 250;
-static constexpr const int32_t WH = 90;
+using namespace OpenRCT2::Drawing;
 
-enum WindowTextInputWidgetIdx
+namespace OpenRCT2::Ui::Windows
 {
-    WIDX_BACKGROUND,
-    WIDX_TITLE,
-    WIDX_CLOSE,
-    WIDX_CANCEL,
-    WIDX_OKAY
-};
+    static constexpr ScreenSize kWindowSize = { 250, 90 };
 
-static Widget window_text_input_widgets[] = {
-    WINDOW_SHIM(STR_NONE, WW, WH),
-    MakeWidget({ 170, 68 }, { 71, 14 }, WindowWidgetType::Button, WindowColour::Secondary, STR_CANCEL),
-    MakeWidget({ 10, 68 }, { 71, 14 }, WindowWidgetType::Button, WindowColour::Secondary, STR_OK),
-    WIDGETS_END,
-};
-
-class TextInputWindow final : public Window
-{
-private:
-    WidgetIdentifier _parentWidget{};
-
-    std::string _title;
-    StringId _titleStringId = STR_NONE;
-
-    std::string _description;
-    StringId _descriptionStringId = STR_NONE;
-    Formatter _descriptionArgs;
-
-    std::function<void(std::string_view)> _callback;
-    std::function<void()> _cancelCallback;
-
-    int32_t _cursorBlink{};
-    size_t _maxInputLength{};
-    u8string _buffer;
-
-public:
-    void OnOpen() override
+    enum WindowTextInputWidgetIdx
     {
-        widgets = window_text_input_widgets;
-        WindowInitScrollWidgets(*this);
-        SetParentWindow(nullptr, 0);
-    }
+        WIDX_BACKGROUND,
+        WIDX_TITLE,
+        WIDX_CLOSE,
+        WIDX_CANCEL,
+        WIDX_OKAY
+    };
 
-    void SetParentWindow(WindowBase* parentWindow, WidgetIndex widgetIndex)
+    static constexpr auto _textInputWidgets = makeWidgets(
+        makeWindowShim(kStringIdNone, kWindowSize),
+        makeWidget({ 170, 68 }, { 71, 14 }, WidgetType::button, WindowColour::secondary, STR_CANCEL),
+        makeWidget({ 10, 68 }, { 71, 14 }, WidgetType::button, WindowColour::secondary, STR_OK));
+
+    class TextInputWindow final : public Window
     {
-        // Save calling window details so that the information can be passed back to the correct window & widget
-        if (parentWindow == nullptr)
+    private:
+        WidgetIdentifier _parentWidget{};
+
+        std::string _title;
+        StringId _titleStringId = kStringIdNone;
+
+        std::string _description;
+        StringId _descriptionStringId = kStringIdNone;
+        Formatter _descriptionArgs;
+
+        std::function<void(std::string_view)> _callback;
+        std::function<void()> _cancelCallback;
+
+        int32_t _cursorBlink{};
+        size_t _maxInputLength{};
+        u8string _buffer;
+
+    public:
+        void onOpen() override
         {
-            _parentWidget.window.classification = WindowClass::Null;
-            _parentWidget.window.number = 0;
-            _parentWidget.widget_index = 0;
-
-            colours[0] = COLOUR_GREY;
-            colours[1] = COLOUR_GREY;
-            colours[2] = COLOUR_GREY;
+            setWidgets(_textInputWidgets);
+            WindowInitScrollWidgets(*this);
+            setParentWindow(nullptr, 0);
         }
-        else
+
+        void setParentWindow(WindowBase* parentWindow, WidgetIndex widgetIndex)
         {
-            _parentWidget.window.classification = parentWindow->classification;
-            _parentWidget.window.number = parentWindow->number;
-            _parentWidget.widget_index = widgetIndex;
-
-            colours[0] = parentWindow->colours[1];
-            colours[1] = parentWindow->colours[1];
-            colours[2] = parentWindow->colours[1];
-        }
-    }
-
-    void SetTitle(StringId title, StringId description, const Formatter& decriptionArgs)
-    {
-        _titleStringId = title;
-        _descriptionStringId = description;
-        _descriptionArgs = decriptionArgs;
-    }
-
-    void SetTitle(std::string_view title, std::string_view description)
-    {
-        _titleStringId = STR_NONE;
-        _title = title;
-        _descriptionStringId = STR_NONE;
-        _description = description;
-    }
-
-    void SetText(std::string_view text, size_t maxLength)
-    {
-        _buffer = u8string{ text };
-        if (_buffer.size() > maxLength)
-        {
-            _buffer.resize(maxLength);
-        }
-        _maxInputLength = maxLength;
-        gTextInput = ContextStartTextInput(_buffer, maxLength);
-    }
-
-    void SetCallback(std::function<void(std::string_view)> callback, std::function<void()> cancelCallback)
-    {
-        _callback = callback;
-        _cancelCallback = cancelCallback;
-    }
-
-    void OnClose() override
-    {
-        // Make sure that we take it out of the text input
-        // mode otherwise problems may occur.
-        ContextStopTextInput();
-    }
-
-    void OnPeriodicUpdate() override
-    {
-        if (HasParentWindow())
-        {
-            // If the calling window is closed then close the text input window
-            auto parentWindow = GetParentWindow();
+            // Save calling window details so that the information can be passed back to the correct window & widget
             if (parentWindow == nullptr)
             {
-                WindowClose(*this);
-                return;
+                _parentWidget.window.classification = WindowClass::null;
+                _parentWidget.window.number = 0;
+                _parentWidget.widgetIndex = 0;
+
+                colours[0] = Drawing::Colour::grey;
+                colours[1] = Drawing::Colour::grey;
+                colours[2] = Drawing::Colour::grey;
+            }
+            else
+            {
+                _parentWidget.window.classification = parentWindow->classification;
+                _parentWidget.window.number = parentWindow->number;
+                _parentWidget.widgetIndex = widgetIndex;
+
+                colours[0] = parentWindow->colours[1];
+                colours[1] = parentWindow->colours[1];
+                colours[2] = parentWindow->colours[1];
             }
         }
 
-        // Used to blink the cursor.
-        _cursorBlink++;
-        if (_cursorBlink > 30)
-            _cursorBlink = 0;
-
-        Invalidate();
-    }
-
-    void OnMouseUp(WidgetIndex widgetIndex) override
-    {
-        switch (widgetIndex)
+        void setTitle(StringId title, StringId description, const Formatter& decriptionArgs)
         {
-            case WIDX_CANCEL:
-            case WIDX_CLOSE:
-                ContextStopTextInput();
-                ExecuteCallback(false);
-                WindowClose(*this);
-                break;
-            case WIDX_OKAY:
-                ContextStopTextInput();
-                ExecuteCallback(true);
-                WindowClose(*this);
-        }
-    }
-
-    void OnPrepareDraw() override
-    {
-        // Change window size if required.
-        int32_t newHeight = CalculateWindowHeight(_buffer.data());
-        if (newHeight != height)
-        {
-            WindowSetResize(*this, WW, newHeight, WW, newHeight);
+            _titleStringId = title;
+            _descriptionStringId = description;
+            _descriptionArgs = decriptionArgs;
         }
 
-        widgets[WIDX_OKAY].top = newHeight - 22;
-        widgets[WIDX_OKAY].bottom = newHeight - 9;
-        widgets[WIDX_CANCEL].top = newHeight - 22;
-        widgets[WIDX_CANCEL].bottom = newHeight - 9;
-        widgets[WIDX_BACKGROUND].bottom = newHeight - 1;
-
-        // Set window title argument
-        if (_titleStringId == STR_NONE)
+        void setTitle(std::string_view title, std::string_view description)
         {
-            auto ft = Formatter::Common();
-            ft.Add<const char*>(_title.c_str());
-            widgets[WIDX_TITLE].text = STR_STRING;
-        }
-        else
-        {
-            widgets[WIDX_TITLE].text = _titleStringId;
-        }
-    }
-
-    void OnDraw(DrawPixelInfo& dpi) override
-    {
-        DrawWidgets(dpi);
-
-        ScreenCoordsXY screenCoords;
-        screenCoords.y = windowPos.y + 25;
-
-        int32_t no_lines = 0;
-
-        if (_descriptionStringId == STR_NONE)
-        {
-            auto ft = Formatter();
-            ft.Add<const char*>(_description.c_str());
-            DrawTextWrapped(
-                dpi, { windowPos.x + WW / 2, screenCoords.y }, WW, STR_STRING, ft, { colours[1], TextAlignment::CENTRE });
-        }
-        else
-        {
-            DrawTextWrapped(
-                dpi, { windowPos.x + WW / 2, screenCoords.y }, WW, _descriptionStringId, _descriptionArgs,
-                { colours[1], TextAlignment::CENTRE });
+            _titleStringId = kStringIdNone;
+            _title = title;
+            _descriptionStringId = kStringIdNone;
+            _description = description;
         }
 
-        screenCoords.y += 25;
-
-        // String length needs to add 12 either side of box
-        // +13 for cursor when max length.
-        u8string wrappedString;
-        GfxWrapString(
-            u8string_view{ _buffer.data(), _buffer.size() }, WW - (24 + 13), FontStyle::Medium, &wrappedString, &no_lines);
-
-        GfxFillRectInset(
-            &dpi, { { windowPos.x + 10, screenCoords.y }, { windowPos.x + WW - 10, screenCoords.y + 10 * (no_lines + 1) + 3 } },
-            colours[1], INSET_RECT_F_60);
-
-        screenCoords.y += 1;
-
-        const utf8* wrapPointer = wrappedString.data();
-        size_t char_count = 0;
-        uint8_t cur_drawn = 0;
-
-        int32_t cursorX = 0;
-        int32_t cursorY = 0;
-        for (int32_t line = 0; line <= no_lines; line++)
+        void setText(std::string_view text, size_t maxLength)
         {
-            screenCoords.x = windowPos.x + 12;
-            DrawText(dpi, screenCoords, { colours[1], FontStyle::Medium, TextAlignment::LEFT }, wrapPointer, true);
+            text = String::utf8TruncateCodePoints(text, maxLength);
+            _buffer = u8string{ text };
+            _maxInputLength = maxLength;
+            SetTexboxSession(ContextStartTextInput(_buffer, maxLength));
+        }
 
-            size_t string_length = GetStringSize(wrapPointer) - 1;
+        void setCallback(std::function<void(std::string_view)> callback, std::function<void()> cancelCallback)
+        {
+            _callback = callback;
+            _cancelCallback = cancelCallback;
+        }
 
-            if (!cur_drawn && (gTextInput->SelectionStart <= char_count + string_length))
+        void onClose() override
+        {
+            // Make sure that we take it out of the text input
+            // mode otherwise problems may occur.
+            ContextStopTextInput();
+        }
+
+        void onUpdate() override
+        {
+            if (HasParentWindow())
             {
-                // Make a view of the string for measuring the width.
-                cursorX = windowPos.x + 13
-                    + GfxGetStringWidthNoFormatting(
-                              u8string_view{ wrapPointer, gTextInput->SelectionStart - char_count }, FontStyle::Medium);
-                cursorY = screenCoords.y;
-
-                int32_t textWidth = 6;
-                if (gTextInput->SelectionStart < strlen(_buffer.data()))
+                // If the calling window is closed then close the text input window
+                auto parentWindow = GetParentWindow();
+                if (parentWindow == nullptr)
                 {
-                    // Make a 1 utf8-character wide string for measuring the width
-                    // of the currently selected character.
-                    utf8 tmp[5] = {}; // This is easier than setting temp_string[0..5]
-                    uint32_t codepoint = UTF8GetNext(_buffer.data() + gTextInput->SelectionStart, nullptr);
-                    UTF8WriteCodepoint(tmp, codepoint);
-                    textWidth = std::max(GfxGetStringWidthNoFormatting(tmp, FontStyle::Medium) - 2, 4);
+                    close();
+                    return;
+                }
+            }
+
+            // Used to blink the cursor.
+            _cursorBlink++;
+            if (_cursorBlink > 30)
+                _cursorBlink = 0;
+
+            invalidate();
+        }
+
+        void onMouseUp(WidgetIndex widgetIndex) override
+        {
+            switch (widgetIndex)
+            {
+                case WIDX_CANCEL:
+                case WIDX_CLOSE:
+                    ContextStopTextInput();
+                    ExecuteCallback(false);
+                    close();
+                    break;
+                case WIDX_OKAY:
+                    ContextStopTextInput();
+                    ExecuteCallback(true);
+                    close();
+            }
+        }
+
+        void onPrepareDraw() override
+        {
+            // Change window size if required.
+            int32_t newHeight = CalculateWindowHeight(_buffer.data());
+            if (newHeight != height)
+            {
+                WindowSetResize(*this, { kWindowSize.width, newHeight }, { kWindowSize.width, newHeight });
+            }
+
+            widgets[WIDX_OKAY].top = newHeight - 22;
+            widgets[WIDX_OKAY].bottom = newHeight - 9;
+            widgets[WIDX_CANCEL].top = newHeight - 22;
+            widgets[WIDX_CANCEL].bottom = newHeight - 9;
+            widgets[WIDX_BACKGROUND].bottom = newHeight - 1;
+
+            // Set window title argument
+            if (_titleStringId == kStringIdNone)
+            {
+                widgets[WIDX_TITLE].setString(_title.c_str());
+            }
+            else
+            {
+                widgets[WIDX_TITLE].setString(_titleStringId);
+            }
+        }
+
+        void onDraw(RenderTarget& rt) override
+        {
+            drawWidgets(rt);
+
+            auto screenCoords = windowPos + ScreenCoordsXY{ kWindowSize.width / 2, widgets[WIDX_TITLE].bottom + 13 };
+
+            int32_t no_lines = 0;
+
+            if (_descriptionStringId == kStringIdNone)
+            {
+                drawTextWrapped(rt, screenCoords, kWindowSize.width, _description, { colours[1], TextAlignment::centre });
+            }
+            else
+            {
+                drawTextWrapped(
+                    rt, screenCoords, kWindowSize.width, _descriptionStringId, _descriptionArgs,
+                    { colours[1], TextAlignment::centre });
+            }
+
+            screenCoords.y += 25;
+
+            // String length needs to add 12 either side of box
+            // +13 for cursor when max length.
+            u8string wrappedString;
+            wrapString(
+                u8string_view{ _buffer.data(), _buffer.size() }, kWindowSize.width - (24 + 13), FontStyle::medium,
+                &wrappedString, &no_lines);
+
+            Rectangle::fillInset(
+                rt,
+                { { windowPos.x + 10, screenCoords.y },
+                  { windowPos.x + kWindowSize.width - 10, screenCoords.y + 10 * (no_lines + 1) + 3 } },
+                colours[1], Rectangle::BorderStyle::inset, Rectangle::FillBrightness::light,
+                Rectangle::FillMode::dontLightenWhenInset);
+
+            screenCoords.y += 1;
+
+            const utf8* wrapPointer = wrappedString.data();
+            size_t char_count = 0;
+            uint8_t cur_drawn = 0;
+
+            auto* textInput = GetTextboxSession();
+            int32_t cursorX = 0;
+            int32_t cursorY = 0;
+            for (int32_t line = 0; line <= no_lines; line++)
+            {
+                screenCoords.x = windowPos.x + 12;
+                drawText(
+                    rt, screenCoords, wrapPointer,
+                    { colours[1], FontStyle::medium, { TextPaintFlag::noFormatting }, TextAlignment::left });
+
+                size_t string_length = GetStringSize(wrapPointer) - 1;
+                if (!cur_drawn && (textInput->SelectionStart <= char_count + string_length))
+                {
+                    // Make a view of the string for measuring the width.
+                    cursorX = windowPos.x + 13
+                        + getStringWidth(
+                                  u8string_view{ wrapPointer, textInput->SelectionStart - char_count }, FontStyle::medium,
+                                  true);
+                    cursorY = screenCoords.y;
+
+                    int32_t textWidth = 6;
+                    if (textInput->SelectionStart < strlen(_buffer.data()))
+                    {
+                        // Make a 1 utf8-character wide string for measuring the width
+                        // of the currently selected character.
+                        utf8 tmp[5] = {}; // This is easier than setting temp_string[0..5]
+                        uint32_t codepoint = UTF8GetNext(_buffer.data() + textInput->SelectionStart, nullptr);
+                        UTF8WriteCodepoint(tmp, codepoint);
+                        textWidth = std::max(getStringWidth(tmp, FontStyle::medium, true) - 2, 4);
+                    }
+
+                    if (_cursorBlink > 15)
+                    {
+                        auto colour = getColourMap(colours[1].colour).midLight;
+                        // TODO: palette index addition
+                        Rectangle::fill(
+                            rt, { { cursorX, screenCoords.y + 9 }, { cursorX + textWidth, screenCoords.y + 9 } },
+                            static_cast<PaletteIndex>(EnumValue(colour) + 5));
+                    }
+
+                    cur_drawn++;
                 }
 
-                if (_cursorBlink > 15)
-                {
-                    uint8_t colour = ColourMapA[colours[1]].mid_light;
-                    // TODO: palette index addition
-                    GfxFillRect(
-                        &dpi, { { cursorX, screenCoords.y + 9 }, { cursorX + textWidth, screenCoords.y + 9 } }, colour + 5);
-                }
+                wrapPointer += string_length + 1;
 
-                cur_drawn++;
+                if (_buffer[char_count + string_length] == ' ')
+                    char_count++;
+                char_count += string_length;
+
+                screenCoords.y += 10;
             }
 
-            wrapPointer += string_length + 1;
-
-            if (_buffer[char_count + string_length] == ' ')
-                char_count++;
-            char_count += string_length;
-
-            screenCoords.y += 10;
-        }
-
-        if (!cur_drawn)
-        {
-            cursorX = dpi.lastStringPos.x;
-            cursorY = screenCoords.y - 10;
-        }
-
-        // IME composition
-        if (!String::IsNullOrEmpty(gTextInput->ImeBuffer))
-        {
-            DrawIMEComposition(dpi, cursorX, cursorY);
-        }
-    }
-
-    void OnReturnPressed()
-    {
-        ContextStopTextInput();
-        ExecuteCallback(true);
-        WindowClose(*this);
-    }
-
-    static int32_t CalculateWindowHeight(std::string_view text)
-    {
-        // String length needs to add 12 either side of box +13 for cursor when max length.
-        int32_t numLines{};
-        GfxWrapString(text, WW - (24 + 13), FontStyle::Medium, nullptr, &numLines);
-        return numLines * 10 + WH;
-    }
-
-private:
-    static void DrawIMEComposition(DrawPixelInfo& dpi, int32_t cursorX, int32_t cursorY)
-    {
-        int compositionWidth = GfxGetStringWidth(gTextInput->ImeBuffer, FontStyle::Medium);
-        ScreenCoordsXY screenCoords(cursorX - (compositionWidth / 2), cursorY + 13);
-        int width = compositionWidth;
-        int height = 10;
-
-        GfxFillRect(
-            &dpi, { screenCoords - ScreenCoordsXY{ 1, 1 }, screenCoords + ScreenCoordsXY{ width + 1, height + 1 } },
-            PALETTE_INDEX_12);
-        GfxFillRect(&dpi, { screenCoords, screenCoords + ScreenCoordsXY{ width, height } }, PALETTE_INDEX_0);
-        GfxDrawString(dpi, screenCoords, static_cast<const char*>(gTextInput->ImeBuffer), { COLOUR_DARK_GREEN });
-    }
-
-    void ExecuteCallback(bool hasValue)
-    {
-        if (HasParentWindow())
-        {
-            auto w = GetParentWindow();
-            if (w != nullptr)
+            if (!cur_drawn)
             {
-                auto value = hasValue ? _buffer.data() : nullptr;
-                WindowEventTextinputCall(w, _parentWidget.widget_index, value);
+                cursorX = rt.lastStringPos.x;
+                cursorY = screenCoords.y - 10;
+            }
+
+            // IME composition
+            if (!String::isNullOrEmpty(textInput->ImeBuffer))
+            {
+                IMEComposition(cursorX, cursorY);
             }
         }
-        else
+
+        void onReturnPressed()
         {
-            if (hasValue)
+            ContextStopTextInput();
+            ExecuteCallback(true);
+            close();
+        }
+
+        int32_t CalculateWindowHeight(std::string_view text)
+        {
+            // String length needs to add 12 either side of box +13 for cursor when max length.
+            int32_t numLines{};
+            wrapString(text, kWindowSize.width - (24 + 13), FontStyle::medium, nullptr, &numLines);
+
+            const auto textHeight = numLines * 10;
+            return kWindowSize.height + textHeight + getTitleBarDiffNormal();
+        }
+
+    private:
+        static void IMEComposition(int32_t cursorX, int32_t cursorY)
+        {
+            SDL_Rect rect = { cursorX, cursorY, 100, 100 };
+            SDL_SetTextInputRect(&rect);
+        }
+
+        void ExecuteCallback(bool hasValue)
+        {
+            if (HasParentWindow())
             {
-                if (_callback)
+                if (hasValue)
                 {
-                    _callback(_buffer.data());
+                    auto w = GetParentWindow();
+                    if (w != nullptr)
+                    {
+                        w->onTextInput(_parentWidget.widgetIndex, _buffer);
+                    }
                 }
             }
             else
             {
-                if (_cancelCallback)
+                if (hasValue)
                 {
-                    _cancelCallback();
+                    if (_callback)
+                    {
+                        _callback(_buffer.data());
+                    }
+                }
+                else
+                {
+                    if (_cancelCallback)
+                    {
+                        _cancelCallback();
+                    }
                 }
             }
         }
-    }
 
-    bool HasParentWindow() const
-    {
-        return _parentWidget.window.classification != WindowClass::Null;
-    }
-
-    WindowBase* GetParentWindow() const
-    {
-        return HasParentWindow() ? WindowFindByNumber(_parentWidget.window.classification, _parentWidget.window.number)
-                                 : nullptr;
-    }
-};
-
-void WindowTextInputRawOpen(
-    WindowBase* call_w, WidgetIndex call_widget, StringId title, StringId description, const Formatter& descriptionArgs,
-    const_utf8string existing_text, int32_t maxLength)
-{
-    WindowCloseByClass(WindowClass::Textinput);
-
-    auto height = TextInputWindow::CalculateWindowHeight(existing_text);
-    auto w = WindowCreate<TextInputWindow>(WindowClass::Textinput, WW, height, WF_CENTRE_SCREEN | WF_STICK_TO_FRONT);
-    if (w != nullptr)
-    {
-        w->SetParentWindow(call_w, call_widget);
-        w->SetTitle(title, description, descriptionArgs);
-        w->SetText(existing_text, maxLength);
-    }
-}
-
-void WindowTextInputOpen(
-    std::string_view title, std::string_view description, std::string_view initialValue, size_t maxLength,
-    std::function<void(std::string_view)> callback, std::function<void()> cancelCallback)
-{
-    auto height = TextInputWindow::CalculateWindowHeight(initialValue);
-    auto w = WindowCreate<TextInputWindow>(WindowClass::Textinput, WW, height, WF_CENTRE_SCREEN | WF_STICK_TO_FRONT);
-    if (w != nullptr)
-    {
-        w->SetTitle(title, description);
-        w->SetText(initialValue, maxLength);
-        w->SetCallback(callback, cancelCallback);
-    }
-}
-
-void WindowTextInputOpen(
-    WindowBase* call_w, WidgetIndex call_widget, StringId title, StringId description, const Formatter& descriptionArgs,
-    StringId existing_text, uintptr_t existing_args, int32_t maxLength)
-{
-    auto existingText = FormatStringID(existing_text, &existing_args);
-    WindowTextInputRawOpen(call_w, call_widget, title, description, descriptionArgs, existingText.c_str(), maxLength);
-}
-
-void WindowTextInputKey(WindowBase* w, uint32_t keycode)
-{
-    const auto wndNumber = w->number;
-    const auto wndClass = w->classification;
-
-    // If the return button is pressed stop text input
-    if (keycode == SDLK_RETURN || keycode == SDLK_KP_ENTER)
-    {
-        if (w->classification == WindowClass::Textinput)
+        bool HasParentWindow() const
         {
-            auto textInputWindow = static_cast<TextInputWindow*>(w);
-            textInputWindow->OnReturnPressed();
+            return _parentWidget.window.classification != WindowClass::null;
+        }
+
+        WindowBase* GetParentWindow() const
+        {
+            auto* windowMgr = GetWindowManager();
+            return HasParentWindow() ? windowMgr->FindByNumber(_parentWidget.window.classification, _parentWidget.window.number)
+                                     : nullptr;
+        }
+    };
+
+    void WindowTextInputRawOpen(
+        WindowBase* call_w, WidgetIndex call_widget, StringId title, StringId description, const Formatter& descriptionArgs,
+        const_utf8string existing_text, int32_t maxLength)
+    {
+        auto* windowMgr = GetWindowManager();
+        windowMgr->CloseByClass(WindowClass::textinput);
+
+        auto w = windowMgr->Create<TextInputWindow>(
+            WindowClass::textinput, { kWindowSize.width, kWindowSize.height + 10 },
+            { WindowFlag::centreScreen, WindowFlag::stickToFront });
+        if (w != nullptr)
+        {
+            w->setParentWindow(call_w, call_widget);
+            w->setTitle(title, description, descriptionArgs);
+            w->setText(existing_text, maxLength);
         }
     }
 
-    // The window can be potentially closed within a callback, we need to check if its still alive.
-    w = WindowFindByNumber(wndClass, wndNumber);
-    if (w != nullptr)
-        w->Invalidate();
-}
+    void WindowTextInputOpen(
+        std::string_view title, std::string_view description, std::string_view initialValue, size_t maxLength,
+        std::function<void(std::string_view)> callback, std::function<void()> cancelCallback)
+    {
+        auto* windowMgr = GetWindowManager();
+        auto w = windowMgr->Create<TextInputWindow>(
+            WindowClass::textinput, { kWindowSize.width, kWindowSize.height + 10 },
+            { WindowFlag::centreScreen, WindowFlag::stickToFront });
+        if (w != nullptr)
+        {
+            w->setTitle(title, description);
+            w->setText(initialValue, maxLength);
+            w->setCallback(callback, cancelCallback);
+        }
+    }
+
+    void WindowTextInputOpen(
+        WindowBase* call_w, WidgetIndex call_widget, StringId title, StringId description, const Formatter& descriptionArgs,
+        StringId existing_text, uintptr_t existing_args, int32_t maxLength)
+    {
+        auto existingText = FormatStringIDLegacy(existing_text, &existing_args);
+        WindowTextInputRawOpen(call_w, call_widget, title, description, descriptionArgs, existingText.c_str(), maxLength);
+    }
+
+    void WindowTextInputKey(WindowBase* w, uint32_t keycode)
+    {
+        const auto wndNumber = w->number;
+        const auto wndClass = w->classification;
+
+        // If the return button is pressed stop text input
+        if (keycode == SDLK_RETURN || keycode == SDLK_KP_ENTER)
+        {
+            if (w->classification == WindowClass::textinput)
+            {
+                auto textInputWindow = static_cast<TextInputWindow*>(w);
+                textInputWindow->onReturnPressed();
+            }
+        }
+
+        // The window can be potentially closed within a callback, we need to check if its still alive.
+        auto* windowMgr = GetWindowManager();
+        w = windowMgr->FindByNumber(wndClass, wndNumber);
+        if (w != nullptr)
+            w->invalidate();
+    }
+} // namespace OpenRCT2::Ui::Windows

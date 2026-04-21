@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -10,20 +10,23 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <optional>
 #include <string_view>
 #include <vector>
 
 /**
  * Bi-directional map for converting between strings and enums / numbers.
  */
-template<typename T> class EnumMap
+template<typename T>
+class EnumMap
 {
 private:
     std::vector<std::pair<std::string_view, T>> _map;
     bool _continiousValueIndex{ false };
 
-    static constexpr size_t BucketSize = 43;
-    std::array<std::vector<int32_t>, BucketSize> _buckets;
+    static constexpr size_t kBucketSize = 43;
+    std::array<std::vector<int32_t>, kBucketSize> _buckets;
 
     static constexpr bool ValueIndexable()
     {
@@ -60,7 +63,7 @@ public:
     {
         std::sort(_map.begin(), _map.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
 
-        if constexpr (ValueIndexable())
+        if (ValueIndexable() && _map.size() > 1)
         {
             _continiousValueIndex = true;
             T cur{};
@@ -81,7 +84,7 @@ public:
         for (auto& kv : _map)
         {
             auto hash = MakeHash(kv.first);
-            auto bucketIndex = hash % BucketSize;
+            auto bucketIndex = hash % kBucketSize;
             auto& bucket = _buckets[bucketIndex];
             bucket.push_back(index);
             index++;
@@ -100,10 +103,20 @@ public:
         return it->second;
     }
 
+    std::optional<T> TryGet(std::string_view k) const
+    {
+        auto it = find(k);
+        if (it != end())
+        {
+            return it->second;
+        }
+        return std::nullopt;
+    }
+
     auto find(const std::string_view k) const
     {
         const auto hash = MakeHash(k);
-        const auto bucketIndex = hash % BucketSize;
+        const auto bucketIndex = hash % kBucketSize;
         const auto& bucket = _buckets[bucketIndex];
 
         for (auto index : bucket)

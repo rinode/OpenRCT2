@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,18 +9,15 @@
 
 #include "Path.hpp"
 
-#include "../localisation/Language.h"
 #include "../platform/Platform.h"
-#include "../util/Util.h"
 #include "File.h"
 #include "FileSystem.hpp"
 #include "Memory.hpp"
 #include "String.hpp"
 
-#include <algorithm>
 #include <iterator>
 
-namespace Path
+namespace OpenRCT2::Path
 {
     u8string Combine(u8string_view a, u8string_view b)
     {
@@ -53,13 +50,28 @@ namespace Path
         return fs::u8path(path).parent_path().u8string();
     }
 
-    void CreateDirectory(u8string_view path)
+    bool CreateDirectory(u8string_view path)
     {
-        Platform::EnsureDirectoryExists(u8string(path).c_str());
+        std::error_code ec;
+        fs::create_directories(fs::u8path(path), ec);
+        // create_directories returns false if the directory already exists, but the error code is zero.
+        return ec.value() == 0;
     }
 
     bool DirectoryExists(u8string_view path)
     {
+        auto assetCheckResult = Platform::CheckAssetDirectoryExists(path);
+        switch (assetCheckResult)
+        {
+            case Platform::AssetCheckResult::Found:
+                return true;
+            case Platform::AssetCheckResult::NotFound:
+                return false;
+            case Platform::AssetCheckResult::NotApplicable:
+            default:
+                break;
+        }
+
         std::error_code ec;
         const auto result = fs::is_directory(fs::u8path(path), ec);
         return result && ec.value() == 0;
@@ -82,7 +94,21 @@ namespace Path
 
     u8string WithExtension(u8string_view path, u8string_view newExtension)
     {
-        return fs::u8path(path).replace_extension(fs::u8path(newExtension)).u8string();
+        auto p = fs::u8path(path);
+
+        fs::path extensionWithDot;
+        if (!newExtension.empty() && newExtension.front() != '.')
+        {
+            extensionWithDot += ".";
+        }
+        extensionWithDot += fs::u8path(newExtension);
+
+        if (p.extension() != extensionWithDot)
+        {
+            p += extensionWithDot;
+        }
+
+        return p.u8string();
     }
 
     bool IsAbsolute(u8string_view path)
@@ -97,9 +123,15 @@ namespace Path
         return fs::absolute(fs::u8path(relative), ec).u8string();
     }
 
+    u8string GetRelative(u8string_view path, u8string_view base)
+    {
+        std::error_code ec;
+        return fs::relative(fs::u8path(path), fs::u8path(base), ec).u8string();
+    }
+
     bool Equals(u8string_view a, u8string_view b)
     {
-        return String::Equals(a, b, Platform::ShouldIgnoreCase());
+        return Platform::ShouldIgnoreCase() ? String::iequals(a, b) : String::equals(a, b);
     }
 
     u8string ResolveCasing(u8string_view path)
@@ -113,4 +145,4 @@ namespace Path
         const auto result = fs::remove_all(fs::u8path(path), ec);
         return (result > 0) && ec.value() == 0;
     }
-} // namespace Path
+} // namespace OpenRCT2::Path

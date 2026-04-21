@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -14,7 +14,7 @@
 
 #include <memory>
 
-namespace TrackImporter
+namespace OpenRCT2::TrackImporter
 {
     std::unique_ptr<ITrackImporter> Create(const std::string& hintPath)
     {
@@ -33,6 +33,6 @@ namespace TrackImporter
 
     bool ExtensionIsRCT1(const std::string& extension)
     {
-        return String::Equals(extension, ".td4", true);
+        return String::iequals(extension, ".td4");
     }
-} // namespace TrackImporter
+} // namespace OpenRCT2::TrackImporter

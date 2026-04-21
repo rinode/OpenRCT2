@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -8,70 +8,72 @@
  *****************************************************************************/
 
 #include <openrct2-ui/interface/Widget.h>
-#include <openrct2-ui/windows/Window.h>
+#include <openrct2-ui/windows/Windows.h>
+#include <openrct2/SpriteIds.h>
 #include <openrct2/drawing/Drawing.h>
-#include <openrct2/interface/Colour.h>
-#include <openrct2/localisation/Localisation.h>
-#include <openrct2/sprites.h>
+#include <openrct2/interface/ColourWithFlags.h>
+#include <openrct2/ui/WindowManager.h>
 
-static constexpr const int32_t WW = 232;
-static constexpr const int32_t WH = 136;
-
-enum
+namespace OpenRCT2::Ui::Windows
 {
-    WIDX_LOGO
-};
+    static constexpr ScreenSize kWindowSize = { 232, 136 };
 
-static Widget window_title_logo_widgets[] = {
-    MakeWidget({ 0, 0 }, { WW + 1, WH + 1 }, WindowWidgetType::ImgBtn, WindowColour::Primary),
-    WIDGETS_END,
-};
-
-class TitleLogoWindow final : public Window
-{
-public:
-    /**
-     * Creates the window containing the logo and the expansion packs on the title screen.
-     *  rct2: 0x0066B679 (part of 0x0066B3E8)
-     */
-    void OnOpen() override
+    enum
     {
-        widgets = window_title_logo_widgets;
-        WindowInitScrollWidgets(*this);
-        colours[0] = TRANSLUCENT(COLOUR_GREY);
-        colours[1] = TRANSLUCENT(COLOUR_GREY);
-        colours[2] = TRANSLUCENT(COLOUR_GREY);
-    }
+        WIDX_LOGO
+    };
 
-    void OnMouseUp(WidgetIndex widgetIndex) override
+    static constexpr auto _titleLogoWidgets = makeWidgets(
+        makeWidget({ 0, 0 }, kWindowSize, WidgetType::imgBtn, WindowColour::primary));
+
+    class TitleLogoWindow final : public Window
     {
-        switch (widgetIndex)
+    public:
+        /**
+         * Creates the window containing the logo and the expansion packs on the title screen.
+         *  rct2: 0x0066B679 (part of 0x0066B3E8)
+         */
+        void onOpen() override
         {
-            case WIDX_LOGO:
-                WindowAboutOpen();
-                break;
+            setWidgets(_titleLogoWidgets);
+            WindowInitScrollWidgets(*this);
+            colours[0] = ColourWithFlags{ Drawing::Colour::grey }.withFlag(ColourFlag::translucent, true);
+            colours[1] = ColourWithFlags{ Drawing::Colour::grey }.withFlag(ColourFlag::translucent, true);
+            colours[2] = ColourWithFlags{ Drawing::Colour::grey }.withFlag(ColourFlag::translucent, true);
         }
-    }
 
-    /**
-     *
-     *  rct2: 0x0066B872
-     */
-    void OnDraw(DrawPixelInfo& dpi) override
-    {
-        auto screenCoords = windowPos + ScreenCoordsXY{ 2, 2 };
-        GfxDrawSprite(&dpi, ImageId(SPR_G2_LOGO), screenCoords);
-        GfxDrawSprite(&dpi, ImageId(SPR_G2_TITLE), screenCoords + ScreenCoordsXY{ 104, 18 });
-    }
-};
+        void onMouseUp(WidgetIndex widgetIndex) override
+        {
+            switch (widgetIndex)
+            {
+                case WIDX_LOGO:
+                    AboutOpen();
+                    break;
+            }
+        }
 
-WindowBase* WindowTitleLogoOpen()
-{
-    auto* window = WindowBringToFrontByClass(WindowClass::TitleLogo);
-    if (window == nullptr)
+        /**
+         *
+         *  rct2: 0x0066B872
+         */
+        void onDraw(Drawing::RenderTarget& rt) override
+        {
+            auto screenCoords = windowPos + ScreenCoordsXY{ 2, 2 };
+            GfxDrawSprite(rt, ImageId(SPR_G2_LOGO), screenCoords);
+            GfxDrawSprite(rt, ImageId(SPR_G2_TITLE), screenCoords + ScreenCoordsXY{ 104, 18 });
+        }
+    };
+
+    WindowBase* TitleLogoOpen()
     {
-        window = WindowCreate<TitleLogoWindow>(
-            WindowClass::TitleLogo, ScreenCoordsXY(0, 0), WW, WH, WF_STICK_TO_BACK | WF_TRANSPARENT);
+        auto* windowMgr = GetWindowManager();
+        auto* window = windowMgr->BringToFrontByClass(WindowClass::titleLogo);
+        if (window == nullptr)
+        {
+            window = windowMgr->Create<TitleLogoWindow>(
+                WindowClass::titleLogo, ScreenCoordsXY(0, 0), kWindowSize,
+                { WindowFlag::stickToBack, WindowFlag::transparent, WindowFlag::noTitleBar });
+        }
+        return window;
     }
-    return window;
-}
+} // namespace OpenRCT2::Ui::Windows

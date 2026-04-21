@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,17 +9,17 @@
 
 #ifdef __ANDROID__
 
-#    include "UiContext.h"
+    #include "UiContext.h"
 
-#    include <SDL.h>
-#    include <dlfcn.h>
-#    include <jni.h>
-#    include <openrct2/common.h>
-#    include <openrct2/core/String.hpp>
-#    include <openrct2/platform/Platform.h>
-#    include <openrct2/ui/UiContext.h>
-#    include <sstream>
-#    include <stdexcept>
+    #include <SDL.h>
+    #include <dlfcn.h>
+    #include <jni.h>
+    #include <openrct2/Diagnostic.h>
+    #include <openrct2/core/String.hpp>
+    #include <openrct2/platform/Platform.h>
+    #include <openrct2/ui/UiContext.h>
+    #include <sstream>
+    #include <stdexcept>
 
 namespace OpenRCT2::Ui
 {
@@ -60,7 +60,7 @@ namespace OpenRCT2::Ui
 
         std::string ShowFileDialog(SDL_Window* window, const FileDialogDesc& desc) override
         {
-            STUB();
+            LOG_WARNING("Function %s at %s:%d is a stub.", __PRETTY_FUNCTION__, __FILE__, __LINE__);
 
             return nullptr;
         }
@@ -68,7 +68,7 @@ namespace OpenRCT2::Ui
         std::string ShowDirectoryDialog(SDL_Window* window, const std::string& title) override
         {
             LOG_INFO(title.c_str());
-            STUB();
+            LOG_WARNING("Function %s at %s:%d is a stub.", __PRETTY_FUNCTION__, __FILE__, __LINE__);
 
             return "/sdcard/rct2";
         }
@@ -79,7 +79,7 @@ namespace OpenRCT2::Ui
 
         void OpenURL(const std::string& url) override
         {
-            STUB();
+            LOG_WARNING("Function %s at %s:%d is a stub.", __PRETTY_FUNCTION__, __FILE__, __LINE__);
         }
 
         bool HasFilePicker() const override

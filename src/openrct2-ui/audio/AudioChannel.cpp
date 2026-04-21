@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -14,18 +14,16 @@
 #include <algorithm>
 #include <cmath>
 #include <openrct2/audio/AudioSource.h>
-#include <openrct2/common.h>
-#include <speex/speex_resampler.h>
 
 namespace OpenRCT2::Audio
 {
-    template<typename AudioSource_ = SDLAudioSource> class AudioChannelImpl final : public ISDLAudioChannel
+    template<typename AudioSource_ = SDLAudioSource>
+    class AudioChannelImpl final : public ISDLAudioChannel
     {
         static_assert(std::is_base_of_v<IAudioSource, AudioSource_>);
 
     private:
         AudioSource_* _source = nullptr;
-        SpeexResamplerState* _resampler = nullptr;
 
         MixerGroup _group = MixerGroup::Sound;
         double _rate = 0;
@@ -48,32 +46,13 @@ namespace OpenRCT2::Audio
         AudioChannelImpl()
         {
             AudioChannelImpl::SetRate(1);
-            AudioChannelImpl::SetVolume(MIXER_VOLUME_MAX);
+            AudioChannelImpl::SetVolume(kMixerVolumeMax);
             AudioChannelImpl::SetPan(0.5f);
-        }
-
-        ~AudioChannelImpl() override
-        {
-            if (_resampler != nullptr)
-            {
-                speex_resampler_destroy(_resampler);
-                _resampler = nullptr;
-            }
         }
 
         [[nodiscard]] IAudioSource* GetSource() const override
         {
             return _source;
-        }
-
-        [[nodiscard]] SpeexResamplerState* GetResampler() const override
-        {
-            return _resampler;
-        }
-
-        void SetResampler(SpeexResamplerState* value) override
-        {
-            _resampler = value;
         }
 
         [[nodiscard]] MixerGroup GetGroup() const override
@@ -155,7 +134,7 @@ namespace OpenRCT2::Audio
 
         void SetVolume(int32_t volume) override
         {
-            _volume = std::clamp(volume, 0, MIXER_VOLUME_MAX);
+            _volume = std::clamp(volume, 0, kMixerVolumeMax);
         }
 
         [[nodiscard]] float GetPan() const override
@@ -254,7 +233,7 @@ namespace OpenRCT2::Audio
                 size_t readLen = _source->Read(dst, _offset, bytesToRead);
                 if (readLen > 0)
                 {
-                    dst = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(dst) + readLen);
+                    dst = static_cast<void*>(static_cast<uint8_t*>(dst) + readLen);
                     bytesToRead -= readLen;
                     bytesRead += readLen;
                     _offset += readLen;
@@ -265,7 +244,7 @@ namespace OpenRCT2::Audio
                     {
                         _done = true;
                     }
-                    else if (_loop == MIXER_LOOP_INFINITE)
+                    else if (_loop == kMixerLoopInfinite)
                     {
                         _offset = 0;
                     }

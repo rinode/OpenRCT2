@@ -32,12 +32,9 @@ STR_0027    :Autoscontri
 STR_0028    :Nave dei pirati
 STR_0029    :Nave oscillante invertita
 STR_0030    :Chiosco del cibo
-STR_0031    :Chiosco sconosciuto (1D)
 STR_0032    :Chiosco delle bibite
-STR_0033    :Chiosco sconosciuto (1F)
 STR_0034    :Chiosco
 STR_0035    :Giostra
-STR_0036    :Chiosco sconosciuto (22)
 STR_0037    :Chiosco
 STR_0038    :Servizi igienici
 STR_0039    :Ruota panoramica
@@ -83,21 +80,17 @@ STR_0078    :Ottovolante sottile invertito
 STR_0079    :Tappeto magico
 STR_0080    :Corsa sottomarina
 STR_0081    :River Rafts
-STR_0082    :Attrazione sconosciuta (50)
 STR_0083    :Enterprise
-STR_0084    :Attrazione sconosciuta (52)
-STR_0085    :Attrazione sconosciuta (53)
-STR_0086    :Attrazione sconosciuta (54)
-STR_0087    :Attrazione sconosciuta (55)
 STR_0088    :Ottovolante invertito a impulso
 STR_0089    :Mini-ottovolante
 STR_0090    :Corsa nella miniera
-STR_0091    :Attrazione sconosciuta (59)
 STR_0092    :Ottovolante a lancio MIL
 STR_0093    :Ottovolante ibrido
 STR_0094    :Ottovolante a binario singolo
 STR_0095    :Ottovolante Alpino
 STR_0096    :Ottovolante di legno classico
+STR_0097    :Ottovolante in piedi classico
+STR_0098    :Ottovolante a lancio LSM
 STR_0512    :Un ottovolante compatto con una salita a spirale e cadute fluide e tortuose.
 STR_0513    :Un ottovolante con giro della morte dove i passeggeri si trovano in una posizione eretta
 STR_0514    :I treni, sospesi sotto l’ottovolante, durante le curve oscillano lateralmente
@@ -181,12 +174,14 @@ STR_0603    :Un ottovolante in legno con i binari in acciaio, in grado di avere 
 STR_0604    :I visitatori viaggiano lungo un sottile tracciato da monorotaia, attraverso strette inversioni e cambi di direzione.
 STR_0605    :I visitatori scendono lungo una rotaia piena di curve, frenando per controllare la velocità del loro vagone
 STR_0606    :Un ottovolante di legno vecchio stile con un percorso veloce e turbolento, con molto air-time, G laterali, progettato per farti sentire “fuori controllo”
+STR_0607    :Un intenso ottovolante d’acciaio vecchio stile, nel quale i passeggeri sono in posizione eretta
+STR_0608    :I treni dell’ottovolante sono lanciati da motori sincroni lineari e corrono attraverso curve e avvitamenti stretti
 STR_0767    :Visitatore {INT32}
 STR_0768    :Tuttofare {INT32}
 STR_0769    :Meccanico {INT32}
 STR_0770    :Vigilante {INT32}
 STR_0771    :Intrattenitore {INT32}
-STR_0777    :Parco senza nome{POP16}{POP16}
+STR_0777    :Parco senza nome
 STR_0778    :Cartello
 STR_0779    :1°
 STR_0780    :2
@@ -245,27 +240,16 @@ STR_0832    :Ruota di 90° in senso orario
 STR_0833    :Metti in pausa
 STR_0834    :Opzioni di gioco e del disco
 STR_0839    :{UINT16} × {UINT16}
-STR_0840    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{UINT16} × {UINT16}
 STR_0847    :Informazioni su “OpenRCT2”
 STR_0850    :{WINDOW_COLOUR_2}Copyright © 2002 Chris Sawyer, tutti i diritti riservati
 STR_0851    :{WINDOW_COLOUR_2}Design e programmazione di Chris Sawyer
 STR_0852    :{WINDOW_COLOUR_2}Grafica di Simon Foster
 STR_0853    :{WINDOW_COLOUR_2}Effetti sonori e musica di Allister Brimble
 STR_0854    :{WINDOW_COLOUR_2}Audio aggiuntivo registrato da David Ellis
-STR_0855    :{WINDOW_COLOUR_2}Rappresentazione di Jacqui Lyons a Marjacq Ltd.
+STR_0855    :{WINDOW_COLOUR_2}Rappresentanza di Jacqui Lyons presso Marjacq Ltd.
 STR_0856    :{WINDOW_COLOUR_2}Grazie a: 
 STR_0857    :{WINDOW_COLOUR_2}Peter James Adcock, Joe Booth e John Wardley
 STR_0865    :{STRINGID}
-STR_0866    :{POP16}{STRINGID}
-STR_0867    :{POP16}{POP16}{STRINGID}
-STR_0868    :{POP16}{POP16}{POP16}{STRINGID}
-STR_0869    :{POP16}{POP16}{POP16}{POP16}{STRINGID}
-STR_0870    :{POP16}{POP16}{POP16}{POP16}{POP16}{STRINGID}
-STR_0871    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{STRINGID}
-STR_0872    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{STRINGID}
-STR_0873    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{STRINGID}
-STR_0874    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{STRINGID}
-STR_0875    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{STRINGID}
 STR_0876    :{BLACK}▼
 STR_0877    :Troppo basso!
 STR_0878    :Troppo alto!
@@ -284,7 +268,7 @@ STR_0892    :Schermata salvata su disco come “{STRINGID}”
 STR_0893    :Cattura della schermata fallita!
 STR_0894    :Area dati per i paesaggi piena!
 STR_0895    :Non si può costruire contemporaneamente sopra e sotto il livello del terreno
-STR_0896    :{POP16}{POP16}{STRINGID} Costruzione
+STR_0896    :{STRINGID} Costruzione
 STR_0897    :Direzione
 STR_0898    :Curva a sinistra
 STR_0899    :Curva a destra
@@ -409,8 +393,6 @@ STR_1018    :Impossibile effettuare modifiche…
 STR_1019    :Impossibile effettuare modifiche…
 STR_1020    :Impossibile effettuare modifiche…
 STR_1021    :{POP16}{POP16}{POP16}{POP16}{STRINGID}
-STR_1022    :{POP16}{POP16}{POP16}{COMMA16} carrozza per treno
-STR_1023    :{POP16}{POP16}{POP16}{COMMA16} carrozze per treno
 STR_1024    :{COMMA16} carrozza per treno
 STR_1025    :{COMMA16} carrozze per treno
 STR_1026    :Piattaforma della stazione troppo lunga!
@@ -520,9 +502,7 @@ STR_1128    :Frenato dai freni di blocco
 STR_1129    :Tutti i veicoli degli stessi colori
 STR_1130    :Colori diversi per {STRINGID}
 STR_1131    :Colori diversi per ogni veicolo
-STR_1132    :Veicolo {POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{COMMA16}
-STR_1133    :Veicolo {POP16}{COMMA16}
-STR_1134    :{POP16}{POP16}{POP16}{POP16}{POP16}{STRINGID} {COMMA16}
+STR_1133    :Veicolo {COMMA16}
 STR_1135    :{STRINGID} {COMMA16}
 STR_1136    :Scegli il colore principale
 STR_1137    :Scegli il colore secondario 1
@@ -544,10 +524,10 @@ STR_1152    :Qualsiasi carico
 STR_1153    :Altezza indicata sul tracciato
 STR_1154    :Altezza indicata sul terreno
 STR_1155    :Altezza indicata sui sentieri
-STR_1156    :{MOVE_X}{10}{STRINGID}
-STR_1157    :✓{MOVE_X}{10}{STRINGID}
+STR_1156    :{MOVE_X}{10}{STRING}
+STR_1157    :✓{MOVE_X}{10}{STRING}
 STR_1158    :Impossibile cancellarlo…
-STR_1159    :Colloca lo scenario, i giardini e gli altri accessori
+STR_1159    :Colloca lo scenario, i giardini e gli altri arredi
 STR_1160    :Crea/regola i laghi e gli specchi d’acqua
 STR_1161    :Impossibile posizionarlo qui…
 STR_1162    :{OUTLINE}{TOPAZ}{STRINGID}
@@ -560,7 +540,6 @@ STR_1168    :Opzioni
 STR_1169    :(Nessuno)
 STR_1170    :{STRING}
 STR_1171    :{RED}Chiuso
-STR_1172    :{YELLOW}{STRINGID}
 STR_1173    :Costruisci sentieri e corsie d’attesa
 STR_1174    :Un’insegna è d’intralcio
 STR_1175    :Impossibile costruirlo su un sentiero in pendenza
@@ -719,7 +698,6 @@ STR_1327    :Ruota gli oggetti di 90°
 STR_1328    :Prima è necessario livellare il terreno
 STR_1329    :{WINDOW_COLOUR_2}Veloc. di lancio:
 STR_1330    :Massima velocità alla partenza dalla stazione
-STR_1331    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{VELOCITY}
 STR_1332    :{VELOCITY}
 STR_1333    :{STRINGID} - {STRINGID}{POP16}
 STR_1334    :{STRINGID} - {STRINGID} {COMMA16}
@@ -817,7 +795,6 @@ STR_1425    :Sentiero
 STR_1426    :Corsia d’attesa
 STR_1427    :{WINDOW_COLOUR_2}Clienti: {BLACK}{COMMA32} l’ora
 STR_1428    :{WINDOW_COLOUR_2}Prezzo biglietto:
-STR_1429    :{POP16}{POP16}{POP16}{CURRENCY2DP}
 STR_1430    :Gratis
 STR_1431    :Sta camminando
 STR_1432    :In cammino verso {STRINGID}
@@ -1061,7 +1038,6 @@ STR_1671    :{WINDOW_COLOUR_2}Profitto totale: {BLACK}{CURRENCY2DP}
 STR_1672    :Freni
 STR_1673    :Attivatore controllo di rotazione
 STR_1674    :Velocità freno
-STR_1675    :{POP16}{VELOCITY}
 STR_1676    :Fissa un limite di velocità per i freni
 STR_1677    :{WINDOW_COLOUR_2}Popolarità: {BLACK}Ignota
 STR_1678    :{WINDOW_COLOUR_2}Popolarità: {BLACK}{COMMA16}%
@@ -1117,23 +1093,19 @@ STR_1727    :I diritti di costruzione non sono in vendita!
 STR_1728    :Impossibile comprare i diritti di costruzione qui…
 STR_1729    :Questo terreno non è di proprietà del parco!
 STR_1730    :{RED}Chiuso
-STR_1731    :{WHITE}{STRINGID} - - 
 STR_1732    :Costruisci
 STR_1733    :Modalità
 STR_1734    :{WINDOW_COLOUR_2}Numero di giri:
 STR_1735    :Numero di giri del circuito
-STR_1736    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{COMMA16}
 STR_1738    :Impossibile cambiare il numero di giri…
 STR_1739    :Corsa vinta dal visitatore {INT32}
 STR_1740    :Corsa vinta da {STRINGID}
 STR_1741    :Ancora non è costruito!
 STR_1742    :{WINDOW_COLOUR_2}Max. persone a bordo:
 STR_1743    :Numero massimo di persone che possono salire contemporaneamente su quest’attrazione
-STR_1744    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{COMMA16}
 STR_1746    :Impossibile modificarlo…
 STR_1747    :{WINDOW_COLOUR_2}Tempo limite:
 STR_1748    :Limite di tempo per attrazione
-STR_1749    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{DURATION}
 STR_1751    :Impossibile cambiare il limite di tempo per attrazione…
 STR_1752    :Mostra la lista completa dei visitatori del parco
 STR_1753    :Mostra il riassunto dei visitatori del parco
@@ -1154,31 +1126,17 @@ STR_1767    :Galleria rotante
 STR_1768    :Impossibile cambiare il numero di oscillazioni…
 STR_1769    :{WINDOW_COLOUR_2}Numero oscillaz.:
 STR_1770    :Numero di oscillazioni complete
-STR_1771    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{COMMA16}
 STR_1773    :Può esserci soltanto una sezione di foto-in-corsa per attrazione
 STR_1774    :Può esserci soltanto una salita per il traino con cavo per attrazione
 STR_1777    :Musica attrazioni
-STR_1778    :{STRINGID} - - 
-STR_1779    :{INLINE_SPRITE}{254}{19}{00}{00} Costume da panda
-STR_1780    :{INLINE_SPRITE}{255}{19}{00}{00} Costume da tigre
-STR_1781    :{INLINE_SPRITE}{00}{20}{00}{00} Costume da elefante
-STR_1782    :{INLINE_SPRITE}{01}{20}{00}{00} Costume da antico romano
-STR_1783    :{INLINE_SPRITE}{02}{20}{00}{00} Costume da gorilla
-STR_1784    :{INLINE_SPRITE}{03}{20}{00}{00} Costume da pupazzo di neve
-STR_1785    :{INLINE_SPRITE}{04}{20}{00}{00} Costume da cavaliere
-STR_1786    :{INLINE_SPRITE}{05}{20}{00}{00} Costume da astronauta
-STR_1787    :{INLINE_SPRITE}{06}{20}{00}{00} Costume da bandito
-STR_1788    :{INLINE_SPRITE}{07}{20}{00}{00} Costume da sceriffo
-STR_1789    :{INLINE_SPRITE}{08}{20}{00}{00} Costume da pirata
 STR_1790    :Scegli il colore dell’uniforme per questo tipo di dipendente
 STR_1791    :{WINDOW_COLOUR_2}Colore dell’uniforme:
-STR_1792    :Sta accorrendo alla chiamata d’emergenza venuta da: {STRINGID}
+STR_1792    :Sta accorrendo al guasto di {STRINGID}
 STR_1793    :Si sta dirigendo verso {STRINGID} per un’ispezione
 STR_1794    :Sta riparando {STRINGID}
 STR_1795    :Sta rispondendo a una chiamata via radio
-STR_1796    :Si è guastato/a e ha bisogno di riparazioni
+STR_1796    :È guasto e ha bisogno di riparazioni
 STR_1798    :Vortice
-STR_1799    :{POP16}{POP16}{POP16}{POP16}{POP16}{CURRENCY2DP}
 STR_1800    :Salvavita
 STR_1801    :Freni bloccati (chiusi)
 STR_1802    :Freni bloccati (aperti)
@@ -1221,8 +1179,8 @@ STR_1838    :Soddisfazione: {COMMA16}%
 STR_1839    :Affidabilità: {COMMA16}%
 STR_1840    :Tempi morti: {COMMA16}%
 STR_1841    :Profitto: {CURRENCY} all’ora
-STR_1842    :La preferita da: {COMMA16} visitatore
-STR_1843    :La preferita da: {COMMA16} visitatori
+STR_1842    :La preferita da: {COMMA32} visitatore
+STR_1843    :La preferita da: {COMMA32} visitatori
 STR_1844    :Scegli il tipo di informazione da mostrare nella lista delle attrazioni
 STR_1845    :{MONTHYEAR}
 STR_1846    :{COMMA32} visitatori
@@ -1246,14 +1204,12 @@ STR_1863    :Tuttofare
 STR_1864    :Meccanico
 STR_1865    :Vigilante
 STR_1866    :Intrattenitore
-STR_1867    :{BLACK}{COMMA16} {STRINGID}
+STR_1867    :{BLACK}{COMMA32} {STRINGID}
 STR_1868    :Impossibile modificare il numero di rotazioni…
 STR_1869    :{WINDOW_COLOUR_2}Numero rotazioni:
 STR_1870    :Numero di rotazioni complete
-STR_1871    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{COMMA16}
 STR_1873    :{WINDOW_COLOUR_2}Entrate: {BLACK}{CURRENCY} all’ora
 STR_1874    :{WINDOW_COLOUR_2}Profitto: {BLACK}{CURRENCY} all’ora
-STR_1875    :{BLACK} {SPRITE}{BLACK} {STRINGID}
 STR_1876    :{WINDOW_COLOUR_2}{INLINE_SPRITE}{251}{19}{00}{00}Ispeziona le attrazioni
 STR_1877    :{WINDOW_COLOUR_2}{INLINE_SPRITE}{252}{19}{00}{00}Ripara le attrazioni
 STR_1878    :{WINDOW_COLOUR_2}Ispezione:
@@ -1283,8 +1239,8 @@ STR_1901    :{WINDOW_COLOUR_2}Biglietti d’ingresso
 STR_1902    :{WINDOW_COLOUR_2}Biglietti attrazioni
 STR_1903    :{WINDOW_COLOUR_2}Vendite dei negozi
 STR_1904    :{WINDOW_COLOUR_2}Scorte dei negozi
-STR_1905    :{WINDOW_COLOUR_2}Vendite di cibo/bevande
-STR_1906    :{WINDOW_COLOUR_2}Scorte di cibo/bevande
+STR_1905    :{WINDOW_COLOUR_2}Vendite cibo/bevande
+STR_1906    :{WINDOW_COLOUR_2}Scorte cibo/bevande
 STR_1907    :{WINDOW_COLOUR_2}Stipendi personale
 STR_1908    :{WINDOW_COLOUR_2}Marketing
 STR_1909    :{WINDOW_COLOUR_2}Ricerca
@@ -1295,7 +1251,6 @@ STR_1913    :{BLACK}+{CURRENCY2DP}
 STR_1914    :{BLACK}{CURRENCY2DP}
 STR_1915    :{RED}{CURRENCY2DP}
 STR_1916    :{WINDOW_COLOUR_2}Prestito:
-STR_1917    :{POP16}{POP16}{POP16}{CURRENCY}
 STR_1918    :La banca non concede ulteriori prestiti!
 STR_1919    :Fondi insufficienti!
 STR_1920    :Il prestito non può essere restituito!
@@ -1303,7 +1258,7 @@ STR_1921    :Inizia una nuova partita
 STR_1922    :Continua a giocare alla partita salvata
 STR_1924    :Esci
 STR_1925    :Impossibile collocare una persona qui…
-STR_1927    :{YELLOW}{STRINGID} si è guastato/a
+STR_1927    :{YELLOW}{STRINGID} ha avuto un guasto
 STR_1928    :{RED}{STRINGID} ha avuto un incidente!
 STR_1929    :{RED}{STRINGID} ancora non è stato riparato{NEWLINE}Guarda dove si trovano i tuoi meccanici e prendi in considerazione l’idea di organizzarli meglio
 STR_1930    :Attiva/disattiva le informazioni in tempo reale su questo visitatore - (se l’opzione è attivata, i movimenti del visitatore saranno visualizzati nell’area messaggi)
@@ -1333,7 +1288,6 @@ STR_1953    :Marketing
 STR_1954    :Fondi per la ricerca
 STR_1955    :{WINDOW_COLOUR_2}Numero dei circuiti:
 STR_1956    :Media dei circuiti del tracciato per attrazione
-STR_1957    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{COMMA16}
 STR_1958    :{COMMA16}
 STR_1959    :Impossibile modificare il numero dei circuiti…
 STR_1960    :{WINDOW_COLOUR_2}Prezzo dei palloncini:
@@ -1577,8 +1531,8 @@ STR_2212    :Mostra la lista dei vigilanti del parco
 STR_2213    :Mostra la lista degli intrattenitori del parco
 STR_2214    :Non è possibile costruire quando il gioco è in pausa!
 STR_2215    :{STRINGID}{NEWLINE}({STRINGID})
-STR_2216    :{WINDOW_COLOUR_2}{COMMA16}°C
-STR_2217    :{WINDOW_COLOUR_2}{COMMA16}°F
+STR_2216    :{WINDOW_COLOUR_1}{COMMA16}°C
+STR_2217    :{WINDOW_COLOUR_1}{COMMA16}°F
 STR_2218    :{RED}{STRINGID} sull’attrazione {STRINGID} non ha ancora fatto ritorno presso: {STRINGID}!{NEWLINE}Controlla se si è bloccato o se è entrato in stallo
 STR_2219    :{RED}{COMMA16} persone sono rimaste uccise in un incidente su {STRINGID}
 STR_2220    :{WINDOW_COLOUR_2}Valutazione del parco: {BLACK}{COMMA16}
@@ -1740,12 +1694,12 @@ STR_2382    :Terreno
 STR_2383    :Acqua
 STR_2384    :{WINDOW_COLOUR_2}Il tuo obiettivo:
 STR_2385    :{BLACK}Nessuno
-STR_2386    :{BLACK}Avere almeno {COMMA16} visitatori nel parco entro la fine di {MONTHYEAR}, con una valutazione del parco di almeno 600
+STR_2386    :{BLACK}Avere almeno {COMMA32} visitatori nel parco entro la fine di {MONTHYEAR}, con una valutazione del parco di almeno 600
 STR_2387    :{BLACK}Far raggiungere al parco un valore di almeno {POP16}{POP16}{CURRENCY} entro la fine di  {PUSH16}{PUSH16}{PUSH16}{PUSH16}{PUSH16}{MONTHYEAR}
 STR_2388    :{BLACK}Divertirsi!
 STR_2389    :{BLACK}Costruire il migliore {STRINGID} si possa!
 STR_2390    :{BLACK}Avere 10 tipi diversi di ottovolante nel parco, ognuno con un livello di divertimento di almeno 6.00
-STR_2391    :{BLACK}Avere almeno {COMMA16} visitatori nel parco. E non devi mai avere una valutazione del parco inferiore a 700!
+STR_2391    :{BLACK}Avere almeno {COMMA32} visitatori nel parco. E non devi mai avere una valutazione del parco inferiore a 700!
 STR_2392    :{BLACK}Incassare mensilmente tramite i biglietti delle attrazioni almeno {POP16}{POP16}{CURRENCY}
 STR_2393    :{BLACK}Avere 10 tipi diversi di ottovolante nel parco, ognuno della lunghezza minima di {LENGTH} e un livello di divertimento di almeno 7.00
 STR_2394    :{BLACK}Finire di costruire tutti e cinque gli ottovolanti parzialmente costruiti in questo parco, facendo loro raggiungere un livello di divertimento di almeno {POP16}{POP16}{COMMA2DP32} ciascuno
@@ -1800,7 +1754,6 @@ STR_2450    :{YELLOW}La campagna pubblicitaria per il parco è terminata
 STR_2451    :{YELLOW}La campagna pubblicitaria per {STRINGID} è terminata
 STR_2452    :{WINDOW_COLOUR_2}Denaro (sottratti i prestiti): {BLACK}{CURRENCY2DP}
 STR_2453    :{WINDOW_COLOUR_2}Denaro (sottratti i prestiti): {RED}{CURRENCY2DP}
-STR_2454    :{BLACK}{CURRENCY2DP} -
 STR_2457    :Mostra i conti economici
 STR_2458    :Mostra il grafico di cassa (sottratti i prestiti) nel tempo
 STR_2459    :Mostra il grafico del valore del parco nel tempo
@@ -1910,13 +1863,13 @@ STR_2636    :Tastierino numerico /
 STR_2669    :BlocNum
 STR_2670    :Scorr
 STR_2680    :Tutte le ricerche sono completate
-STR_2684    :Arriva un largo numero di visitatori
+STR_2684    :Fa arrivare una folla di visitatori
 STR_2685    :Simplex Noise Parameters
-STR_2686    :Basso:
-STR_2687    :Alto:
-STR_2688    :Frequenza Base:
-STR_2689    :Ottavi:
-STR_2690    :Generazione Mappa
+STR_2686    :Altezza min. terreno:
+STR_2687    :Altezza max. terreno:
+STR_2688    :Frequenza base:
+STR_2689    :Ottave:
+STR_2690    :Generazione mappa
 STR_2691    :Base height:
 STR_2692    :Livello acqua:
 STR_2693    :Terreno:
@@ -1933,9 +1886,6 @@ STR_2706    :Mai
 STR_2707    :Usa il file manager di sistema
 STR_2708    :{WINDOW_COLOUR_1}Sei sicuro di voler sovrascrivere {STRINGID}?
 STR_2709    :Sovrascrivi
-STR_2710    :Digitare il nome del file.
-STR_2718    :Sali di livello
-STR_2719    :Crea nuovo
 STR_2720    :{UINT16}sec
 STR_2721    :{UINT16}sec
 STR_2722    :{UINT16}min:{UINT16}sec
@@ -1979,7 +1929,7 @@ STR_2775    :A schermo intero (desktop)
 STR_2776    :Lingua:
 STR_2777    :{MOVE_X}{10}{STRING}
 STR_2778    :»{MOVE_X}{10}{STRING}
-STR_2779    :Finestra #{COMMA16}
+STR_2779    :Finestra n. {COMMA16}
 STR_2780    :Finestra extra
 STR_2781    :{STRINGID}:
 STR_2782    :SHIFT + 
@@ -2009,11 +1959,11 @@ STR_2805    :Mostra la mappa del parco
 STR_2806    :{RED}I visitatori si lamentano dello stato indecente dei percorsi del parco{NEWLINE}Guarda dove sono i tuoi tuttofare e prendi in considerazione l’idea di organizzarli meglio
 STR_2807    :{RED}I visitatori si lamentano della quantità di cartacce per terra nel parco{NEWLINE}Guarda dove sono i tuoi tuttofare e prendi in considerazione l’idea di organizzarli meglio
 STR_2808    :{RED}I visitatori si lamentano degli atti di vandalismo compiuti nel parco{NEWLINE}Guarda dove sono i tuoi vigilanti e prendi in considerazione l’idea di organizzarli meglio
-STR_2809    :{RED}I visitatori hanno fame e non riescono a trovare un posto dove comprare del cibo
-STR_2810    :{RED}I visitatori hanno sete e non riescono a trovare un posto dove comprare delle bevande
-STR_2811    :{RED}I visitatori si lamentano perché non riescono a trovare dei servizi igienici nel parco
-STR_2812    :{RED}I visitatori si perdono e rimangono bloccati{NEWLINE}Controlla se è il caso di migliorare la disposizione dei sentieri per aiutare i tuoi visitatori a orientarsi più facilmente
-STR_2813    :{RED}Il prezzo del biglietto d’ingresso per il parco è troppo alto!{NEWLINE}Riduci il prezzo del biglietto o fai in modo di aumentare il valore del parco per attrarre più visitatori
+STR_2809    :{RED}I visitatori sono affamati e non trovano dove comprare del cibo
+STR_2810    :{RED}I visitatori sono assetati e non trovano dove comprare delle bevande
+STR_2811    :{RED}I visitatori si lamentano perché non riescono a trovare i servizi igienici nel parco
+STR_2812    :{RED}I visitatori si perdono e rimangono bloccati{NEWLINE}Controlla se sia il caso di migliorare la disposizione dei sentieri per aiutare i visitatori a orientarsi più facilmente
+STR_2813    :{RED}Il prezzo per l’ingresso al parco è troppo alto!{NEWLINE}Riduci il prezzo del biglietto o migliora il valore del parco per attrarre più visitatori
 STR_2814    :{WINDOW_COLOUR_2}Premio parco più sporco
 STR_2815    :{WINDOW_COLOUR_2}Premio parco più pulito
 STR_2816    :{WINDOW_COLOUR_2}Premio parco con il miglior ottovolante
@@ -2048,7 +1998,7 @@ STR_2844    :{TOPAZ}Il tuo parco ha ricevuto un premio essendo stato valutato il
 STR_2845    :{TOPAZ}Il tuo parco ha ricevuto un premio essendo stato valutato il “Parco con i colori più sconvolgenti di tutto paese”!
 STR_2846    :{TOPAZ}Il tuo parco ha ricevuto un premio essendo stato valutato il “Parco più confuso”!
 STR_2847    :{TOPAZ}Il tuo parco ha ricevuto un premio essendo stato valutato il “Parco con le migliori attrazioni tranquille del paese”!
-STR_2848    :{WINDOW_COLOUR_2}Nessun premio di recente
+STR_2848    :{WINDOW_COLOUR_2}Nessun premio recente
 STR_2849    :Installazione del nuovo scenario eseguita correttamente
 STR_2850    :Installazione del nuovo progetto di tracciato eseguita correttamente
 STR_2851    :Scenario già installato
@@ -2099,39 +2049,6 @@ STR_3008    :{PEARLAQUA}ABC
 STR_3009    :{PALESILVER}ABC
 STR_3010    :Impossibile caricare il file…
 STR_3011    :Il file contiene dati non validi
-STR_3012    :Stile auto da scontro
-STR_3013    :Stile organo da fiera
-STR_3014    :Stile fanfara romana
-STR_3015    :Stile orientale
-STR_3016    :Stile marziano
-STR_3017    :Stile tamburi nella giungla
-STR_3018    :Stile egiziano
-STR_3019    :Stile giocattolo
-STR_3020    :
-STR_3021    :Stile spaziale
-STR_3022    :Stile horror
-STR_3023    :Stile techno
-STR_3024    :Stile tranquillo
-STR_3025    :Stile estivo
-STR_3026    :Stile acquatico
-STR_3027    :Stile far west
-STR_3028    :Stile giurassico
-STR_3029    :Stile rock
-STR_3030    :Stile ragtime
-STR_3031    :Stile fantastico
-STR_3032    :Stile rock 2
-STR_3033    :Stile ghiacciato
-STR_3034    :Stile nevoso
-STR_3035    :Musica personalizzata 1
-STR_3036    :Musica personalizzata 2
-STR_3037    :Stile medievale
-STR_3038    :Stile urbano
-STR_3039    :Stile organo
-STR_3040    :Stile meccanico
-STR_3041    :Stile moderno
-STR_3042    :Stile piratesco
-STR_3043    :Stile rock 3
-STR_3044    :Stile dolciumi
 STR_3045    :Seleziona uno stile musicale da suonare
 STR_3047    :Le autorità locali vietano la demolizione o la modifica di quest’attrazione
 STR_3048    :Campagne di marketing vietate dalle autorità locali
@@ -2167,7 +2084,6 @@ STR_3092    :Non ti è permesso spostare o modificare la stazione di quest’att
 STR_3093    :{WINDOW_COLOUR_2}Preferito: {BLACK}{STRINGID}
 STR_3094    :N/A
 STR_3095    :{WINDOW_COLOUR_2}Velocità catena di traino:
-STR_3096    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{VELOCITY}
 STR_3097    :Seleziona la velocità della catena di traino sulla salita
 STR_3099    :Scegli il colore
 STR_3100    :Scegli il secondo colore
@@ -2192,8 +2108,8 @@ STR_3118    :{BLACK}{STRINGID} si sta dirigendo verso l’attrazione
 STR_3119    :{BLACK}{STRINGID} sta riparando l’attrazione
 STR_3120    :Individua il meccanico disponibile più vicino o il meccanico che sta riparando l’attrazione
 STR_3121    :Impossibile individuare il meccanico o tutti i meccanici nei paraggi sono già impegnati
-STR_3122    :{WINDOW_COLOUR_2}Attrazione preferita di: {BLACK}{COMMA16} visitatore
-STR_3123    :{WINDOW_COLOUR_2}Attrazione preferita di: {BLACK}{COMMA16} visitatori
+STR_3122    :{WINDOW_COLOUR_2}Attrazione preferita di: {BLACK}{COMMA32} visitatore
+STR_3123    :{WINDOW_COLOUR_2}Attrazione preferita di: {BLACK}{COMMA32} visitatori
 STR_3124    :Guasto: {STRINGID}
 STR_3125    :{WINDOW_COLOUR_2}Fattore di divertimento: {BLACK}+{COMMA16}%
 STR_3126    :{WINDOW_COLOUR_2}Fattore d’intensità: {BLACK}+{COMMA16}%
@@ -2210,7 +2126,6 @@ STR_3136    :Attenzione: questo progetto verrà costruito con un veicolo alterna
 STR_3137    :Seleziona uno scenario vicino
 STR_3138    :Ripristina la selezione
 STR_3139    :Il cavo di traino non può funzionare in questa modalità operativa
-STR_3140    :La salita per il traino deve iniziare subito dopo la stazione
 STR_3141    :Con la salita per il traino non è possibile usare la modalità multi-circuito.
 STR_3142    :{WINDOW_COLOUR_2}Capienza: {BLACK}{STRINGID}
 STR_3143    :Mostra le persone sulla mappa
@@ -2235,14 +2150,14 @@ STR_3181    :Selezione degli oggetti - {STRINGID}
 STR_3182    :Dev’essere selezionato il tipo di entrata del parco
 STR_3183    :Dev’essere selezionato il tipo di acqua
 STR_3184    :Prova veicoli/attrazioni
-STR_3185    :Scenario piccolo
-STR_3186    :Scenario grande
+STR_3185    :Arredo piccolo
+STR_3186    :Arredo grande
 STR_3187    :Muri/recinti
 STR_3188    :Cartelli dei percorsi
 STR_3189    :Sentieri classici
 STR_3190    :Percorsi (extra)
 STR_3191    :Gruppi di scenari
-STR_3192    :Entrata del parco
+STR_3192    :Entrate del parco
 STR_3193    :Acqua
 STR_3195    :Lista delle invenzioni
 STR_3196    :{WINDOW_COLOUR_2}Gruppo di ricerca: {BLACK}{STRINGID}
@@ -2261,7 +2176,6 @@ STR_3208    :Gestione tracciati salvati
 STR_3209    :Indietro al passo precedente:
 STR_3210    :Avanti al passo successivo:
 STR_3211    :Dimens. mappa:
-STR_3212    :{POP16}{COMMA16}
 STR_3213    :Impossibile rimpicciolire ulteriormente la mappa
 STR_3214    :Impossibile ingrandire ulteriormente la mappa
 STR_3215    :Troppo vicino al bordo della mappa
@@ -2281,22 +2195,20 @@ STR_3228    :Fissa le posizioni iniziali delle persone
 STR_3229    :I freni di blocco non possono essere usati immediatamente dopo la stazione
 STR_3230    :I freni di blocco non possono essere usati l’uno immediatamente dopo l’altro
 STR_3231    :I freni di blocco non possono essere usati immediatamente dopo la cima di questa salita di traino
-STR_3232    :Opzioni - Finanze
-STR_3233    :Opzioni - Visitatori
-STR_3234    :Opzioni - Parco
+STR_3232    :Opzioni scenario - Finanze
+STR_3233    :Opzioni scenario - Visitatori
 STR_3235    :Mostra le opzioni sulle finanze
 STR_3236    :Mostra le opzioni sui visitatori
-STR_3237    :Mostra le opzioni sul parco
 STR_3238    :Niente denaro
 STR_3239    :Rendi questo parco un parco “senza denaro” e senza restrizioni finanziarie
-STR_3240    :{WINDOW_COLOUR_2}Denaro iniziale:
-STR_3241    :{WINDOW_COLOUR_2}Prestito iniziale:
-STR_3242    :{WINDOW_COLOUR_2}Prestito massimo:
-STR_3243    :{WINDOW_COLOUR_2}Tasso d’interessi annuo:
+STR_3240    :Denaro iniziale:
+STR_3241    :Prestito iniziale:
+STR_3242    :Prestito massimo:
+STR_3243    :Tasso d’interessi annuo:
 STR_3244    :Vieta le campagne di marketing
 STR_3245    :Vieta la pubblicità, le campagne promozionali e le altre campagne di marketing
-STR_3246    :{WINDOW_COLOUR_2}{CURRENCY}
-STR_3247    :{WINDOW_COLOUR_2}{COMMA16}%
+STR_3246    :{CURRENCY}
+STR_3247    :{COMMA16}%
 STR_3248    :Impossibile aumentare ulteriormente il denaro iniziale!
 STR_3249    :Impossibile ridurre ulteriormente il denaro iniziale!
 STR_3250    :Impossibile aumentare ulteriormente il prestito iniziale!
@@ -2305,14 +2217,10 @@ STR_3252    :Impossibile aumentare ulteriormente il prestito massimo!
 STR_3253    :Impossibile ridurre ulteriormente il prestito massimo!
 STR_3254    :Impossibile aumentare ulteriormente il tasso d’interessi!
 STR_3255    :Impossibile ridurre ulteriormente il tasso d’interessi!
-STR_3256    :Attrazioni meno intense preferite
-STR_3257    :Stabilisci se i visitatori in generale dovrebbero preferire solo le attrazioni meno intense
-STR_3258    :Attrazioni più intense preferite
-STR_3259    :Stabilisci se i visitatori in generale dovrebbero preferire solo attrazioni più intense
-STR_3260    :{WINDOW_COLOUR_2}Denaro per visitatore (media):
-STR_3261    :{WINDOW_COLOUR_2}Felicità iniziale visitatori:
-STR_3262    :{WINDOW_COLOUR_2}Fame iniziale visitatori:
-STR_3263    :{WINDOW_COLOUR_2}Sete iniziale visitatori:
+STR_3260    :Denaro per visitatore (media):
+STR_3261    :Felicità iniziale visitatori:
+STR_3262    :Fame iniziale visitatori:
+STR_3263    :Sete iniziale visitatori:
 STR_3264    :Impossibile aumentarlo ulteriormente!
 STR_3265    :Impossibile ridurlo ulteriormente!
 STR_3266    :Stabilisci il prezzo dell’ingresso e delle attrazioni
@@ -2326,23 +2234,15 @@ STR_3273    :Valutazione del parco a un livello di difficoltà più elevato
 STR_3274    :Rendi la valutazione del parco più impegnativa
 STR_3275    :Generazione dei visitatori a un livello di difficoltà più elevato
 STR_3276    :Rendi più difficile attrarre visitatori al parco
-STR_3277    :{WINDOW_COLOUR_2}Costo del terreno:
-STR_3278    :{WINDOW_COLOUR_2}Costo dei diritti di costruzione:
+STR_3277    :Costo del terreno:
+STR_3278    :Costo dei diritti di costruzione:
 STR_3279    :Ingresso gratis / Paga attrazioni
 STR_3280    :Paga ingresso / Attrazioni gratis
-STR_3281    :{WINDOW_COLOUR_2}Prezzo d’ingresso:
-STR_3282    :Seleziona gli obiettivi e il nome del parco
+STR_3281    :Prezzo d’ingresso:
 STR_3283    :Seleziona le attrazioni da proteggere
-STR_3284    :Selezione degli obiettivi
-STR_3285    :Attrazioni protette
+STR_3285    :Opzioni scenario - Attrazioni protette
 STR_3286    :Seleziona l’obiettivo di questo scenario
 STR_3287    :{WINDOW_COLOUR_2}Obiettivo:
-STR_3288    :Scegli il clima
-STR_3289    :{WINDOW_COLOUR_2}Clima:
-STR_3290    :Freddo e umido
-STR_3291    :Temperato
-STR_3292    :Caldo e secco
-STR_3293    :Freddo
 STR_3294    :Modifica…
 STR_3295    :Rinomina il parco
 STR_3296    :Modifica il nome dello scenario
@@ -2358,7 +2258,7 @@ STR_3305    :{WINDOW_COLOUR_2}Entrate mensili:
 STR_3306    :{WINDOW_COLOUR_2}Profitto mensile:
 STR_3307    :{WINDOW_COLOUR_2}Lunghezza minima:
 STR_3308    :{WINDOW_COLOUR_2}Liv. divertimento:
-STR_3309    :{WINDOW_COLOUR_2}{COMMA16}
+STR_3309    :{WINDOW_COLOUR_2}{COMMA32}
 STR_3310    :{WINDOW_COLOUR_2}{LENGTH}
 STR_3311    :{WINDOW_COLOUR_2}{COMMA2DP32}
 STR_3312    :{WINDOW_COLOUR_2}Attrazioni sotto ordine di protezione:
@@ -2441,7 +2341,7 @@ STR_5120    :Finanza
 STR_5121    :Ricerca
 STR_5122    :Attrazioni in base al tipo di percorso (come in RCT1)
 STR_5123    :Rinnova attrazioni
-STR_5125    :Tutte distruttibili
+STR_5125    :Tutto è distruttibile
 STR_5126    :Musica iniziale casuale
 STR_5127    :Trascinando, modifica il paesaggio anziché cambiare altezza
 STR_5128    :Dimensione selezione
@@ -2573,7 +2473,7 @@ STR_5265    :Seleziona quali risorse sono visibili
 STR_5266    :Display
 STR_5267    :Cultura and Unità
 STR_5268    :Audio
-STR_5269    :Controlli e interfaccia
+STR_5269    :Controlli
 STR_5270    :Varie
 STR_5272    :Scenari piccoli
 STR_5273    :Scenari grandi
@@ -2639,9 +2539,9 @@ STR_5356    :{BLACK}Nausea:
 STR_5357    :{BLACK}Tolleranza nausea:
 STR_5358    :{BLACK}Bagno:
 STR_5359    :Rimuovi visitatori
-STR_5360    :Rimuovi tutti i visitatori dalla mappa
-STR_5361    :Dai a tutti i visitatori:
-STR_5362    :{BLACK}Imposta ai visitatori l’intensità attrazione:
+STR_5360    :Rimuove tutti i visitatori dalla mappa
+STR_5361    :Aggiungi a inventario dei visitatori
+STR_5362    :{BLACK}Intensità attrazioni preferita:
 STR_5363    :Più di 1
 STR_5364    :Meno di 15
 STR_5365    :{BLACK}Velocità personale:
@@ -2651,7 +2551,7 @@ STR_5368    :Reset stato incidenti
 STR_5371    :Selezione oggetti
 STR_5372    :Inverti direzione trascinamento con clic destro
 STR_5373    :Nome {STRINGID}
-STR_5374    :Data {STRINGID}
+STR_5374    :Data di modifica {STRINGID}
 STR_5375    :▲
 STR_5376    :▼
 STR_5404    :Il nome è già utilizzato
@@ -2671,7 +2571,7 @@ STR_5457    :Disabilita limite supporti
 STR_5458    :Ruota senso orario
 STR_5459    :Ruota antiorario
 STR_5460    :Ruota visuale antiorario
-STR_5461    :Imposta parametri visitatori
+STR_5461    :Imposta parametri per tutti i visitatori
 STR_5462    :{CURRENCY}
 STR_5463    :Obiett. “Divertiti”
 STR_5464    :Generale
@@ -2700,19 +2600,19 @@ STR_5486    :{BLACK}{COMMA16}
 STR_5487    :Mostra i messaggi recenti
 STR_5489    :Mostra solo i visitatori seguiti
 STR_5490    :Disabilita audio quando si cambia finestra
-STR_5491    :Lista Invenzioni
-STR_5492    :Opzioni Scenario
-STR_5493    :Mostra Messaggio
-STR_5495    :Lista Giocatore
+STR_5491    :Lista invenzioni
+STR_5492    :Opzioni scenario
+STR_5493    :Mostra messaggio
+STR_5495    :Lista giocatore
 STR_5496    :Giocatore
 STR_5497    :Ping
-STR_5498    :Lista Server
-STR_5499    :Nome Giocatore:
-STR_5500    :Aggiungi Server
-STR_5501    :Avvia Server
+STR_5498    :Lista server
+STR_5499    :Nome giocatore:
+STR_5500    :Aggiungi server
+STR_5501    :Avvia server
 STR_5502    :Multiplayer
 STR_5503    :Inserisci hostname o indirizzo IP:
-STR_5504    :Show multiplayer status
+STR_5504    :Mostra stato multiplayer
 STR_5505    :Impossibile connettersi al server.
 STR_5506    :I visitatori ignorano l’intensità
 STR_5510    :Scheda audio predefinita
@@ -2758,7 +2658,6 @@ STR_5549    :Anno/Mese/Giorno
 STR_5550    :{POP16}{POP16}Anno {COMMA16}, {PUSH16}{PUSH16}{MONTH} {PUSH16}{PUSH16}{STRINGID}
 STR_5551    :Anno/Giorno/Mese
 STR_5552    :{POP16}{POP16}Anno {COMMA16}, {PUSH16}{PUSH16}{PUSH16}{STRINGID} {MONTH}
-STR_5553    :Gioco in pausa quando l’overlay di Steam è aperto
 STR_5554    :Attiva lo strumento montagna
 STR_5555    :Mostra i veicoli di altre attrazioni
 STR_5556    :Caccia giocatore
@@ -2829,9 +2728,6 @@ STR_5623    :Wacky Worlds
 STR_5624    :Time Twister
 STR_5625    :Parchi “veri”
 STR_5626    :Altri parchi
-STR_5627    :Raggruppa lista scenari per:
-STR_5628    :Gioco di origine
-STR_5629    :Livello di difficoltà
 STR_5630    :Attiva sblocco progressivo
 STR_5631    :Parchi scaricabili originali
 STR_5632    :Costruisci il tuo…
@@ -2867,7 +2763,7 @@ STR_5661    :Imposta gruppo giocatori
 STR_5662    :N.D.
 STR_5663    :Pulisci paesaggio
 STR_5664    :Trucchi
-STR_5665    :Toggle Scenery Cluster
+STR_5665    :Attiva/disattiva sparpaglia arredi
 STR_5666    :Accesso senza password
 STR_5701    :{WINDOW_COLOUR_2}Ultima azione: {BLACK}{STRINGID}
 STR_5702    :Localizza l’ultima azione del giocatore
@@ -2889,10 +2785,10 @@ STR_5716    :Non permesso in modalità multigiocatore
 STR_5717    :Versione della rete: {STRING}
 STR_5718    :Versione della rete: {STRING}
 STR_5719    :Soleggiato
-STR_5720    :Parzialmente nuvoloso
+STR_5720    :Parz. nuvoloso
 STR_5721    :Nuvoloso
-STR_5722    :Piovoso
-STR_5723    :Fortemente piovoso
+STR_5722    :Pioggia
+STR_5723    :Pioggia forte
 STR_5724    :Temporale
 STR_5725    :{BLACK}Cambia il meteo a:
 STR_5726    :Imposta il meteo attuale nel parco
@@ -2922,7 +2818,7 @@ STR_5755    :Versione del software errata (il server usa {STRING})
 STR_5756    :Password errata
 STR_5757    :Server pieno
 STR_5758    :{OUTLINE}{GREEN}{STRING} è entrato in gioco
-STR_5759    :Scaricamento mappa … ({INT32} / {INT32}) KiB
+STR_5759    :Scaricamento mappa …
 STR_5760    :Dollari di Hong Kong (HK$)
 STR_5761    :Nuovi dollari taiwanesi (NT$)
 STR_5762    :Yuan cinesi (CN¥)
@@ -2954,10 +2850,10 @@ STR_5787    :{COMMA32} giocatori connessi
 STR_5788    :Ispeziona attrazioni:
 STR_5789    :Disattiva effetto fulmine
 STR_5790    :Attiva/disattiva i prezzi di RCT1{NEWLINE}(es. sia prezzo di ingresso che prezzo sulle attrazioni)
-STR_5791    :Imposta l’affidabilità di tutte le attrazioni a 100%{NEWLINE}e reimposta la loro data di costruzione a “quest’anno”
+STR_5791    :Imposta l’affidabilità di tutte le attrazioni{NEWLINE}a 100% e reimposta la loro data{NEWLINE}di costruzione a “quest’anno”
 STR_5792    :Aggiusta tutte le attrazioni rotte
 STR_5793    :Pulisce lo storico degli incidenti di questa attrazione,{NEWLINE}affinché i visitatori non si lamentino che non è sicura
-STR_5794    :Alcuni scenari disattivano la modifica{NEWLINE}dei percorsi già presenti nel parco.{NEWLINE}Questa opzione la riattiva
+STR_5794    :Alcuni scenari disattivano{NEWLINE}la modifica dei percorsi{NEWLINE}già presenti nel parco.{NEWLINE}Questa opzione la riattiva
 STR_5795    :I visitatori salgono su tutte le attrazioni{NEWLINE}a prescindere dal loro livello di intensità
 STR_5796    :Forza il parco a chiudere o riaprire
 STR_5797    :Disattiva modifiche al tempo atmosferico{NEWLINE}e blocca quello attuale
@@ -2981,7 +2877,6 @@ STR_5814    :{WINDOW_COLOUR_1}“{STRING}”
 #tooltips
 STR_5815    :Mostra il contatore FPS mentre si gioca
 STR_5816    :Imposta il rapporto a cui il gioco viene scalato.{NEWLINE}Utile quando si gioca ad alte risoluzioni
-STR_5819    :[Richiede rendering hardware]{NEWLINE}Mette in pausa il gioco{NEWLINE}se l’overlay di Steam è aperto
 STR_5820    :Riduce a icona il gioco{NEWLINE}se il focus viene perso in modalità schermo intero
 STR_5822    :Alterna tra giorno e notte.{NEWLINE}Un ciclo dura un mese di gioco.
 STR_5823    :Mostra il testo dei cartelli in maiuscolo (come in RCT1)
@@ -2997,7 +2892,7 @@ STR_5832    :Mostra l’altezza in unità generiche invece del formato impostato
 STR_5833    :Cambia il formato della data utilizzato
 STR_5834    :Seleziona il dispositivo audio utilizzato da OpenRCT2
 STR_5835    :Disattiva l’audio del gioco se la finestra perde il focus
-STR_5836    :Imposta la musica da utilizzare nel menu principale.{NEWLINE}Selezionando RCT1 sarà necessario copiare il file “data/css17.dat” dalla cartella di RCT1 a “data/css50.dat” nella cartella di RCT2, oppure impostare il percorso di RCT1 nella scheda “Altro”.
+STR_5836    :Seleziona la musica da utilizzare nel menu principale.{NEWLINE}Per selezionare il tema di RCT1 è necessario impostare il percorso di RCT1 nella scheda Avanzate.
 STR_5837    :Crea e gestisci i temi dell’interfaccia
 STR_5838    :Mostra un pulsante differente per le finanze nella barra degli strumenti
 STR_5839    :Mostra un pulsante differente per le ricerche e sviluppo nella barra degli strumenti
@@ -3049,7 +2944,6 @@ STR_5887    :Prefisso
 STR_5888    :Suffisso
 STR_5889    :Simbolo valuta personalizzato
 STR_5890    :Inserire il simbolo della valuta da visualizzare
-STR_5891    :Predefinita
 STR_5892    :Apre la cartella predefinita
 STR_5893    :Tasso di cambio
 STR_5894    :Inserire il tasso di cambio
@@ -3075,12 +2969,11 @@ STR_5914    :Attrazione sconosciuta
 STR_5915    :Giocatore
 STR_5916    :{COMMA16} giocatore
 STR_5917    :{COMMA16} giocatori
-STR_5918    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{COMMA16}
 STR_5919    :{COMMA16}
 STR_5920    :Mostra effetti climatici
 STR_5921    :Se attivo, saranno mostrati pioggia e colori spenti durante i temporali.
-STR_5922    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}Massimo {STRINGID}
-STR_5923    :{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}{POP16}Massimo {COMMA16} {STRINGID} per treno
+STR_5922    :Massimo {STRINGID}
+STR_5923    :Massimo {COMMA16} {STRINGID} per treno
 STR_5924    :Dettagli superficie
 STR_5925    :Dettagli sentiero
 STR_5926    :Dettagli percorso
@@ -3195,25 +3088,24 @@ STR_6033    :Cartella di RCT1:
 STR_6034    :{BLACK}{STRING}
 STR_6035    :Selezionare la cartella di installazione di RCT1
 STR_6036    :Pulisci
-STR_6037    :Selezionare una cartella di installazione di RCT1 valida
 STR_6037    :La cartella selezionata non contiene un’installazione valida di RollerCoaster Tycoon 1.
 STR_6038    :Se RCT1 è installato, selezionarne la cartella per caricarne gli scenari, la musica, ecc.
 STR_6039    :Demolizione veloce percorso
 STR_6040    :Modifica opzioni scenario
 STR_6041    :{BLACK}Non è stato assunto alcun meccanico!
-STR_6042    :Carica heightmap
-STR_6043    :Seleziona heightmap
-STR_6044    :Ammorbidisci heightmap
-STR_6045    :Forza
-STR_6046    :Normalizza heightmap
-STR_6047    :Ammorbidisci celle
-STR_6048    :Errore nella heightmap
+STR_6042    :Carica mappa altimetrica
+STR_6043    :Seleziona mappa altimetrica
+STR_6044    :Ammorbidisci mappa altimetrica
+STR_6045    :Forza:
+STR_6046    :Normalizza mappa altimetrica
+STR_6047    :Ammorbidisci bordi celle
+STR_6048    :Errore nella mappa altimetrica
 STR_6049    :Errore nella lettura del PNG
 STR_6050    :Errore nella lettura della bitmap
-STR_6052    :La heightmap è troppo grande e sarà tagliata
-STR_6053    :La heightmap non può essere normalizzata
+STR_6052    :La mappa altimetrica è troppo grande e sarà tagliata
+STR_6053    :La mappa altimetrica non può essere normalizzata
 STR_6054    :Sono supportate solo le bitmap a 24 bit
-STR_6055    :File di heightmap di OpenRCT2
+STR_6055    :File mappa altimetrica di OpenRCT2
 STR_6056    :Muto
 STR_6057    :Mostra un bottone separato per l’opzione Muto nella barra degli strumenti
 STR_6058    :Muto
@@ -3222,7 +3114,7 @@ STR_6060    :Mostra animazione per acquisti dei visitatori
 STR_6061    :Mostra l’effetto dei soldi animato{NEWLINE}quando i visitatori effettuano acquisti.
 STR_6062    :{OUTLINE}{GREEN}+ {CURRENCY2DP}
 STR_6063    :{OUTLINE}{RED}- {CURRENCY2DP}
-STR_6064    :Possiedi tutto il terreno
+STR_6064    :Possiedi intera mappa
 STR_6065    :Registra azioni degli utenti
 STR_6066    :Crea un log di tutte le azioni degli utenti nella propria cartella utente.
 STR_6067    :Server avviato.
@@ -3259,7 +3151,7 @@ STR_6097    :{STRING} ha piazzato un tratto di percorso “{STRING}”.
 STR_6098    :{STRING} ha rimosso un tratto di percorso.
 STR_6099    :Connesso al server.
 STR_6100    :Disconnesso dal server.
-STR_6101    :Le attrazioni non perdono valore con il tempo
+STR_6101    :Valore delle attrazioni fisso nel tempo
 STR_6102    :Il valore delle attrazioni non calerà con il tempo, in modo che i visitatori non pensino improvvisamente che il costo dell’attrazione sia troppo alto.
 STR_6103    :Questa opzione è disabilitata durante il gioco online.
 STR_6105    :Hypercoaster
@@ -3287,8 +3179,8 @@ STR_6133    :Permette di accedere ad attrazioni e scenari non ancora inventati
 STR_6134    :Rimuovi scenario
 STR_6135    :Il client ha inviato una richiesta non valida
 STR_6136    :Il server ha inviato una richiesta non valida
-STR_6137    :OpenRCT2, un clone libero e open-source di Roller Coaster Tycoon 2.
-STR_6138    :OpenRCT2 è frutto del lavoro di molti autori, una lista completa si può trovare nel file “contributors.md”. Per ulteriori informazioni, visitare http://github.com/OpenRCT2/OpenRCT2
+STR_6137    :OpenRCT2, un remake con aggiunte gratuito e open-source di Roller Coaster Tycoon 2.
+STR_6138    :OpenRCT2 è frutto del lavoro di molti autori, una lista completa si può trovare cliccando il pulsante “Collaboratori”. Per ulteriori informazioni, visitare http://github.com/OpenRCT2/OpenRCT2
 STR_6139    :Tutti i nomi di prodotti e aziende appartengono ai rispettivi proprietari. Il loro uso non implica alcuna affiliazione o approvazione da parte di essi.
 STR_6140    :Storico delle modifiche…
 STR_6141    :Barra degli strumenti inferiore alla RCT1
@@ -3296,7 +3188,7 @@ STR_6142    :{WINDOW_COLOUR_2}Nome percorso: {BLACK}{STRING}
 STR_6143    :{WINDOW_COLOUR_2}Tipo attrazione: {BLACK}{STRINGID}
 STR_6144    :Mostra visuali sporche
 STR_6145    :Imposta limite di velocità per gli acceleratori
-STR_6146    :Abilita tutti i pezzi disegnabili del percorso
+STR_6146    :Abilita tutti i pezzi di percorso possibili
 STR_6147    :Abilita nella finestra di costruzione tutti i pezzi che l’attrazione è in grado di supportare, a prescindere dal fatto che il veicolo li supporti o meno.
 STR_6148    :Connessione al server principale…
 STR_6149    :Impossibile connettersi al server principale
@@ -3317,7 +3209,6 @@ STR_6165    :Usa sincronizz. verticale
 STR_6166    :Sincronizza i frame alla frequenza di aggiornamento dello schermo, per prevenire gli artefatti grafici (tearing).
 STR_6167    :Avanzate
 STR_6168    :Sequenza del titolo
-STR_6169    :Selezione scenario
 STR_6170    :Personalizzazione interfaccia
 STR_6171    :Cerca
 STR_6172    :Cerca
@@ -3418,7 +3309,7 @@ STR_6304    :Apri selezione scenario
 STR_6305    :Multithreading
 STR_6306    :Opzione sperimentale per utilizzare più thread per il rendering, potrebbe causare instabilità.
 STR_6307    :Schema colore: {BLACK}{STRINGID}
-STR_6308    :{TOPAZ}“{STRINGID}{OUTLINE}{TOPAZ}”{NEWLINE}{STRINGID}
+STR_6308    :{TOPAZ}“{STRINGID}{TOPAZ}”{NEWLINE}{STRINGID}
 STR_6309    :Riconnessione
 STR_6310    :{WINDOW_COLOUR_2}Posizione: {BLACK}{INT32} {INT32} {INT32}
 STR_6311    :{WINDOW_COLOUR_2}Successivo: {BLACK}{INT32} {INT32} {INT32}
@@ -3432,7 +3323,7 @@ STR_6318    :Network desync rilevato.{NEWLINE}File log: {STRING}
 STR_6319    :Blocco freno chiuso
 STR_6320    :Indistruttibile
 STR_6321    :L’aggiunta è rotta
-STR_6322    :{WINDOW_COLOUR_2}Sprite Id: {BLACK}{INT32}
+STR_6322    :{WINDOW_COLOUR_2}Id entità: {BLACK}{INT32}
 STR_6323    :Simulazione
 STR_6324    :Simula
 STR_6325    :Simula attrazione
@@ -3468,8 +3359,6 @@ STR_6355    :Densità alta
 STR_6356    :Fa apparire anatre se il parco contiene acqua
 STR_6357    :Rimuove tutte le anatre dalla mappa
 STR_6358    :Pagina {UINT16}
-STR_6359    :{POP16}{POP16}Pagina {UINT16}
-STR_6360    :{BLACK}{COMMA32}
 STR_6361    :Attiva effetti luce su attrazioni (sperimentale)
 STR_6362    :Se abilitato, i veicoli delle attrazioni con percorso saranno illuminati di notte.
 STR_6363    :Testo copiato negli appunti
@@ -3478,7 +3367,7 @@ STR_6366    :Veicoli fermi o incastrati
 STR_6364    :{RED}{COMMA16} persona rimasta uccisa in un incidente su {STRINGID}
 STR_6367    :Fotogramma animazione:
 STR_6368    :Per motivi di compatibilità, non è consigliato eseguire OpenRCT2 tramite Wine. OpenRCT2 offre supporto nativo per macOS, Linux, FreeBSD and OpenBSD.
-STR_6369    :Permetti costruzione percorsi ad altezze non valide
+STR_6369    :Permetti percorsi ad altezze non valide
 STR_6370    :Permette di collocare pezzi di percorso a qualsiasi intervallo di altezza
 STR_6371    :La cartella specificata contiene un’installazione di RollerCoaster Tycoon 1, ma non contiene il file “csg1i.dat”. Questo file dev’essere copiato dal CD di Loopy Landscapes o di RCT Deluxe alla cartella “Data” dell’installazione su disco rigido di RollerCoaster Tycoon 1. 
 STR_6372    :La cartella specificata contiene un’installazione di RollerCoaster Tycoon 1, ma la versione non è compatibile. OpenRCT2 necessita di un’installazione di Loopy Landscapes o di RCT Deluxe per poter utilizzare le risorse di RollerCoaster Tycoon 1.
@@ -3487,7 +3376,7 @@ STR_6374    :M
 STR_6375    :Attrazione sconosciuta
 STR_6376    :{WINDOW_COLOUR_2}Veicolo attrazione:{NEWLINE}{BLACK}{STRINGID} per {STRINGID}
 STR_6377    :{WINDOW_COLOUR_2}Tipo: {BLACK}{STRINGID} per {STRINGID}
-STR_6378    :Scaricamento lista oggetti: {INT32} / {INT32}
+STR_6378    :Scaricamento lista oggetti:
 STR_6379    :Ricevuti dati non validi
 STR_6380    :Aggiornamento disponibile!
 STR_6381    :Unisciti al Discord di OpenRCT2!
@@ -3599,9 +3488,9 @@ STR_6487    :Mostra/nascondi personale
 STR_6488    :{RED}I visitatori si lamentano per la lunghezza delle code nel tuo parco.{NEWLINE}Prendi in considerazione di accorciare quelle problematiche o di aumentare il flusso di visitatori delle attrazioni.
 STR_6489    :Errore: versione parco non compatibile
 STR_6490    :Avviso: versione parco semi-compatibile
-STR_6491    :Questo parco è stato salvato in una versione più recente di OpenRCT2. Il parco è v{INT32} e richiede almeno v{INT32}.
+STR_6491    :Questo parco è stato salvato in una versione più recente di OpenRCT2. Il parco è stato salvato nella v{INT32} e richiede almeno v{INT32}. Si sta usando la v{INT32}.
 STR_6492    :Questo parco è stato salvato in una versione più vecchia di OpenRCT2 e non può essere aperto con questa versione. Il parco è v{INT32}.
-STR_6493    :Questo parco è stato salvato in una versione più recente di OpenRCT2, alcuni dati potrebbero essere persi. Il parco è v{INT32} e richiede almeno v{INT32}.
+STR_6493    :Questo parco è stato salvato in una versione più recente di OpenRCT2, alcuni dati potrebbero essere persi. Il parco è stato salvato nella v{INT32}. Si sta usando la v{INT32}.
 STR_6494    :Raggruppa per tipo attrazione
 STR_6495    :Raggruppa le attrazioni in base al loro tipo anziché mostrare ogni veicolo separatamente.
 STR_6496    :{WINDOW_COLOUR_2}{STRINGID}
@@ -3623,764 +3512,275 @@ STR_6511    :Zero G Roll (Dx)
 STR_6512    :Zero G Roll Grande (Sx)
 STR_6513    :Zero G Roll Grande (Dx)
 STR_6514    :Altezza non valida!
-STR_6515    :{BLACK}RCT1 non collegato - saranno usate immagini di ripiego.
-STR_6516    :Uno o più oggetti aggiunti necessitano che RCT1 sia collegato per una corretta visualizzazione. Saranno usate immagini di ripiego.
-STR_6517    :Uno o più oggetti di questo parco necessitano che RCT1 sia collegato per una corretta visualizzazione. Saranno usate immagini di ripiego.
+STR_6515    :{BLACK}RollerCoaster Tycoon 1 non collegato - saranno usate immagini di ripiego.
+STR_6516    :Uno o più oggetti aggiunti necessitano che RollerCoaster Tycoon 1 sia collegato per una corretta visualizzazione. Saranno usate immagini di ripiego.
+STR_6517    :Uno o più oggetti di questo parco necessitano che RollerCoaster Tycoon 1 sia collegato per una corretta visualizzazione. Saranno usate immagini di ripiego.
 STR_6518    :{BLACK}Passa il cursore sopra a uno scenario per visualizzare la sua descrizione e il suo obiettivo. Fai clic per iniziare a giocare.
 STR_6519    :Extra
+STR_6520    :Pacchetti di risorse
+STR_6521    :Bassa priorità
+STR_6522    :Alta priorità
+STR_6523    :Abbassa la priorità del pacchetto di risorse selezionato.
+STR_6524    :Aumenta la priorità del pacchetto di risorse selezionato.
+STR_6525    :Ricarica tutte le risorse nel gioco con i pacchetti di risorse attivi.
+STR_6526    :(grafica, musica ed effetti sonori di base)
+STR_6527    :Competizioni
+STR_6528    :Parametri del tracciato non validi!
+STR_6529    :Parametro dello schema colore non valido!
+STR_6530    :User Created Expansion Set
+STR_6531    :The Time Machine
+STR_6532    :Katy’s Dreamworld
+STR_6533    :{WINDOW_COLOUR_2}Fattore di divertimento: {BLACK}-{COMMA16}%
+STR_6534    :{WINDOW_COLOUR_2}Fattore d’intensità: {BLACK}-{COMMA16}%
+STR_6535    :{WINDOW_COLOUR_2}Fattore di nausea: {BLACK}-{COMMA16}%
+STR_6536    :Questo parco è stato salvato in una versione più recente di OpenRCT2. il parco è stato salvato nella v{INT32}, si sta usando la v{INT32}.
+STR_6537    :Usa sentieri normali come code
+STR_6538    :Mostra i percorsi regolari nel menu a cascata della finestra dei Sentieri.
+STR_6539    :Freno chiuso
+STR_6540    :{WINDOW_COLOUR_2}Un ringraziamento speciale alle seguenti aziende per aver concesso l'utilizzo della loro immagine:
+STR_6541    :{WINDOW_COLOUR_2}Rocky Mountain Construction Group, Josef Wiegand GmbH & Co. KG, Intamin Amusement Rides Int. Corp. Est.
+STR_6542    :Collaboratori
+STR_6543    :Collaboratori…
+STR_6544    :I prestiti non posso essere negativi!
+STR_6545    :Usa il calcolo dell’intersse di RCT1
+STR_6546    :Usa l’algoritmo di calcolo dell’interesse di RollerCoaster Tycoon 1, che usa una percentuale fissa del circa 1.33%.
+STR_6547    :Tutto lo scenario
+STR_6548    :Mostra le ringhiere agli incroci
+STR_6549    :Gli oggetti per la compatibilità non possono essere selezionati!
+STR_6550    :Questa voce è inclusa per retrocompatibilità con oggetti vecchi o danneggiati. Non può essere selezionata, ma solo deselezionata.
+
+STR_6551    :Verde militare
+STR_6552    :Verde pallido
+STR_6553    :Tanno
+STR_6554    :Marrone
+STR_6555    :Rosa corallo
+STR_6556    :Verde foresta
+STR_6557    :Chartreuse
+STR_6558    :Verde cacciatore
+STR_6559    :Celadon
+STR_6560    :Verde lime
+STR_6561    :Seppia
+STR_6562    :Pesca
+STR_6563    :Pervinca
+STR_6564    :Verde viridiano
+STR_6565    :Verde schiuma marina
+STR_6566    :Violetto
+STR_6567    :Lavanda
+STR_6568    :Arancio pastello
+STR_6569    :Acqua Profonda
+STR_6570    :Rosa pastello
+STR_6571    :Terra d’ombra
+STR_6572    :Beige
+STR_6573    :Invisibile
+STR_6574    :Oblio
+STR_6575    :Permetti schemi di colore speciali
+STR_6576    :Aggiunge colori speciali al menu a tendina dei colori 
+STR_6577    :Velocità freni di blocco
+STR_6578    :Fissa un limite di velocità per i freni di blocco. In modalità sezione a blocchi, freni adiacenti con una velocità inferiore sono collegati con i freni di blocco.
+STR_6579    :I freni di blocco saranno impostati alla velocità predefinita quando salvati come progetto di percorso
+STR_6580    :Ripristina
+STR_6581    :Si è sicuri di voler ripristinare tutte le scorciatorie di questa scheda?
+STR_6582    :Finestra delle scorciatoie da tastiera
+STR_6583    :{WINDOW_COLOUR_2}Treni invertiti
+STR_6584    :Selezionare per far andare i treni al contrario
+STR_6585    :Impossibile effettuare modifiche…
+STR_6586    :OpenRCT2
+STR_6587    :Il tema musicale principale di OpenRCT2 è opera di Allister Brimble,{NEWLINE}con licenza CC BY-SA 4.0.
+STR_6588    :Si ringrazia Herman Riddering per averci permesso di registrare il 35er Voigt.
+STR_6589    :Mostra i pulsanti di controllo della finestra a sinistra
+STR_6590    :Mostra i pulsanti di controllo della finestra (ad es. per chiuderla) a sinistra della barra del titolo invece che a destra.
+STR_6591    :Il dipendente sta riparando un’attrazione e non può essere licenziato.
+STR_6592    :Il dipendente sta ispezionando un’attrazione e non può essere licenziato.
+STR_6593    :Rimuovi recinto del parco
+STR_6594    :Analizzatore celle: Attiva/disattiva inclinazione muro
+STR_6595    :{WINDOW_COLOUR_2}Autore: {BLACK}{STRING}
+STR_6596    :{WINDOW_COLOUR_2}Autori: {BLACK}{STRING}
+STR_6597    :Parametro non valido
+STR_6598    :Valore fuori scala
+STR_6599    :Elemento fantasma non trovato
+STR_6600    :Palloncino non trovato
+STR_6601    :Membro dello staff non trovato
+STR_6602    :Attrazione non trovata
+STR_6603    :Elemento oggetto dell'attrazione non trovata
+STR_6604    :Giocatore non trovato
+STR_6605    :Elemento d’ingresso non trovato
+STR_6606    :Elemento di superficie non trovato
+STR_6607    :Elemento cella non trovato
+STR_6608    :Elemento percorso non trovato
+STR_6609    :Blocco di tracciato non trovato
+STR_6610    :Elemento di sentiero non trovato
+STR_6611    :Elemento di muro non trovato
+STR_6612    :Elemento cartello non trovato
+STR_6613    :Ricarica oggetto
+STR_6614    :Non è possibile modificare il prezzo di ingresso
+STR_6615    :Il tracciato su questa cella necessita acqua
+STR_6616    :Azione non valida per quel tipo di staff
+STR_6617    :Non è possibile scambiare l’elemento della cella con sé stesso
+STR_6618    :Impossibile cambiare la limitazione dell’oggetto…
+STR_6619    :Il tipo di oggetto non può essere sottoposto a limitazione!
+STR_6620    :Oggetto non trovato!
+STR_6621    :Limitato
+STR_6622    :Limita l’oggetto all’editor degli scenari e alla modalità sandbox
+STR_6623    :Digita ‘help’ per una lista dei comandi disponibili. Digita ‘hide’ per nascondere la console.
+STR_6624    :Analizzatore celle: ordina elementi
+STR_6625    :Colore non valido
+STR_6626    :L’animazione è invertita
+STR_6627    :Velocità percorso troppo alta!
+STR_6628    :Può essere posizionato solo sui bordi dei sentieri!
+STR_6629    :Allinea barra degli strumenti al centro
+STR_6630    :Questa impostazione allinea orizzontalmente i bottoni della barra degli strumenti al centro dello schermo. L’allineamento tradizionale è negli angoli a sinistra e a destra.
+STR_6631    :Caricamento…
+STR_6632    :Verifica file degli oggetti…
+STR_6633    :Verifica file degli scenari…
+STR_6634    :Verifica file dei modelli di percorsi…
+STR_6635    :Verifica pacchetti di risorse…
+STR_6636    :Verifica sequenze del titolo…
+STR_6637    :Caricamento sequenze del titolo…
+STR_6638    :UI ingrandita
+STR_6639    :Modifica l’interfaccia per renderla più adatta a schermi touch
+STR_6640    :Modifica pacchetti di risorse…
+STR_6641    :Finestra caricamento/progresso
+STR_6642    :{STRING} ({COMMA32} / {COMMA32})
+STR_6643    :{STRING} ({COMMA32} / {COMMA32} KiB)
+STR_6644    :Migliorie touch
+STR_6645    :Rende alcuni elementi della UI più grandi per renderli più semplici da cliccare o premere.
+STR_6646    :Autore: {STRING}
+STR_6647    :Autori: {STRING}
+STR_6648    :Caricamento motore plugin…
+STR_6649    :Caricamento scenario…
+STR_6650    :Caricamento partita salvata…
+STR_6651    :{STRING} ({COMMA32}%)
+STR_6652    :Finestra d’errore
+STR_6653    :Mostra tutte le fonti
+STR_6654    :Mostrate {POP16}{UINT16} fonti
+STR_6655    :Solo ‘{POP16}{STRINGID}’
+STR_6656    :Rimuovi tutti i recinti dal parco
+STR_6657    :Terreno non posseduto
+STR_6658    :Imposta il terreno come non posseduto dal parco, né disponibile per l’acquisto
+STR_6659    :Prezzi ignorati dai visitatori
+STR_6660    :I visitatori ignoreranno i prezzi di attrazioni e chioschi.
+STR_6661    :Tutti a caso
+STR_6662    :Imposta un colore a caso per ciascun treno o veicolo.
+STR_6663    :Trucchi data
+STR_6664    :Mostra i trucchi sulla data
+STR_6665    :Trucchi natura/meteo
+STR_6666    :Mostra i trucchi sulla natura/meteo
+STR_6667    :Fauna
+STR_6668    :Trucchi personale
+STR_6669    :Mostra i trucchi sul personale
+STR_6670    :Comportamento visitatori
+STR_6671    :Mostra i “veri” nomi del personale
+STR_6672    :Alterna tra i nomi “veri” del personale e i loro numeri
+STR_6673    :Trasparente
+STR_6674    :{MONTH}, anno {COMMA16}
+STR_6675    :Nomi visitatori
+STR_6676    :È necessario selezionare almeno un oggetto nomi visitatori
+STR_6677    :Aggiungi spiagge attorno agli specchi d’acqua
+STR_6678    :Fonte mappa altimetrica:
+STR_6679    :Pianura
+STR_6680    :Rumore Simplex
+STR_6681    :File mappa altimetrica
+STR_6682    :Generatore mappa - Generatore
+STR_6683    :Generatore mappa - Terreno
+STR_6684    :Generatore mappa - Acqua
+STR_6685    :Generatore mappa - Foreste
+STR_6686    :Rapporto alberi/terreno:
+STR_6687    :Altitudine min. alberi:
+STR_6688    :Altitudine max. alberi:
+STR_6689    :{UINT16}%
+STR_6690    :Altezza terreno minima
+STR_6691    :Inserisci un’altezza min. terreno tra {COMMA16} e {COMMA16}
+STR_6692    :Altezza terreno massima
+STR_6693    :Inserisci un’altezza max. terreno tra {COMMA16} e {COMMA16}
+STR_6694    :Altitudine minima alberi
+STR_6695    :Inserisci altitudine min. alberi tra {COMMA16} e {COMMA16}
+STR_6696    :Altitudine massima alberi
+STR_6697    :Inserisci altitudine max. alberi tra {COMMA16} e {COMMA16}
+STR_6698    :Rapporto alberi/terreno
+STR_6699    :Inserisci un rapporto alberi/terreno tra {COMMA16} e {COMMA16}
+STR_6700    :Frequenza di base Simplex
+STR_6701    :Inserisci una frequenza di base tra {COMMA2DP32} e {COMMA2DP32}
+STR_6702    :Ottave Simplex
+STR_6703    :Inserisci ottave tra {COMMA16} e {COMMA16}
+STR_6704    :{COMMA2DP32}
+STR_6705    :Sfoglia…
+STR_6706    :{WINDOW_COLOUR_2}File immagine attuale: {BLACK}{STRING}
+STR_6707    :(nessuno selezionato)
+STR_6708    :Forza addolcimento
+STR_6709    :Inserisci una forza addolcimento tra {COMMA16} e {COMMA16}
+STR_6710    :Ordinamento stabile
+STR_6711    :Nome file:
+STR_6712    :Salva
+STR_6713    :{COMMA32} {STRINGID}
+STR_6714    :Nome file
+STR_6715    :Data di modifica
+STR_6716    :Dimensione file
+STR_6717    :Dimensione file {STRINGID}
+STR_6718    :Animazioni persona
+STR_6719    :È necessario selezionare almeno un oggetto animazione persona per i visitatori
+STR_6720    :È necessario selezionare almeno un oggetto animazione persona per i tuttofare
+STR_6721    :È necessario selezionare almeno un oggetto animazione persona per i meccanici
+STR_6722    :È necessario selezionare almeno un oggetto animazione persona per le guardie di sicurezza
+STR_6723    :È necessario selezionare almeno un oggetto animazione persona per gli intrattenitori
+STR_6724    :Testi scenario
+STR_6725    :X:
+STR_6726    :Y:
+STR_6727    :Dive loop (sinistra)
+STR_6728    :Dive loop (destra)
+STR_6729    :La salita con catena di traino deve iniziare immediatamente dopo la stazione o un freno di blocco
+STR_6730    :Esporta i dati emscripten
+STR_6731    :Importa i dati emscripten
+STR_6732    :Mostra un bottone nella barra strumenti per ruotare la visuale in senso antiorario
+STR_6733    :Vedi attraverso
+STR_6734    :Gli elementi della mappa che sono all’altezza di taglio o più in alto sono mostrati traslucidi.
+STR_6735    :Sali alla cartella superiore
+STR_6736    :Anteprima
+STR_6737    :Nessuna anteprima disponibile
+STR_6738    :{WINDOW_COLOUR_2}Valore parco: {BLACK}{UINT16}
+STR_6739    :{WINDOW_COLOUR_2}Data: {BLACK}{STRINGID}
+STR_6740    :{WINDOW_COLOUR_2}Contanti: {BLACK}{CURRENCY2DP}
+STR_6741    :{WINDOW_COLOUR_2}Num. attraz.: {BLACK}{UINT16}
+STR_6742    :{WINDOW_COLOUR_2}Num. ospiti: {BLACK}{UINT16}
+STR_6743    :Clima
+STR_6744    :{WINDOW_COLOUR_2}{UINT16}%
+STR_6745    :{WINDOW_COLOUR_2}Preferenze intensità per gli ospiti:
+STR_6746    :Nessuna preferenza
+STR_6747    :Preferenze varie (predef.)
+STR_6748    :Solo attrazioni poco intense
+STR_6749    :Solo attrazioni più intense
+STR_6750    :Seleziona quale tipo di intensità attrazioni preferiscono i nuovi ospiti generati.
+STR_6751    :I percorsi per le code non possono essere usati per i passaggi a livello!
+STR_6752    :Opzioni scenario - Obiettivo
+STR_6753    :Opzioni scenario - Dettagli scenario
+STR_6754    :Opzioni scenario - Restrizioni terreno
+STR_6755    :Mostra opzioni obiettivo
+STR_6756    :Mostra opzioni dettagli scenario
+STR_6757    :Mostra opzioni restrizioni terreno
+STR_6758    :Opzioni prestito
+STR_6759    :Modello di business
+STR_6760    :Guadagni:
+STR_6761    :Dettagli scenario
+STR_6762    :Interfaccia
+STR_6763    :RollerCoaster Tycoon 1
+STR_6764    :Salvataggi e auto-salvataggi
+STR_6765    :Avanzate
+STR_6766    :Svuota
+STR_6767    :Finestra
+STR_6768    :Render
+STR_6769    :Comportamento
+STR_6770    :Limite freq. fotogrammi:
+STR_6771    :Velocità interna (predef.)
+STR_6772    :Sincr. verticale
+STR_6773    :Senza limiti
+STR_6774    :Tempo dall’ultima ispezione
+STR_6775    :{COMMA16} minuto
+STR_6776    :{COMMA16} minuti
+STR_6777    :più di 4 ore
+STR_6778    :Usa per le anteprime scenari:
+STR_6779    :Seleziona il tipo di immagine di anteprima da usare nella schermata di selezione scenario.
+STR_6780    :Mini-mappe
+STR_6781    :Schermate
+STR_6782    :Notifiche parco
+STR_6783    :Notifiche attrazioni
+STR_6784    :Notifiche visitatori
 
-
-#############
-# Scenarios #
-################
-# RCT Original #
-################
-<Forest Frontiers>
-STR_SCNR    :Forest Frontiers
-STR_PARK    :Forest Frontiers
-STR_DTLS    :Costruisci un fiorente parco a tema in una zona disboscata all’interno della foresta
-
-<Dynamite Dunes>
-STR_SCNR    :Dynamite Dunes
-STR_PARK    :Dynamite Dunes
-STR_DTLS    :Costruito in mezzo al deserto, questo parco a tema contiene un solo percorso di Montagne Russe ma ha grandi spazi per lo sviluppo
-
-<Leafy Lake>
-STR_SCNR    :Leafy Lake
-STR_PARK    :Leafy Lake
-STR_DTLS    :Partendo da zero, costruisci un grande parco a tema attorno a un grande lago
-
-<Diamond Heights>
-STR_SCNR    :Diamond Heights
-STR_PARK    :Diamond Heights
-STR_DTLS    :Diamond Heights è già un parco a tema di successo con grandi percorsi: sviluppalo e raddoppiane il valore.
-
-<Evergreen Gardens>
-STR_SCNR    :Evergreen Gardens
-STR_PARK    :Evergreen Gardens
-STR_DTLS    :Trasforma i bellissimi Evergreen Gardens in un fiorente parco a tema
-
-<Bumbly Beach>
-STR_SCNR    :Bumbly Beach
-STR_PARK    :Bumbly Beach
-STR_DTLS    :Sviluppa il piccolo parco di divertimento di Bumbly Beach e trasformalo in un fiorente parco a tema
-
-<Trinity Islands>
-STR_SCNR    :Trinity Islands
-STR_PARK    :Trinity Islands
-STR_DTLS    :La base per questo nuovo parco è formata da diverse isole
-
-<Katie's Dreamland>
-STR_SCNR    :Katie’s Dreamland
-STR_PARK    :Katie’s Dreamland
-STR_DTLS    :Un piccolo parco a tema con pochi percorsi e grande spazio per lo sviluppo. Il tuo compito è di raddoppiarne il valore
-
-<Pokey Park>
-STR_SCNR    :Pokey Park
-STR_PARK    :Pokey Park
-STR_DTLS    :Un parco di divertimento molto ristretto che necessita di grande sviluppo
-
-<White Water Park>
-STR_SCNR    :White Water Park
-STR_PARK    :White Water Park
-STR_DTLS    :Un parco con alcuni ottimi percorsi ad acqua che richiede ulteriore espansione
-
-<Millennium Mines>
-STR_SCNR    :Millennium Mines
-STR_PARK    :Millennium Mines
-STR_DTLS    :Trasforma l’attrazione turistica della miniera abbandonata in un parco a tema
-
-<Karts & Coasters>
-STR_SCNR    :Karts & Coasters
-STR_PARK    :Karts & Coasters
-STR_DTLS    :Un grande parco nascosto nella foresta; dispone solo di percorsi per go-kart e per Montagne Russe in legno
-
-<Mel's World>
-STR_SCNR    :Mel’s World
-STR_PARK    :Mel’s World
-STR_DTLS    :Questo parco a tema presenta alcuni percorsi moderni e ben progettati, ma ha anche molto spazio per ulteriori sviluppi
-
-<Mystic Mountain>
-STR_SCNR    :Mystic Mountain
-STR_PARK    :Mystic Mountain
-STR_DTLS    :Costruisci da zero un parco a tema nelle foreste collinose della Mystic Mountain
-
-<Pacific Pyramids>
-STR_SCNR    :Pacific Pyramids
-STR_PARK    :Pacific Pyramids
-STR_DTLS    :Trasforma l’attrazione turistica delle rovine egizie in un fiorente parco a tema
-
-<Crumbly Woods>
-STR_SCNR    :Crumbly Woods
-STR_PARK    :Crumbly Woods
-STR_DTLS    :Un grande parco con percorsi ben congegnati ma vecchi. Sostituisci i vecchi percorsi o creane dei nuovi per renderlo più popolare
-
-<Paradise Pier>
-STR_SCNR    :Paradise Pier
-STR_PARK    :Paradise Pier
-STR_DTLS    :Trasforma questo tranquillo molo in una fiorente attrazione
-
-<Lightning Peaks>
-STR_SCNR    :Lightning Peaks
-STR_PARK    :Lightning Peaks
-STR_DTLS    :Le splendide montagne di Lightning Peaks sono popolari tra turisti ed escursionisti; sfrutta il terreno disponibile per attirare una clientela desiderosa di sensazioni più forti
-
-<Ivory Towers>
-STR_SCNR    :Ivory Towers
-STR_PARK    :Ivory Towers
-STR_DTLS    :Un parco conosciuto, ma con qualche problema
-
-<Rainbow Valley>
-STR_SCNR    :Rainbow Valley
-STR_PARK    :Rainbow Valley
-STR_DTLS    :Le autorità di Rainbow Valley non permettono modifiche al panorama o estesi disboscamenti; cerca comunque di sviluppare l’area e creare un parco a tema più grande
-
-<Thunder Rock>
-STR_SCNR    :Thunder Rock
-STR_PARK    :Thunder Rock
-STR_DTLS    :L’altopiano di Thunder Rock si trova in mezzo al deserto e attira molti turisti; sfrutta lo spazio disponibile per costruire percorsi che attirino altra gente
-
-<Mega Park>
-STR_SCNR    :Mega Park
-STR_PARK    :Mega Park
-STR_DTLS    :Divertimento puro!
-
-## Added Attractions
-<Whispering Cliffs>
-STR_SCNR    :Whispering Cliffs
-STR_PARK    :Whispering Cliffs
-STR_DTLS    :Sviluppa le cascate in un fiorente parco a tema
-
-<Three Monkeys Park>
-STR_SCNR    :Three Monkeys Park
-STR_PARK    :Three Monkeys Park
-STR_DTLS    :Al centro di questo grande parco in sviluppo c’è un gigantesco ottovolante in acciaio a tre percorsi gareggianti
-
-<Canary Mines>
-STR_SCNR    :Canary Mines
-STR_PARK    :Canary Mines
-STR_DTLS    :Questa miniera abbandonata ha già la stoffa di un’attrazione turistica con la sua ferrovia in miniatura e un paio di ottovolanti a caduta verticale
-
-<Barony Bridge>
-STR_SCNR    :Barony Bridge
-STR_PARK    :Barony Bridge
-STR_DTLS    :Un vecchio ponte superfluo è pronto per essere trasformato in un parco a tema
-
-<Funtopia>
-STR_SCNR    :Funtopia
-STR_PARK    :Funtopia
-STR_DTLS    :Un parco ai bordi di un’autostrada, con alcune attrazioni già operative
-
-<Haunted Harbour>
-STR_SCNR    :Haunted Harbour
-STR_PARK    :Haunted Harbour
-STR_DTLS    :L’autorità locale ha accettato di svendere i terreni confinanti a questo piccolo parco sul mare, a condizione che alcune attrazioni vengano mantenute
-
-<Fun Fortress>
-STR_SCNR    :Fun Fortress
-STR_PARK    :Fun Fortress
-STR_DTLS    :Un castello pronto per diventare un parco a tema
-
-<Future World>
-STR_SCNR    :Future World
-STR_PARK    :Future World
-STR_DTLS    :Questo parco futuristico dal tema alieno ha molto spazio per nuove attrazioni
-
-<Gentle Glen>
-STR_SCNR    :Gentle Glen
-STR_PARK    :Gentle Glen
-STR_DTLS    :La popolazione locale preferisce attrazioni tranquille e rilassanti, il tuo compito è di espandere il parco per soddisfarla
-
-<Jolly Jungle>
-STR_SCNR    :Jolly Jungle
-STR_PARK    :Jolly Jungle
-STR_DTLS    :Nel profondo della giungla si trova una larga zona di terreno pronta per essere trasformata in un parco a tema
-
-<Hydro Hills>
-STR_SCNR    :Hydro Hills
-STR_PARK    :Hydro Hills
-STR_DTLS    :Una serie di laghi a cascata sono la base per questo nuovo parco
-
-<Sprightly Park>
-STR_SCNR    :Sprightly Park
-STR_PARK    :Sprightly Park
-STR_DTLS    :Questo vecchio parco ha molte attrazioni storiche ma è in crisi finanziaria
-
-<Magic Quarters>
-STR_SCNR    :Magic Quarters
-STR_PARK    :Magic Quarters
-STR_DTLS    :Una larga area di terreno è stata appiattita e parzialmente tematizzata per essere trasformata in un parco a tema paesaggistico
-
-<Fruit Farm>
-STR_SCNR    :Fruit Farm
-STR_PARK    :Fruit Farm
-STR_DTLS    :Una fiorente fattoria ha costruito una ferrovia per aumentare il suo reddito, il tuo compito è quello di svilupparla in vero parco a tema
-
-<Butterfly Dam>
-STR_SCNR    :Butterfly Dam
-STR_PARK    :Butterfly Dam
-STR_DTLS    :Quest’area intorno a una diga è pronta per diventare un parco a tema
-
-<Coaster Canyon>
-STR_SCNR    :Coaster Canyon
-STR_PARK    :Coaster Canyon
-STR_DTLS    :Un vasto canyon è tuo per trasformarlo in un parco a tema
-
-<Thunderstorm Park>
-STR_SCNR    :Thunderstorm Park
-STR_PARK    :Thunderstorm Park
-STR_DTLS    :Il clima qui è così umido che è stata costruita una piramide gigante per permettere la costruzione sotterranea di alcune attrazioni
-
-<Harmonic Hills>
-STR_SCNR    :Harmonic Hills
-STR_PARK    :Harmonic Hills
-STR_DTLS    :L’autorità locale non permette di costruire sopra la linea di altezza degli alberi in questo parco
-
-<Roman Village>
-STR_SCNR    :Roman Village
-STR_PARK    :Roman Village
-STR_DTLS    :Sviluppa questo parco a tema romano aggiungendo attrazioni e ottovolanti
-
-<Swamp Cove>
-STR_SCNR    :Swamp Cove
-STR_PARK    :Swamp Cove
-STR_DTLS    :Costruito parzialmente su una serie di piccole isole, questo parco ha già un paio di ottovolanti come principale attrattiva
-
-<Adrenaline Heights>
-STR_SCNR    :Adrenaline Heights
-STR_PARK    :Adrenaline Heights
-STR_DTLS    :Costruisci un parco per attirare gli amanti del brivido della zona
-
-<Utopia Park>
-STR_SCNR    :Utopia Park
-STR_PARK    :Utopia
-STR_DTLS    :Un’oasi nel mezzo del deserto offre un’opportunità unica per costruire un parco a tema
-
-<Rotting Heights>
-STR_SCNR    :Rotting Heights
-STR_PARK    :Rotting Heights
-STR_DTLS    :Coperto di vegetazione e fatiscente, puoi resuscitare questo grande parco di divertimenti?
-
-<Fiasco Forest>
-STR_SCNR    :Fiasco Forest
-STR_PARK    :Fiasco Forest
-STR_DTLS    :Pieno di corse mal progettate e pericolose, hai un budget e tempo molto limitato per risolvere i problemi e trasformare il parco
-
-<Pickle Park>
-STR_SCNR    :Pickle Park
-STR_PARK    :Pickle Park
-STR_DTLS    :L’autorità locale non permetterà alcun tipo di pubblicità o promozione, quindi questo parco deve avere successo solo per la reputazione
-
-<Giggle Downs>
-STR_SCNR    :Giggle Downs
-STR_PARK    :Giggle Downs
-STR_DTLS    :Una passeggiata a quattro corsie è il fulcro di questo parco in espansione
-
-<Mineral Park>
-STR_SCNR    :Mineral Park
-STR_PARK    :Mineral Park
-STR_DTLS    :Trasforma questa cava di pietra abbandonata in un luogo per attrarre turisti in cerca di emozioni
-
-<Coaster Crazy>
-STR_SCNR    :Coaster Crazy
-STR_PARK    :Coaster Crazy
-STR_DTLS    :Hai fondi limitati ma un tempo illimitato per trasformare questa zona di montagna in un vasto parco di montagne russe
-
-<Urban Park>
-STR_SCNR    :Urban Park
-STR_PARK    :Urban Park
-STR_DTLS    :Un piccolo parco ha fatto un accordo con la vicina città per consentire l’espansione attraverso la città stessa
-
-<Geoffrey Gardens>
-STR_SCNR    :Geoffrey Gardens
-STR_PARK    :Geoffrey Gardens
-STR_DTLS    :Un grande parco giardino ha bisogno di trasformarsi in un fiorente parco a tema
-
-
-## Loopy Landscapes
-<Iceberg Islands>
-STR_SCNR    :Iceberg Islands
-STR_PARK    :Iceberg Islands
-STR_DTLS    :Questo ambizioso parco a tema è costituito da iceberg che creano un ambiente di tipo artico
-
-<Volcania>
-STR_SCNR    :Volcania
-STR_PARK    :Volcania
-STR_DTLS    :Questa sfida di costruzione di montagne russe è ambientata presso un vulcano addormentato
-
-<Arid Heights>
-STR_SCNR    :Arid Heights
-STR_PARK    :Arid Heights
-STR_DTLS    :Senza limiti finanziari, la tua sfida consiste nello sviluppare questo parco deserto, mantenendo felici i tuoi visitatori
-
-<Razor Rocks>
-STR_SCNR    :Razor Rocks
-STR_PARK    :Razor Rocks
-STR_DTLS    :Il tuo compito è costruire un gigantesco parco pieno di attrazioni presso Razor Rocks
-
-<Crater Lake>
-STR_SCNR    :Crater Lake
-STR_PARK    :Crater Lake
-STR_DTLS    :Questo parco è ambientato in un grande lago all’interno di un antico cratere
-
-<Vertigo Views>
-STR_SCNR    :Vertigo Views
-STR_PARK    :Vertigo Views
-STR_DTLS    :Questo grande parco ha già un’iper-coaster eccellente, ma il tuo compito è quello di aumentare il suo profitto
-
-<Paradise Pier 2>
-STR_SCNR    :Paradise Pier 2
-STR_PARK    :Paradise Pier 2
-STR_DTLS    :Paradise Pier ha ampliato la sua rete di passaggi lungo il mare e il tuo compito è quello di ampliare il parco per utilizzare lo spazio in più
-
-<Dragon's Cove>
-STR_SCNR    :Dragon’s Cove
-STR_PARK    :Dragon’s Cove
-STR_DTLS    :Questa baia sul mare rappresenta la cornice di questa sfida per la costruzione di montagne
-
-<Good Knight Park>
-STR_SCNR    :Good Knight Park
-STR_PARK    :Good Knight Park
-STR_DTLS    :Un castello con un paio di montagne russe deve diventare un parco tematico più grande
-
-<Wacky Warren>
-STR_SCNR    :Wacky Warren
-STR_PARK    :Wacky Warren
-STR_DTLS    :Un parco che ha molti dei suoi sentieri e montagne russe sotterranee
-
-<Grand Glacier>
-STR_SCNR    :Grand Glacier
-STR_PARK    :Grand Glacier
-STR_DTLS    :Una valle piena di ghiacciai è tua per svilupparci un parco a tema
-
-<Crazy Craters>
-STR_SCNR    :Crazy Craters
-STR_PARK    :Crazy Craters
-STR_DTLS    :In un mondo lontano dove non è necessario il denaro, è necessario costruire un centro di intrattenimento per rendere felici le persone
-
-<Dusty Desert>
-STR_SCNR    :Dusty Desert
-STR_PARK    :Dusty Desert
-STR_DTLS    :Cinque montagne russe richiedono di essere completate in questo parco desertico
-
-<Woodworm Park>
-STR_SCNR    :Woodworm Park
-STR_PARK    :Woodworm Park
-STR_DTLS    :In questo parco storico è consentito solo costruire percorsi vecchio stile
-
-<Icarus Park>
-STR_SCNR    :Icarus Park
-STR_PARK    :Icarus Park
-STR_DTLS    :Sviluppa questo parco alieno per massimizzare il suo profitto
-
-<Sunny Swamps>
-STR_SCNR    :Sunny Swamps
-STR_PARK    :Sunny Swamps
-STR_DTLS    :Questo parco divertimenti a tema ha già diversi percorsi, ma ha molto spazio per l’espansione
-
-<Frightmare Hills>
-STR_SCNR    :Frightmare Hills
-STR_PARK    :Frightmare Hills
-STR_DTLS    :Un parco spaventoso con una montagna russa gigante centrale
-
-<Thunder Rocks>
-STR_SCNR    :Thunder Rocks
-STR_PARK    :Thunder Rocks
-STR_DTLS    :Due grandi pezzi di roccia sbucano dalla sabbia, che saranno le base di un parco a tema
-
-<Octagon Park>
-STR_SCNR    :Octagon Park
-STR_PARK    :Octagon Park
-STR_DTLS    :In questo grande parco è necessario progettare e costruire dieci montagne russe
-
-<Pleasure Island>
-STR_SCNR    :Pleasure Island
-STR_PARK    :Pleasure Island
-STR_DTLS    :Una lunga isola sottile è una base impegnativa per la costruzione di una selezione di montagne russe
-
-<Icicle Worlds>
-STR_SCNR    :Icicle Worlds
-STR_PARK    :Icicle Worlds
-STR_DTLS    :Un paesaggio ghiacciato ha bisogno di trasformarsi in un fiorente parco a tema
-
-<Southern Sands>
-STR_SCNR    :Southern Sands
-STR_PARK    :Southern Sands
-STR_DTLS    :Un parco nel deserto con alcuni ottimi ottovolanti necessita di espansione
-
-<Tiny Towers>
-STR_SCNR    :Tiny Towers
-STR_PARK    :Tiny Towers
-STR_DTLS    :In questo parco occorre completare la costruzione di cinque ottovolanti già esistenti
-
-<Nevermore Park>
-STR_SCNR    :Nevermore Park
-STR_PARK    :Nevermore Park
-STR_DTLS    :Un grande parco con un nuovo sistema di trasporto lungo i suoi confini
-
-<Pacifica>
-STR_SCNR    :Pacifica
-STR_PARK    :Pacifica
-STR_DTLS    :Questa larga isola è pronta per essere sviluppata in un parco a tema
-
-<Urban Jungle>
-STR_SCNR    :Urban Jungle
-STR_PARK    :Urban Jungle
-STR_DTLS    :Un gigantesco grattacielo abbandonato è un’occasione unica per un creatore di aree tematiche
-
-<Terror Town>
-STR_SCNR    :Terror Town
-STR_PARK    :Terror Town
-STR_DTLS    :Questa zona urbana è pronta per diventare un parco di divertimenti
-
-<Megaworld Park>
-STR_SCNR    :Megaworld Park
-STR_PARK    :Megaworld Park
-STR_DTLS    :Un parco gigante già pieno di percorsi deve migliorare
-
-<Venus Ponds>
-STR_SCNR    :Venus Ponds
-STR_PARK    :Venus Ponds
-STR_DTLS    :Su un pianeta lontano questo pezzo di terra ha bisogno di trasformarsi in un parco a tema
-
-<Micro Park>
-STR_SCNR    :Micro Park
-STR_PARK    :Micro Park
-STR_DTLS    :Prova a creare un piccolo parco facendo dei soldi
-
-## Real Parks from RCT1
-# None of them had details
-<Alton Towers>
-STR_SCNR    :Alton Towers
-STR_PARK    :Alton Towers
-STR_DTLS    :
-
-<Heide-Park>
-STR_SCNR    :Heide-Park
-STR_PARK    :Heide-Park
-STR_DTLS    :
-
-<Blackpool Pleasure Beach>
-STR_SCNR    :Blackpool Pleasure Beach
-STR_PARK    :Blackpool Pleasure Beach
-STR_DTLS    :
-
-## Misc parks from RCT1
-# Had no details
-<Fort Anachronism>
-STR_SCNR    :Fort Anachronism
-STR_PARK    :Fort Anachronism
-STR_DTLS    :
-
-###########
-# Scenery #
-###########
-
-## Start OpenRCT2 Official
-[TTPIRF05]
-STR_NAME    :Tetto
-## End OpenRCT2 Official
-
-###############################################################################
-## RCT2 Scenarios
-###############################################################################
-
-
-<Alpine Adventures>
-STR_SCNR    :Avventure alpine
-STR_PARK    :Avventure alpine
-STR_DTLS    :Converti un piccolo rifugio d’alta quota in un parco dei divertimenti a tema nevoso
-
-<Amity Airfield>
-STR_SCNR    :Campo d’aviazione dell’amicizia
-STR_PARK    :Campo d’aviazione dell’amicizia
-STR_DTLS    :Costruisci un parco avente come tema il volo in questo aeroporto abbandonato
-
-<Botany Breakers>
-STR_SCNR    :Distruttori botanici
-STR_PARK    :Distruttori botanici
-STR_DTLS    :La sfida è quella di costruire un parco ad alto profitto su questa isola paradisiaca
-
-<Build your own Six Flags Belgium>
-STR_SCNR    :Costruisci il tuo Six Flags Belgio
-STR_PARK    :Six Flags Belgio
-STR_DTLS    :Costruisci la tua versione personale di questo parco europeo Six Flags
-
-<Build your own Six Flags Great Adventure>
-STR_SCNR    :Costruisci la tua Grande avventura Six Flags
-STR_PARK    :Grande avventura Six Flags
-STR_DTLS    :Usa la tua abilità nel progettare per ricreare questo parco Six Flags
-
-<Build your own Six Flags Holland>
-STR_SCNR    :Costruisci il tuo Six Flags Olanda
-STR_PARK    :Six Flags Olanda
-STR_DTLS    :Costruisci questo parco europeo Six Flags come piace a te
-
-<Build your own Six Flags Magic Mountain>
-STR_SCNR    :Costruisci la tua Montagna magica Six Flags
-STR_PARK    :Montagna magica Six Flags
-STR_DTLS    :Crea la tua versione personale di questo immenso parco Six Flags
-
-<Build your own Six Flags Park>
-STR_SCNR    :Costruisci il tuo parco Six Flags
-STR_PARK    :Six Flags
-STR_DTLS    :Costruisci il tuo progetto di parco Six Flags: costruisci le attrazioni degli altri parchi Six Flags oppure progettale da solo
-
-<Build your own Six Flags over Texas>
-STR_SCNR    :Costruisci il tuo Six Flags sul Texas
-STR_PARK    :Six Flags sul Texas
-STR_DTLS    :Cominciando da zero, costruisci tutte le attrazioni di questo parco Six Flags
-
-<Bumbly Bazaar>
-STR_SCNR    :Bazar nei guai
-STR_PARK    :Bazar nei guai
-STR_DTLS    :A partire da un bazar in un piccolo mercato, devi far aumentare i profitti dei negozi e dei chioschi costruendo attrazioni e ottovolanti per attirare più clienti
-
-<Crazy Castle>
-STR_SCNR    :Castello pazzo
-STR_PARK    :Castello pazzo
-STR_DTLS    :Hai ereditato un grande castello: il tuo compito è convertirlo in un piccolo parco tematico.
-
-<Dusty Greens>
-STR_SCNR    :Green polverosi
-STR_PARK    :Green polverosi
-STR_DTLS    :Situato vicino a un’uscita autostradale nel deserto, Green polverosi è un’ottima opportunità per trasformare un piccolo club di golf in un eccitante parco a tema
-
-<Electric Fields>
-STR_SCNR    :Campi elettrici
-STR_PARK    :Campi elettrici
-STR_DTLS    :Hai ereditato una piccola fattoria. La sfida è costruire un piccolo parco a tema tra i campi e gli edifici della fattoria
-
-<Extreme Heights>
-STR_SCNR    :Altezze estreme
-STR_PARK    :Altezze estreme
-STR_DTLS    :Libero da restrizioni economiche, la sfida sta nell’espandere questo parco deserto per attrarre le persone che vogliono sperimentare la massima ebbrezza
-
-<Factory Capers>
-STR_SCNR    :Stramberie industriali
-STR_PARK    :Stramberie industriali
-STR_DTLS    :Un complesso industriale abbandonato è un’opportunità ideale per costruire un parco dei divertimenti con a tema la meccanica
-
-<Fungus Woods>
-STR_SCNR    :Boschi fungosi
-STR_PARK    :Boschi fungosi
-STR_DTLS    :La sfida sta nel costruire un entusiasmante parco a tema nei Boschi fungosi utilizzando solo attrazioni di legno d’altri tempi
-
-<Ghost Town>
-STR_SCNR    :Città fantasma
-STR_PARK    :Città fantasma
-STR_DTLS    :Sei stato assunto da una grande catena di parchi di divertimento per costruire un parco con ottovolanti giganti intorno a una città abbandonata vicino a una miniera
-
-<Gravity Gardens>
-STR_SCNR    :Giardini gravitazionali
-STR_PARK    :Giardini gravitazionali
-STR_DTLS    :La sfida è costruire un parco con ottovolanti in questi bellissimi giardini gravitazionali. Non altre attrazioni, solo ottovolanti!!
-
-<Infernal Views>
-STR_SCNR    :Viste infernali
-STR_PARK    :Viste infernali
-STR_DTLS    :Un parco arroccato pericolosamente su roccia vulcanica e tra fiumi di lava
-
-<Lucky Lake>
-STR_SCNR    :Lago fortunato
-STR_PARK    :Lago fortunato
-STR_DTLS    :Nonostante i fondi illimitati, la posizione di questo parco ti darà del filo da torcere se vorrai espanderlo e gestirlo
-
-<Rainbow Summit>
-STR_SCNR    :Vertice dell’arcobaleno
-STR_PARK    :Vertice dell’arcobaleno
-STR_DTLS    :Questo parco, costruito sul lato di una collina, non può avere attrazioni molto alte. Riuscirai a espandere il parco e a renderlo un enorme successo?
-
-<Six Flags Belgium>
-STR_SCNR    :Six Flags Belgio
-STR_PARK    :Six Flags Belgio
-STR_DTLS    :Mettiti alla prova gestendo e migliorando questo parco Six Flags
-
-<Six Flags Great Adventure>
-STR_SCNR    :Grande avventura Six Flags
-STR_PARK    :Grande avventura Six Flags
-STR_DTLS    :Costruisci le attrazioni Six Flags mancanti o crea dei progetti tutti tuoi per migliorare il parco!! Ma non dimenticare il tuo vero scopo: attirare più visitatori al parco!!
-
-<Six Flags Holland>
-STR_SCNR    :Six Flags Olanda
-STR_PARK    :Six Flags Olanda
-STR_DTLS    :Mettiti alla prova gestendo e migliorando questo parco Six Flags
-
-<Six Flags Magic Mountain>
-STR_SCNR    :Montagna magica Six Flags
-STR_PARK    :Montagna magica Six Flags
-STR_DTLS    :Costruisci le attrazioni Six Flags mancanti o crea dei progetti tutti tuoi per migliorare il parco!! Ma non dimenticare il tuo vero scopo: restituire il prestito mantenendo al tempo stesso alto il valore del parco!!
-
-<Six Flags over Texas>
-STR_SCNR    :Six Flags sul Texas
-STR_PARK    :Six Flags sul Texas
-STR_DTLS    :Costruisci le attrazioni Six Flags mancanti o crea dei progetti tutti tuoi per migliorare il parco!! Ma non dimenticare il tuo vero scopo: attirare più visitatori al parco!!
-
-###############################################################################
-## Wacky Worlds Scenarios
-###############################################################################
-<Africa - African Diamond Mine>
-STR_SCNR    :Africa - Miniera di diamanti
-STR_PARK    :Miniere africane
-STR_DTLS    :Hai ereditato una miniera di diamanti abbandonata, da cui è stato estratto l’ultimo prezioso diamante. Decidi di investire il ricavato per creare un parco che diventi famoso in tutto il mondo.
-
-<Africa - Oasis>
-STR_SCNR    :Africa - Oasi
-STR_PARK    :Il miraggio
-STR_DTLS    :Nel deserto è stata scoperta un’oasi che costituirebbe una splendida ambientazione per un parco. I mezzi di trasporto per raggiungerla esistono già.
-
-<Africa - Victoria Falls>
-STR_SCNR    :Africa - Cascate Vittoria
-STR_PARK    :Tuffo nel vuoto
-STR_DTLS    :È stata costruita una diga che eroga energia idroelettrica a basso prezzo e in quantità, con la quale è possibile alimentare un parco. Per rimborsare il prestito della diga, dovrai creare un parco di grande valore.
-
-<Antarctic - Ecological Salvage>
-STR_SCNR    :Antartide - Recupero ecologico
-STR_PARK    :Avventure fra i ghiacci
-STR_DTLS    :L’agenzia dei servizi ambientali si è rivolta a te per trasformare una vecchia raffineria, vero pugno nell’occhio, in rinomata attrazione turistica. La terra costa poco ma l’interesse sui prestiti è alto. Puoi vendere i vecchi edifici.
-
-<Asia - Great Wall of China Tourism Enhancement>
-STR_SCNR    :Asia - Turismo alla Grande Muraglia
-STR_PARK    :La Grande Muraglia Cinese
-STR_DTLS    :Le autorità hanno deciso di promuovere il turismo presso la Grande Muraglia costruendo un parco a tema nei paraggi. I soldi non sono un problema
-
-<Asia - Japanese Coastal Reclaim>
-STR_SCNR    :Asia - Sfruttamento costiero in Giappone
-STR_PARK    :Costa di Okinawa
-STR_DTLS    :Un parco esistente ha esaurito lo spazio a sua disposizione. L’unica possibilità è costruire in mare aperto e per riuscirci hai chiesto un prestito. Le limitazioni di altezza sono piuttosto restrittive, a causa del terreno cedevole.
-
-<Asia - Maharaja Palace>
-STR_SCNR    :Asia - Palazzo del Maragià
-STR_PARK    :Il parco del Maragià
-STR_DTLS    :Il Maragià ti ha incaricato di creare qualcosa che intrattenga la vasta popolazione locale. Costruisci un parco ispirato al palazzo del Maragià.
-
-<Australasia - Ayers Rock>
-STR_SCNR    :Australia - Ayers Rock
-STR_PARK    :Avventura all’Ayers
-STR_DTLS    :Nell’ambito di un programma di rivalutazione culturale, stai aiutando gli aborigeni a creare un parco. Devi attrarre un numero elevato di visitatori per trasmettergli l’eredità culturale degli aborigeni.
-
-<Australasia - Fun at the Beach>
-STR_SCNR    :Australia - Divertimento in spiaggia
-STR_PARK    :Barbecue balneare
-STR_DTLS    :Il parco marino di un imprenditore locale è fallito. Tu possiedi già un piccolo parco e per comprare l’altro devi trovare dei soldi, sviluppando poi entrambi in una grossa struttura combinata.
-
-<Europe - European Cultural Festival>
-STR_SCNR    :Europa - Festival culturale europeo
-STR_PARK    :Festival europeo
-STR_DTLS    :Ti è stato chiesto di gestire una grande attrazione culturale europea. Devi incrementare il numero di visite per ripagare i sussidi UE prima che scada il termine stabilito dal Parlamento Europeo.
-
-<Europe - Renovation>
-STR_SCNR    :Europa - Rinnovo
-STR_PARK    :Rinascita dalle ceneri
-STR_DTLS    :Un vecchio parco è in sfacelo. Ti viene concesso un prestito dall’Unione Europea per riportare questa zona desolata alla sua bellezza originaria. Dovrai rinnovare il parco e ripagare il prestito.
-
-<N. America - Extreme Hawaiian Island>
-STR_SCNR    :Nordamerica - Hawaii estreme
-STR_PARK    :Brivido a Waikiki
-STR_DTLS    :Gli abitanti delle Hawaii sono stufi del surf e cercano qualcosa di più eccitante. Devi costruire un parco che soddisfi le loro aspettative, mantenendo alto il livello di attrazione turistica locale.
-
-<North America - Grand Canyon>
-STR_SCNR    :Nordamerica - Grand Canyon
-STR_PARK    :Calamità nel canyon
-STR_DTLS    :Devi costruire un parco ai due lati di questa meraviglia naturale. Hai dei limiti di spazio da rispettare, ma potrai acquistare terreno dagli indiani locali. Dovrai raggiungere l’obiettivo per sostenere la popolazione locale.
-
-<North America - Rollercoaster Heaven>
-STR_SCNR    :Nordamerica - Paradiso dell’ottovolante
-STR_PARK    :Paradiso dell’ottovolante
-STR_DTLS    :Sei un magnate della finanza di grande successo, che si è preso 4 anni di vacanza dagli affari e desidera costruire un parco senza badare a spese.
-
-<South America - Inca Lost City>
-STR_SCNR    :Sudamerica - Città perduta Inca
-STR_PARK    :Il fondatore della città perduta
-STR_DTLS    :Per potenziare il turismo, devi creare un parco intonato all’ambiente, rispettando dei limiti di altezza.
-
-<South America - Rain Forest Plateau>
-STR_SCNR    :Sudamerica - La foresta pluviale
-STR_PARK    :Scorribanda nella foresta
-STR_DTLS    :Nella preziosa foresta pluviale, lo spazio è limitato. Devi sfruttare al meglio la radura già esistente per creare una valida alternativa all’industria locale del legno.
-
-<South America - Rio Carnival>
-STR_SCNR    :Sudamerica - Carnevale di Rio
-STR_PARK    :Pan di zucchero
-STR_DTLS    :Gestisci un piccolo parco presso Rio e la banca ti ha chiesto di rimborsare un debito. Devi aumentare rapidamente le tue entrate per fronteggiare questa situazione imprevista.
-
-###############################################################################
-## Time Twister Scenarios
-###############################################################################
-<Dark Age - Castle>
-STR_SCNR    :Età Oscura - Castello
-STR_PARK    :Castello di Cliffside
-STR_DTLS    :I membri locali della società per il ripristino delle leggi sulle battaglie prendono seriamente il loro hobby. Ti hanno affidato l’incarico di costruire un parco a tema sull’Età Oscura, da erigere sulle fondamenta del Castello di Cliffside.
-
-<Dark Age - Robin Hood>
-STR_SCNR    :Età Oscura - Robin Hood
-STR_PARK    :Foresta di Sherwood
-STR_DTLS    :Per sottrarre i beni ai ricchi e donarli ai poveri, tu e i tuoi uomini avete deciso di costruire un parco a tema nella Foresta di Sherwood.
-
-<Future - First Encounters>
-STR_SCNR    :Futuro - Primi incontri
-STR_PARK    :Stravaganza extraterrestre
-STR_DTLS    :Su un lontano pianeta è stata scoperta la vita Costruisci un parco a tema sugli alieni e goditi un successo di visitatori senza precedenti.
-
-<Future - Future World>
-STR_SCNR    :Futuro - Il mondo del futuro
-STR_PARK    :Città di Gemini
-STR_DTLS    :Metti in gioco la tua fantastica e utopistica visione del futuro e costruisci un parco futuristico composto dalle attrazioni più all’avanguardia.
-
-<Mythological - Animatronic Film Set>
-STR_SCNR    :Mitologico - Set cinematografico animatronico
-STR_PARK    :Animatronica antichità
-STR_DTLS    :Hai ricevuto l’incarico di gestire un parco a tema esistente, costruito sul set di un vecchio film. Rendi omaggio ai pionieri dell’animazione cinematografica che per primi hanno portato sul grande schermo e creature mitologiche.
-
-<Mythological - Cradle of Civilisation>
-STR_SCNR    :Mitologico - La culla della civiltà
-STR_PARK    :Follia mitologica
-STR_DTLS    :Possiedi un’isola di eccezionale valore archeologico. Hai deciso di preservarne le origini costruendo un parco a tema basato sull’eredità mitologica della zona.
-
-<Prehistoric - After the Asteroid>
-STR_SCNR    :Preistoria - Dopo l’asteroide
-STR_PARK    :Il massacro del cratere
-STR_DTLS    :Possiedi un vecchio cratere meteoritico. Con lo spirito che ti contraddistingue, hai deciso di costruire un parco sugli asteroidi, tramutando così la tua terra in una fonte di ingente guadagno.
-
-<Prehistoric - Jurassic Safari>
-STR_SCNR    :Preistoria - Safari Giurassico
-STR_PARK    :Ottovolantosauro
-STR_DTLS    :Hai ricevuto l’incarico di costruire un parco preistorico ispirato al Giurassico. Per ottimizzare l’accesso dei visitatori, dovrai costruire tragitti che sovrastano la valle e vi si inoltrano.
-
-<Prehistoric - Stone Age>
-STR_SCNR    :Preistoria - Età della Pietra
-STR_PARK    :Passeggiata tra le rocce
-STR_DTLS    :Per scoraggiare i costruttori di autostrade e conservare i misteriosi e antichi cerchi di pietra, dovrai costruire un parco a tema sull’Età della Pietra e farlo fruttare. L’impresa è una vera e propria sfida, dato il territorio inospitale.
-
-<Roaring Twenties - Prison Island>
-STR_SCNR    :Ruggenti Anni Venti - Isola carceraria
-STR_PARK    :Alcatraz
-STR_DTLS    :L’infame isola carceraria, la cui popolazione un tempo si dedicava al contrabbando e alle attività illecite, è in vendita. Hai deciso di trasformarla in un’importante attrazione turistica e il denaro non è un problema.
-
-<Roaring Twenties - Schneider Cup>
-STR_SCNR    :Ruggenti Anni Venti - Coppa Schneider
-STR_PARK    :Costa di Schneider
-STR_DTLS    :Manca poco aI 75° anniversario della conquista della Coppa Schneider da parte di tuo nonno. Hai deciso di onorare la sua impresa costruendo un parco a tema basato sulla famosa corsa di idrovolanti.
-
-<Roaring Twenties - Skyscrapers>
-STR_SCNR    :Ruggenti Anni Venti
-STR_PARK    :Metropoli
-STR_DTLS    :Possiedi un lotto di terra vuoto vicino alla parte meno sviluppata della città. Per sfruttare al meglio la tua proprietà, costruisci un parco caratterizzato da grattacieli ispirandoti all’architettura art decò degli anni Venti.
-
-<Rock 'n' Roll - Flower Power>
-STR_SCNR    :Rock & Roll - Gli anni dei fiori
-STR_PARK    :Woodstock
-STR_DTLS    :Un importante festival musicale si tiene ogni anno sulla tua proprietà. Costruisci un parco a tema di ispirazione hippy per attrarre gli spiriti liberi.
-
-<Rock 'n' Roll - Rock 'n' Roll>
-STR_SCNR    :Rock & Roll - Rock & Roll
-STR_PARK    :La rinascita del Rock & Roll
-STR_DTLS    :Questo vecchio parco a tema ha vissuto tempi migliori. Aiuta il proprietario a ristrutturarlo in stile Rock & Roll e trasformalo in un luogo di successo.
-
-###############################################################################
-## Official Custom Content Scenarios
-###############################################################################
-<Panda World>
-STR_SCNR    :Il Mondo dei Panda
-STR_PARK    :Il Mondo dei Panda
-STR_DTLS    :Aggiungi più attrazioni per attirare più visitatori in questo parco a tema sui panda.

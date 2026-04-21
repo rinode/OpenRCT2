@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -11,201 +11,207 @@
 
 #ifdef ENABLE_SCRIPTING
 
-#    include "../../../Context.h"
-#    include "../../../common.h"
-#    include "../../../core/Guard.hpp"
-#    include "../../../entity/EntityRegistry.h"
-#    include "../../../ride/Track.h"
-#    include "../../../world/Footpath.h"
-#    include "../../../world/Scenery.h"
-#    include "../../../world/Surface.h"
-#    include "../../Duktape.hpp"
-#    include "../../ScriptEngine.h"
+    #include "../../../Context.h"
+    #include "../../../core/Guard.hpp"
+    #include "../../../entity/EntityRegistry.h"
+    #include "../../../world/Footpath.h"
+    #include "../../../world/Scenery.h"
+    #include "../../ScriptEngine.h"
 
-#    include <cstdio>
-#    include <cstring>
-#    include <utility>
+    #include <cstdio>
+    #include <cstring>
+    #include <utility>
 
 namespace OpenRCT2::Scripting
 {
-    class ScTileElement
+    class ScTileElement;
+    extern ScTileElement gScTileElement;
+
+    class ScTileElement : public ScBase
     {
-    protected:
-        CoordsXY _coords;
-        TileElement* _element;
+    private:
+        static JSValue type_get(JSContext* ctx, JSValue thisValue);
+        static JSValue type_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue baseHeight_get(JSContext* ctx, JSValue thisValue);
+        static JSValue baseHeight_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue baseZ_get(JSContext* ctx, JSValue thisValue);
+        static JSValue baseZ_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue clearanceHeight_get(JSContext* ctx, JSValue thisValue);
+        static JSValue clearanceHeight_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue clearanceZ_get(JSContext* ctx, JSValue thisValue);
+        static JSValue clearanceZ_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue slope_get(JSContext* ctx, JSValue thisValue);
+        static JSValue slope_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue waterHeight_get(JSContext* ctx, JSValue thisValue);
+        static JSValue waterHeight_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue surfaceStyle_get(JSContext* ctx, JSValue thisValue);
+        static JSValue surfaceStyle_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue edgeStyle_get(JSContext* ctx, JSValue thisValue);
+        static JSValue edgeStyle_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue grassLength_get(JSContext* ctx, JSValue thisValue);
+        static JSValue grassLength_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue hasOwnership_get(JSContext* ctx, JSValue thisValue);
+
+        static JSValue hasConstructionRights_get(JSContext* ctx, JSValue thisValue);
+
+        static JSValue ownership_get(JSContext* ctx, JSValue thisValue);
+        static JSValue ownership_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue parkFences_get(JSContext* ctx, JSValue thisValue);
+        static JSValue parkFences_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue trackType_get(JSContext* ctx, JSValue thisValue);
+        static JSValue trackType_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue rideType_get(JSContext* ctx, JSValue thisValue);
+        static JSValue rideType_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue sequence_get(JSContext* ctx, JSValue thisValue);
+        static JSValue sequence_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue ride_get(JSContext* ctx, JSValue thisValue);
+        static JSValue ride_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue station_get(JSContext* ctx, JSValue thisValue);
+        static JSValue station_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue hasChainLift_get(JSContext* ctx, JSValue thisValue);
+        static JSValue hasChainLift_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue mazeEntry_get(JSContext* ctx, JSValue thisValue);
+        static JSValue mazeEntry_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue colourScheme_get(JSContext* ctx, JSValue thisValue);
+        static JSValue colourScheme_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue seatRotation_get(JSContext* ctx, JSValue thisValue);
+        static JSValue seatRotation_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue brakeBoosterSpeed_get(JSContext* ctx, JSValue thisValue);
+        static JSValue brakeBoosterSpeed_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isInverted_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isInverted_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue hasCableLift_get(JSContext* ctx, JSValue thisValue);
+        static JSValue hasCableLift_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isHighlighted_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isHighlighted_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue object_get(JSContext* ctx, JSValue thisValue);
+        static JSValue object_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isHidden_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isHidden_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue age_get(JSContext* ctx, JSValue thisValue);
+        static JSValue age_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue quadrant_get(JSContext* ctx, JSValue thisValue);
+        static JSValue quadrant_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue occupiedQuadrants_get(JSContext* ctx, JSValue thisValue);
+        static JSValue occupiedQuadrants_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isGhost_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isGhost_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue primaryColour_get(JSContext* ctx, JSValue thisValue);
+        static JSValue primaryColour_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue secondaryColour_get(JSContext* ctx, JSValue thisValue);
+        static JSValue secondaryColour_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue tertiaryColour_get(JSContext* ctx, JSValue thisValue);
+        static JSValue tertiaryColour_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue bannerIndex_get(JSContext* ctx, JSValue thisValue);
+        static JSValue bannerIndex_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        // Deprecated in favor of separate 'edges' and 'corners' properties,
+        // left here to maintain compatibility with older plugins.
+        static JSValue edgesAndCorners_get(JSContext* ctx, JSValue thisValue);
+        static JSValue edgesAndCorners_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue edges_get(JSContext* ctx, JSValue thisValue);
+        static JSValue edges_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue corners_get(JSContext* ctx, JSValue thisValue);
+        static JSValue corners_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue slopeDirection_get(JSContext* ctx, JSValue thisValue);
+        static JSValue slopeDirection_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isQueue_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isQueue_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue queueBannerDirection_get(JSContext* ctx, JSValue thisValue);
+        static JSValue queueBannerDirection_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isBlockedByVehicle_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isBlockedByVehicle_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isWide_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isWide_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue addition_get(JSContext* ctx, JSValue thisValue);
+        static JSValue addition_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue surfaceObject_get(JSContext* ctx, JSValue thisValue);
+        static JSValue surfaceObject_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue railingsObject_get(JSContext* ctx, JSValue thisValue);
+        static JSValue railingsObject_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue additionStatus_get(JSContext* ctx, JSValue thisValue);
+        static JSValue additionStatus_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isAdditionBroken_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isAdditionBroken_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isAdditionGhost_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isAdditionGhost_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue footpathObject_get(JSContext* ctx, JSValue thisValue);
+        static JSValue footpathObject_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue footpathSurfaceObject_get(JSContext* ctx, JSValue thisValue);
+        static JSValue footpathSurfaceObject_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue direction_get(JSContext* ctx, JSValue thisValue);
+        static JSValue direction_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue bannerText_get(JSContext* ctx, JSValue thisValue);
+        static JSValue bannerText_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static JSValue isNoEntry_get(JSContext* ctx, JSValue thisValue);
+        static JSValue isNoEntry_set(JSContext* ctx, JSValue thisValue, JSValue jsValue);
+
+        static void RemoveBannerEntryIfNeeded(TileElement* element, CoordsXY& coords);
+        static void CreateBannerEntryIfNeeded(TileElement* element, CoordsXY& coords);
+
+        static TileElement* GetTileElement(JSValue thisValue);
 
     public:
-        ScTileElement(const CoordsXY& coords, TileElement* element);
+        static const LargeSceneryElement* GetOtherLargeSceneryElement(
+            const CoordsXY& loc, const LargeSceneryElement* largeScenery);
+
+        JSValue New(JSContext* ctx, TileElement* element, CoordsXY& coords);
+        void Register(JSContext* ctx);
 
     private:
-        std::string type_get() const;
-        void type_set(std::string value);
-
-        uint8_t baseHeight_get() const;
-        void baseHeight_set(uint8_t newBaseHeight);
-
-        uint16_t baseZ_get() const;
-        void baseZ_set(uint16_t value);
-
-        uint8_t clearanceHeight_get() const;
-        void clearanceHeight_set(uint8_t newClearanceHeight);
-
-        uint16_t clearanceZ_get() const;
-        void clearanceZ_set(uint16_t value);
-
-        DukValue slope_get() const;
-        void slope_set(uint8_t value);
-
-        DukValue waterHeight_get() const;
-        void waterHeight_set(int32_t value);
-
-        DukValue surfaceStyle_get() const;
-        void surfaceStyle_set(uint32_t value);
-
-        DukValue edgeStyle_get() const;
-        void edgeStyle_set(uint32_t value);
-
-        DukValue grassLength_get() const;
-        void grassLength_set(uint8_t value);
-
-        DukValue hasOwnership_get() const;
-
-        DukValue hasConstructionRights_get();
-
-        DukValue ownership_get() const;
-        void ownership_set(uint8_t value);
-
-        DukValue parkFences_get() const;
-        void parkFences_set(uint8_t value);
-
-        DukValue trackType_get() const;
-        void trackType_set(uint16_t value);
-
-        DukValue rideType_get() const;
-        void rideType_set(uint16_t value);
-
-        DukValue sequence_get() const;
-        void sequence_set(const DukValue& value);
-
-        DukValue ride_get() const;
-        void ride_set(const DukValue& value);
-
-        DukValue station_get() const;
-        void station_set(const DukValue& value);
-
-        DukValue hasChainLift_get() const;
-        void hasChainLift_set(bool value);
-
-        DukValue mazeEntry_get() const;
-        void mazeEntry_set(const DukValue& value);
-
-        DukValue colourScheme_get() const;
-        void colourScheme_set(const DukValue& value);
-
-        DukValue seatRotation_get() const;
-        void seatRotation_set(const DukValue& value);
-
-        DukValue brakeBoosterSpeed_get() const;
-        void brakeBoosterSpeed_set(const DukValue& value);
-
-        DukValue isInverted_get() const;
-        void isInverted_set(bool value);
-
-        DukValue hasCableLift_get() const;
-        void hasCableLift_set(bool value);
-
-        DukValue isHighlighted_get() const;
-        void isHighlighted_set(bool value);
-
-        DukValue object_get() const;
-        void object_set(const DukValue& value);
-
-        bool isHidden_get() const;
-        void isHidden_set(bool hide);
-
-        DukValue age_get() const;
-        void age_set(uint8_t value);
-
-        DukValue quadrant_get() const;
-        void quadrant_set(uint8_t value);
-
-        uint8_t occupiedQuadrants_get() const;
-        void occupiedQuadrants_set(uint8_t value);
-
-        bool isGhost_get() const;
-        void isGhost_set(bool value);
-
-        DukValue primaryColour_get() const;
-        void primaryColour_set(uint8_t value);
-
-        DukValue secondaryColour_get() const;
-        void secondaryColour_set(uint8_t value);
-
-        DukValue tertiaryColour_get() const;
-        void tertiaryColour_set(uint8_t value);
-
-        DukValue bannerIndex_get() const;
-        void bannerIndex_set(const DukValue& value);
-
-        // Deprecated in favor of seperate 'edges' and 'corners' properties,
-        // left here to maintain compatibility with older plugins.
-        /** @deprecated */
-        uint8_t edgesAndCorners_get() const;
-        /** @deprecated */
-        void edgesAndCorners_set(uint8_t value);
-
-        DukValue edges_get() const;
-        void edges_set(uint8_t value);
-
-        DukValue corners_get() const;
-        void corners_set(uint8_t value);
-
-        DukValue slopeDirection_get() const;
-        void slopeDirection_set(const DukValue& value);
-
-        DukValue isQueue_get() const;
-        void isQueue_set(bool value);
-
-        DukValue queueBannerDirection_get() const;
-        void queueBannerDirection_set(const DukValue& value);
-
-        DukValue isBlockedByVehicle_get() const;
-        void isBlockedByVehicle_set(bool value);
-
-        DukValue isWide_get() const;
-        void isWide_set(bool value);
-
-        DukValue addition_get() const;
-        void addition_set(const DukValue& value);
-
-        DukValue surfaceObject_get() const;
-        void surfaceObject_set(const DukValue& value);
-
-        DukValue railingsObject_get() const;
-        void railingsObject_set(const DukValue& value);
-
-        DukValue additionStatus_get() const;
-        void additionStatus_set(const DukValue& value);
-
-        DukValue isAdditionBroken_get() const;
-        void isAdditionBroken_set(const DukValue& value);
-
-        DukValue isAdditionGhost_get() const;
-        void isAdditionGhost_set(const DukValue& value);
-
-        DukValue footpathObject_get() const;
-        void footpathObject_set(const DukValue& value);
-
-        DukValue footpathSurfaceObject_get() const;
-        void footpathSurfaceObject_set(const DukValue& value);
-
-        DukValue direction_get() const;
-        void direction_set(uint8_t value);
-
-        void Invalidate();
-
-    public:
-        static void Register(duk_context* ctx);
+        static void Finalize(JSRuntime* rt, JSValue thisValue);
     };
 
 } // namespace OpenRCT2::Scripting

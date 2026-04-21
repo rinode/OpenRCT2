@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -11,15 +11,18 @@
 
 #include <cstdint>
 
-enum class TileElementType : uint8_t
+namespace OpenRCT2
 {
-    Surface = 0,
-    Path = 1,
-    Track = 2,
-    SmallScenery = 3,
-    Entrance = 4,
-    Wall = 5,
-    LargeScenery = 6,
-    Banner = 7,
-    Pool = 8,
-};
+    enum class TileElementType : uint8_t
+    {
+        Surface = 0,
+        Path = 1,
+        Track = 2,
+        SmallScenery = 3,
+        Entrance = 4,
+        Wall = 5,
+        LargeScenery = 6,
+        Banner = 7,
+        Pool = 8,
+    };
+}

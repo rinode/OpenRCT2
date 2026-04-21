@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,61 +9,70 @@
 
 #include "FileStream.h"
 
+#include "../platform/Platform.h"
 #include "Path.hpp"
 #include "String.hpp"
 
-#include <algorithm>
 #include <string_view>
 
 #ifndef _WIN32
-#    include <sys/stat.h>
+    #include <sys/stat.h>
 #else
-#    include <io.h>
-#endif
-
-#if defined(__linux__) && !defined(__ANDROID__)
-#    define ftello ftello64
-#    define fseeko fseeko64
+    #include <io.h>
 #endif
 
 #ifdef _MSC_VER
-#    define ftello _ftelli64
-#    define fseeko _fseeki64
+    #define ftello _ftelli64
+    #define fseeko _fseeki64
 #endif
 
 namespace OpenRCT2
 {
-    FileStream::FileStream(const fs::path& path, int32_t fileMode)
+    FileStream::FileStream(const fs::path& path, FileMode fileMode)
         : FileStream(path.u8string(), fileMode)
     {
     }
 
-    FileStream::FileStream(const std::string& path, int32_t fileMode)
+    FileStream::FileStream(const std::string& path, FileMode fileMode)
         : FileStream(path.c_str(), fileMode)
     {
     }
 
-    FileStream::FileStream(std::string_view path, int32_t fileMode)
+    FileStream::FileStream(std::string_view path, FileMode fileMode)
         : FileStream(std::string(path), fileMode)
     {
     }
 
-    FileStream::FileStream(const utf8* path, int32_t fileMode)
+    FileStream::FileStream(const utf8* path, FileMode fileMode)
     {
+        if (fileMode == FileMode::open)
+        {
+            auto assetOpen = Platform::OpenAssetFile(path);
+            if (assetOpen.result == Platform::AssetCheckResult::Found)
+            {
+                _asset = assetOpen.handle;
+                _fileSize = assetOpen.size;
+                _canRead = true;
+                _canWrite = false;
+                _ownsFilePtr = true;
+                return;
+            }
+        }
+
         const char* mode;
         switch (fileMode)
         {
-            case FILE_MODE_OPEN:
+            case FileMode::open:
                 mode = "rb";
                 _canRead = true;
                 _canWrite = false;
                 break;
-            case FILE_MODE_WRITE:
+            case FileMode::write:
                 mode = "w+b";
                 _canRead = true;
                 _canWrite = true;
                 break;
-            case FILE_MODE_APPEND:
+            case FileMode::append:
                 mode = "a";
                 _canRead = false;
                 _canWrite = true;
@@ -83,11 +92,11 @@ namespace OpenRCT2
         }
 
 #ifdef _WIN32
-        auto pathW = String::ToWideChar(path);
-        auto modeW = String::ToWideChar(mode);
+        auto pathW = String::toWideChar(path);
+        auto modeW = String::toWideChar(mode);
         _file = _wfopen(pathW.c_str(), modeW.c_str());
 #else
-        if (fileMode == FILE_MODE_OPEN)
+        if (fileMode == FileMode::open)
         {
             struct stat fileStat;
             // Only allow regular files to be opened as its possible to open directories.
@@ -103,7 +112,7 @@ namespace OpenRCT2
 #endif
         if (_file == nullptr)
         {
-            throw IOException(String::StdFormat("Unable to open '%s'", path));
+            throw IOException(String::stdFormat("Unable to open '%s'", path));
         }
 
 #ifdef _WIN32
@@ -123,7 +132,17 @@ namespace OpenRCT2
             _disposed = true;
             if (_ownsFilePtr)
             {
-                fclose(_file);
+                if (_asset != nullptr)
+                {
+                    Platform::CloseAssetFile(_asset);
+                }
+                else
+                {
+                    if (_file != nullptr)
+                    {
+                        fclose(_file);
+                    }
+                }
             }
         }
     }
@@ -145,6 +164,10 @@ namespace OpenRCT2
 
     uint64_t FileStream::GetPosition() const
     {
+        if (_asset != nullptr)
+        {
+            return Platform::GetAssetPosition(_asset);
+        }
         return ftello(_file);
     }
 
@@ -155,6 +178,11 @@ namespace OpenRCT2
 
     void FileStream::Seek(int64_t offset, int32_t origin)
     {
+        if (_asset != nullptr)
+        {
+            Platform::SeekAsset(_asset, offset, origin);
+            return;
+        }
         switch (origin)
         {
             case STREAM_SEEK_BEGIN:
@@ -171,6 +199,14 @@ namespace OpenRCT2
 
     void FileStream::Read(void* buffer, uint64_t length)
     {
+        if (_asset != nullptr)
+        {
+            if (Platform::ReadAsset(_asset, buffer, length) == length)
+            {
+                return;
+            }
+            throw IOException("Attempted to read past end of file.");
+        }
         if (fread(buffer, 1, static_cast<size_t>(length), _file) == length)
         {
             return;
@@ -180,6 +216,10 @@ namespace OpenRCT2
 
     void FileStream::Write(const void* buffer, uint64_t length)
     {
+        if (_canWrite == false)
+        {
+            throw IOException("Cannot write to a read-only stream.");
+        }
         if (length == 0)
         {
             return;
@@ -197,13 +237,12 @@ namespace OpenRCT2
 
     uint64_t FileStream::TryRead(void* buffer, uint64_t length)
     {
+        if (_asset != nullptr)
+        {
+            return Platform::TryReadAsset(_asset, buffer, length);
+        }
         size_t readBytes = fread(buffer, 1, static_cast<size_t>(length), _file);
         return readBytes;
-    }
-
-    const void* FileStream::GetData() const
-    {
-        return nullptr;
     }
 
 } // namespace OpenRCT2

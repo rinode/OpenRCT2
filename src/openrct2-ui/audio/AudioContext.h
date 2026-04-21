@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -12,11 +12,9 @@
 #include <memory>
 #include <openrct2/audio/AudioChannel.h>
 #include <openrct2/audio/AudioSource.h>
-#include <openrct2/common.h>
 #include <string>
 
 struct SDL_RWops;
-using SpeexResamplerState = struct SpeexResamplerState_;
 
 namespace OpenRCT2::Audio
 {
@@ -25,9 +23,7 @@ namespace OpenRCT2::Audio
 
     struct ISDLAudioChannel : public IAudioChannel
     {
-        [[nodiscard]] virtual AudioFormat GetFormat() const abstract;
-        [[nodiscard]] virtual SpeexResamplerState* GetResampler() const abstract;
-        virtual void SetResampler(SpeexResamplerState* value) abstract;
+        [[nodiscard]] virtual AudioFormat GetFormat() const = 0;
     };
 
     namespace AudioChannel

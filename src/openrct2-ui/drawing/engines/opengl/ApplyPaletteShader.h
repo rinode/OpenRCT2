@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -12,27 +12,30 @@
 #include "GLSLTypes.h"
 #include "OpenGLShaderProgram.h"
 
-class ApplyPaletteShader final : public OpenGLShaderProgram
+namespace OpenRCT2::Ui
 {
-private:
-    GLuint uTexture;
-    GLuint uPalette;
+    class ApplyPaletteShader final : public OpenGLShaderProgram
+    {
+    private:
+        GLint uTexture{ -1 };
+        GLint uPalette{ -1 };
 
-    GLuint vPosition;
-    GLuint vTextureCoordinate;
+        GLint vPosition{ -1 };
+        GLint vTextureCoordinate{ -1 };
 
-    GLuint _vbo;
-    GLuint _vao;
+        GLuint _vbo{};
+        GLuint _vao{};
 
-public:
-    ApplyPaletteShader();
-    ~ApplyPaletteShader() override;
+    public:
+        ApplyPaletteShader();
+        ~ApplyPaletteShader() override;
 
-    static void SetTexture(GLuint texture);
-    void SetPalette(const vec4* glPalette);
+        static void SetTexture(GLuint texture);
+        void SetPalette(const vec4* glPalette);
 
-    void Draw();
+        void Draw();
 
-private:
-    void GetLocations();
-};
+    private:
+        void GetLocations();
+    };
+} // namespace OpenRCT2::Ui

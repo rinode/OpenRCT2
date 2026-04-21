@@ -1,31 +1,44 @@
 # Contributors to OpenRCT2
-Includes all git commit authors. Aliases are GitHub user names.
+Includes all git commit authors. Aliases are GitHub usernames or community nicknames.
 
 ## Development team
-* Ted John (IntelOrca) - Owner
-* Duncan Frost (duncanspumpkin)
-* Michał Janiszewski (janisozaur)
-* Hielke Morsink (Broxzier)
-* Tulio Paschoalin Leao (tupaschoal)
-* Olivier Wervers (Oli414)
-* Rik Smeets (rik-smeets)
+* Ted John (IntelOrca) - Project Founder - Programming
+* Duncan Frost (duncanspumpkin) - Programming
+* Michał Janiszewski (janisozaur) - Programming
+* Hielke Morsink (Broxzier) - Programming
+* Tulio Paschoalin Leao (tupaschoal) - Programming
+* Karst van Galen Last (AuraSpecs) - Lead OpenSoundEffects & OpenMusic
+* Michael Bernardi (mrmbernardi) - Programming
+* Michael Steenbeek (Gymnasiast) - Lead Localisation - Programming
+* Aaron van Geffen (AaronVanGeffen) - Programming
+* Joshua Jacobs (leicestersquare) - Graphic Artist
+
+## Support team
+* Kelson Blakewood (spacek531) - QA, Programming
+* (ZeeMaji) - QA, objects
+* Bas Cantrijn (Basssiiie) - QA, plugins
+* (Kyphii) - Lead OpenScenarios
+* Kenton Boadway (Krutonium) - Discord moderation
 
 ## Former development team members
 * Lewis Fox (LRFLEW)
 * Marijn van der Werf (marijnvdwerf)
 * (zsilencer)
 * Richard Jenkins (rwjuk)
-* Aaron van Geffen (AaronVanGeffen)
+* Rik Smeets (rik-smeets)
+* Olivier Wervers (Oli414)
 * Matthias Moninger (ZehMatt)
-* Michael Steenbeek (Gymnasiast)
 
 ## Long term contributors
-The following people are not part of the development team, but have been contributing for a long time.
+Appreciation for long term contributors to the project having provided substantial work.
 * Edward Calver (X7123M3-256)
-* Karst van Galen Last (AuraSpecs)
-* Matte Andersson (Nubbie)
-* Kenton Boadway (Krutonium)
+* (mixiate)
+
+## Special Thanks
+Appreciation for contributors who have provided substantial work, but are no longer active.
 * Joe Minor Jr (wolfreak99)
+* Matte Andersson (Nubbie)
+* (frutiemax)
 
 ## Implementation (RCT2)
 * Ted John (IntelOrca)
@@ -81,7 +94,7 @@ The following people are not part of the development team, but have been contrib
 * Brian Callahan (ibara) - OpenBSD port.
 * Jens Heuseveldt (jensj12) - Mountain tool improvements, misc.
 * Park Joon-Kyu (segfault87) - Allow filtering guests by name
-* Harrison Gentry (hgentry) - Date-changing command, misc.
+* Rachael Arbor (rarbor-old) - Date-changing command, misc.
 * Joshua Moerman (Jaxan) - Minimap cleanup, misc.
 * Nicolas Hawrysh (xp4xbox) - Various (ride) sprite improvements.
 * Albert Morgese (Fusxfaranto) - Shop auto-rotation, unicode uppercasing.
@@ -102,10 +115,22 @@ The following people are not part of the development team, but have been contrib
 * Karst van Galen Last (AuraSpecs) - Ride paint (bounding boxes, extra track pieces), soundtrack, sound effects, misc.
 * (8street) - Misc.
 * Umar Ahmed (umar-ahmed) - MacOS file watcher
-* Andrew Arnold (fidwell) - Added window support for more scenery groups.
+* Andrew Arnold (fidwell) - Misc.
 * Josh Trzebiatowski (trzejos) - Ride and scenery filtering
+* (kyphii) - Extended color selection, reversed ride vehicles, misc.
+* Phumdol Lookthipnapha (beam41) - Misc.
+* Nikolas Parshook (nparshook) - Misc.
+* Wenzhao Qiu (qwzhaox) - Misc.
+* Tiago Reul (reul) - Misc.
+* Fredrik Tegnell (fredriktegnell) - Misc.
+* Alex Parisi (alex-parisi) - Added API for returning metadata from all registered plugins.
+* Arnold Zhou (mrmagic2020) - Various plugin additions, new game option, misc.
+* John Dolph (johnwdolph) - Ride music UI, misc.
+* Harry Hopkinson (Harry-Hopkinson) - Added Cheat for guests ignoring price of rides and stalls.
+* Kendall Frey (kendfrey) - Add plugin API for spawning guests
 
-## Bug fixes
+## Bug fixes & Refactors
+* Claudio Tiecher (janclod)
 * (KirilAngelov)
 * (halfbro)
 * (Myrtle)
@@ -209,17 +234,39 @@ The following people are not part of the development team, but have been contrib
 * Conrad Cash (HouseholdVTuber)
 * Michael Bickerton (mdbckrtn)
 * Nehemiah Negussie (nehemiah-negussie)
-* (zzril)
+* Severin Paul Höfer (zzril)
 * Ernest Elgin (eaeiv)
-
+* Ernest Wong (ErnWong)
+* Joel H. (HtotheTML)
+* John Mulcahy (jayjay300)
+* Chase Percy (Chase-Percy)
+* Wenzhao Qiu (qwzhaox)
+* Michael Bernardi (mrmbernardi)
+* Aram Kazorian (aramk-hub)
+* Harry Hopkinson (Harry-Hopkinson)
+* Jan Kelemen (jan-kelemen)
+* Cory Ye (CoryfY)
+* Karsten Van Fossan (karstenvanf)
+* Kaavya Ramachandhran (ayvaak)
+* Mike Harvey (harvito)
+* Robert Yan (lewyche)
+* Tom Matalenas (tmatale)
+* Brendan Heinonen (staticinvocation)
+* (QuestionableDeer)
+* David Sungaila (sungaila)
+* Garrett Leach (GarrettLeach)
+* Ruohao (Jater) Xu (jaterx)
+* Marcel Vos (MarcelVos96)
+* Jonas Doggart
+* (pg805)
+* Sjoerd de Bruin (sjoerddebruin)
 
 ## Toolchain
 * (Balletie) - macOS
 * Kevin Burke (kevinburke) - macOS, Unix
 * Miso Zmiric (mzmiric5) - Initial macOS toolchain
-* Jarno Veuger (JarnoVgr) - Windows build server
 * Ted John (IntelOrca) - Windows
-* Michał Janiszewski (janisozaur) - Linux, Travis CI
+* Michał Janiszewski (janisozaur) - Linux, CI
 * Lewis Fox (LRFLEW) - macOS
 * Andrew Rimpici (Andy608) - macOS
 * Adam Bloom (adam-bloom) - macOS, CI
@@ -233,6 +280,8 @@ The following people are not part of the development team, but have been contrib
 * Mithun Hunsur (Philpax)
 * (RollingStar)
 * (That Human Being)
+* Alex Marck (ATMarcks)
+* Michael Steenbeek (Gymnasiast)
 
 ## Translation
 * Extracting from original files: Ted John (IntelOrca)
@@ -243,38 +292,60 @@ The following people are not part of the development team, but have been contrib
 * English (UK) - Ted John (IntelOrca), (Tinytimrob)
 * English (US) - Ted John (IntelOrca), Michael Steenbeek (Gymnasiast); small fixes: (LRFLEW), (mike-koch), Harry Lam (daihakken)
 * Catalan - Joan Josep (J0anJosep)
-* Chinese (Simplified) - Naiji Ma (naijim), (izhangfei), Eric Zhao (sczyh30), (Muhhan)
+* Chinese (Simplified) - Naiji Ma (naijim), (izhangfei), Eric Zhao (sczyh30), (Muhhan), Arnold Zhou (mrmagic2020)
 * Chinese (Traditional) - Harry Lam (daihakken)
-* Czech - Martin Černáč (octaroot), (Clonewayx), Tomáš Pazdiora (Aroidzap)
+* Czech - Martin Černáč (octaroot), (Clonewayx), Tomáš Pazdiora (Aroidzap), Ríša Szlachta (tygrysek90) 
 * Danish - Lars P. Sørensen (LPSGizmo)
-* Dutch - Michael Steenbeek (Gymnasiast), Yannic Geurts (xzbobzx), (mrtnptrs), Thomas den Hollander (ThomasdenH), (hostbrute),  Marijn van der Werf (marijnvdwerf), Tom Kroes (ThePsionic); reviewing and discussion: Aaron van Geffen (AaronVanGeffen), (Balletie) and Sijmen Schoon (SijmenSchoon).
+* Dutch - Michael Steenbeek (Gymnasiast), Yannic Geurts (xzbobzx), (mrtnptrs), Thomas den Hollander (ThomasdenH), (hostbrute),  Marijn van der Werf (marijnvdwerf), Tom Kroes (ThePsionic), Karst van Galen Last (AuraSpecs); reviewing and discussion: Aaron van Geffen (AaronVanGeffen), (Balletie) and Sijmen Schoon (SijmenSchoon)
 * Esperanto - (tellovishous), Raymond Zhao (rzhao271)
 * Finnish - (DJHasis), (Zode), (TheWing)
 * French - (fbourigault), Joël Troch (JoelTroch), Michael Steenbeek (Gymnasiast), Romain Vigier (rmnvgr), (AziasYur), Hugo Courtial (s0r00t), David Delobel (incyclum), Nicolas Hawrysh (xp4xbox)
-* German - (danidoedel), (atmaxinger), (Yepoleb), Daniel Kessel (dkessel), Leon (AllGoodNamesAreTaken), (raidcookie)
+* Galician - (ninjum)
+* German - (danidoedel), (atmaxinger), (Yepoleb), Daniel Kessel (dkessel), Leon (AllGoodNamesAreTaken), (raidcookie), Gilian Rehm (gr33ndev)
+* Hungarian - (anon569)
 * Italian - Luca Andrea Rossi (LucaRed), Precious Ugo Abara (48cfu)
 * Japanese - Aaron van Geffen (AaronVanGeffen), Haruna Chinzei, Nick Hall (nickhall), (jhako), Harry Lam (daihakken)
 * Korean - Willem J. Lee (telk5093), (NeverDruid); small fixes: (kexplo)
 * Norwegian - Hugo Wallenburg (Goddesen)
 * Polish - Adrian Wielgosik (adrian17), (lopezloo), Michał Janiszewski (janisozaur)
 * Portuguese (BR) - (kaudy), (renansimoes), Tulio Paschoalin Leao (tupaschoal)
-* Russian - (Soosisya)
+* Russian - (Soosisya), (andOlga)
 * Spanish - Josué Acevedo (Wirlie), Diego Mateos (dimateos), (frenchiveruti), (mdtrooper), Daniel Trujillo Viedma (gDanix); small fixes: (teapartycthulu)
 * Swedish - (Jinxit), (mharrys), (Slimeyo), Matte Andersson (Nubbie)
+* Ukrainian - (CsyeCokTheSolly), (Veydzher), (Saba4ara)
 
 ## Graphics
-* OpenRCT2 Logo - Yannic Geurts (xzbobzx)
-* Booster Sprites - Nicolas Hawrysh (xp4xbox)
+* Yannic Geurts (xzbobzx) - OpenRCT2 Logo
+* Nicolas Hawrysh (xp4xbox) - Booster Sprites Twister, Giga, Mini, Woodie
+* Michael Steenbeek (Gymnasiast) - Extended fontset
+* Olivier Wervers (Oli414) - Several icons
+* Edward Calver (X7123M3-256) - Hybrid RC track & train, Single Rail RC track & train, Alpine RC track & vehicle, LIM RC extended trackset, Giga RC extended trackset
+* Karst van Galen Last (AuraSpecs) - Steep log flume, Inverted RC Booster, Giga RC powered lift
+* Martijn Kroese (MK98) - Diagonal brakes project
+* Peter van den Berg (Recurious) - Diagonal brakes project
+* Joshua Jacobs - OpenGraphics Spooky Theme
+* (mixiate) - Wooden and Mine Train Rollercoaster flat-to-steep track pieces
 
 ## Music
 * Karst "Jalmaan" van Galen Last (AuraSpecs)
+* (Flyxxpy)
+* Jan Büchner (Greyfade)
+* Allister Brimble - OpenRCT2 Main Theme
+* Herman Riddering - Owner of the 35er Voigt, which provided new recordings for the Fairground organ styles.
+* (Skyshard)
+* (Blackend Blue)
+* Andrew Sinclair (Approaching Nirvana) - Progressive style
+
+## Sound Effects
+* Karst van Galen Last (AuraSpecs)
+* (ThatGuyYouKnow)
 
 ## RollerCoaster Tycoon 2 credits
-Design and programming by Chris Sawyer
-Graphics by Simon Foster
-Sound and music by Allister Brimble
-Additional sounds recorded by David Ellis
-Representation by Jacqui Lyons at Marjacq Ltd.
+* Allister Brimble - Music and sound effects
+* Chris Sawyer - Programming
+* David Ellis - Additional sound effects
+* Jacqui Lyons (Marjacq Ltd.) - Representation
+* Simon Foster - Graphics
 
 Thanks to: Peter James Adcock, Joe Booth, and John Wardley
 

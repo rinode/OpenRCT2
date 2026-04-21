@@ -1,17 +1,21 @@
 #include "GameActionResult.h"
 
-#include "../localisation/Localisation.h"
+#include "../localisation/Formatting.h"
 
-namespace GameActions
+#include <algorithm>
+
+using namespace OpenRCT2;
+
+namespace OpenRCT2::GameActions
 {
-    Result::Result(GameActions::Status error, StringId title, StringId message, uint8_t* args /*= nullptr*/)
-        : Error(error)
-        , ErrorTitle(title)
-        , ErrorMessage(message)
+    Result::Result(Status status, StringId title, StringId message, uint8_t* args /*= nullptr*/)
+        : error(status)
+        , errorTitle(title)
+        , errorMessage(message)
     {
         if (args != nullptr)
         {
-            std::copy_n(args, ErrorMessageArgs.size(), ErrorMessageArgs.begin());
+            std::copy_n(args, errorMessageArgs.size(), errorMessageArgs.begin());
         }
     }
 
@@ -25,18 +29,18 @@ namespace GameActions
         }
         std::string operator()(const StringId strId) const
         {
-            return FormatStringID(strId, ErrorMessageArgs);
+            return FormatStringIDLegacy(strId, ErrorMessageArgs);
         }
     };
 
-    std::string GameActions::Result::GetErrorTitle() const
+    std::string Result::getErrorTitle() const
     {
-        return std::visit(StringVariantVisitor{ ErrorMessageArgs.data() }, ErrorTitle);
+        return std::visit(StringVariantVisitor{ errorMessageArgs.data() }, errorTitle);
     }
 
-    std::string GameActions::Result::GetErrorMessage() const
+    std::string Result::getErrorMessage() const
     {
-        return std::visit(StringVariantVisitor{ ErrorMessageArgs.data() }, ErrorMessage);
+        return std::visit(StringVariantVisitor{ errorMessageArgs.data() }, errorMessage);
     }
 
-} // namespace GameActions
+} // namespace OpenRCT2::GameActions

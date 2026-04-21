@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,14 +9,13 @@
 
 #include "../Cheats.h"
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../Editor.h"
 #include "../Game.h"
 #include "../GameState.h"
 #include "../ParkImporter.h"
-#include "../actions/WallPlaceAction.h"
-#include "../audio/audio.h"
+#include "../audio/Audio.h"
 #include "../core/BitSet.hpp"
-#include "../core/Collections.hpp"
 #include "../core/Console.hpp"
 #include "../core/FileStream.h"
 #include "../core/Guard.hpp"
@@ -27,7 +26,6 @@
 #include "../entity/Balloon.h"
 #include "../entity/Duck.h"
 #include "../entity/EntityList.h"
-#include "../entity/EntityRegistry.h"
 #include "../entity/Fountain.h"
 #include "../entity/Litter.h"
 #include "../entity/MoneyEffect.h"
@@ -35,59 +33,71 @@
 #include "../entity/PatrolArea.h"
 #include "../entity/Peep.h"
 #include "../entity/Staff.h"
-#include "../interface/Window.h"
-#include "../localisation/Date.h"
-#include "../localisation/Localisation.h"
+#include "../localisation/Formatting.h"
 #include "../management/Award.h"
-#include "../management/Finance.h"
 #include "../management/Marketing.h"
 #include "../management/NewsItem.h"
-#include "../object/Object.h"
+#include "../object/ObjectLimits.h"
 #include "../object/ObjectList.h"
 #include "../object/ObjectManager.h"
 #include "../object/ObjectRepository.h"
+#include "../object/PeepAnimationsObject.h"
+#include "../object/ScenarioMetaObject.h"
+#include "../park/Legacy.h"
 #include "../peep/RideUseSystem.h"
+#include "../rct12/CSStringConverter.h"
 #include "../rct12/EntryList.h"
+#include "../rct12/ScenarioPatcher.h"
+#include "../ride/Ride.h"
 #include "../ride/RideData.h"
-#include "../ride/Station.h"
+#include "../ride/RideManager.hpp"
 #include "../ride/Track.h"
-#include "../ride/TrainManager.h"
 #include "../ride/Vehicle.h"
+#include "../sawyer_coding/SawyerCoding.h"
 #include "../scenario/Scenario.h"
+#include "../scenario/ScenarioObjective.h"
 #include "../scenario/ScenarioRepository.h"
 #include "../scenario/ScenarioSources.h"
-#include "../util/SawyerCoding.h"
-#include "../util/Util.h"
-#include "../world/Climate.h"
-#include "../world/Entrance.h"
-#include "../world/Footpath.h"
+#include "../world/Map.h"
 #include "../world/MapAnimation.h"
 #include "../world/Park.h"
 #include "../world/Scenery.h"
-#include "../world/Surface.h"
 #include "../world/TilePointerIndex.hpp"
 #include "../world/Wall.h"
+#include "../world/Weather.h"
+#include "../world/tile_element/BannerElement.h"
+#include "../world/tile_element/EntranceElement.h"
+#include "../world/tile_element/LargeSceneryElement.h"
+#include "../world/tile_element/PathElement.h"
+#include "../world/tile_element/Slope.h"
+#include "../world/tile_element/SmallSceneryElement.h"
+#include "../world/tile_element/SurfaceElement.h"
+#include "../world/tile_element/TileElement.h"
+#include "../world/tile_element/TrackElement.h"
+#include "../world/tile_element/WallElement.h"
 #include "RCT1.h"
 #include "Tables.h"
 
-#include <algorithm>
-#include <iterator>
+#include <cassert>
 #include <memory>
 #include <vector>
 
-static constexpr const ObjectEntryIndex ObjectEntryIndexIgnore = 254;
-
 using namespace OpenRCT2;
+using namespace OpenRCT2::SawyerCoding;
 
-namespace RCT1
+static constexpr ObjectEntryIndex ObjectEntryIndexIgnore = 254;
+
+namespace OpenRCT2::RCT1
 {
+    constexpr uint8_t kDefaultParkValueConversionFactor = 100;
+
     class S4Importer final : public IParkImporter
     {
     private:
         std::string _s4Path;
         S4 _s4 = {};
         uint8_t _gameVersion = 0;
-        uint8_t _parkValueConversionFactor = 0;
+        uint8_t _parkValueConversionFactor = kDefaultParkValueConversionFactor;
         bool _isScenario = false;
 
         // Lists of dynamic object entries
@@ -95,6 +105,7 @@ namespace RCT1
         RCT12::EntryList _smallSceneryEntries;
         RCT12::EntryList _largeSceneryEntries;
         RCT12::EntryList _wallEntries;
+        RCT12::EntryList _bannerEntries;
         RCT12::EntryList _pathEntries;
         RCT12::EntryList _pathAdditionEntries;
         RCT12::EntryList _sceneryGroupEntries;
@@ -105,37 +116,37 @@ namespace RCT1
         RCT12::EntryList _footpathRailingsEntries;
 
         // Lookup tables for converting from RCT1 hard coded types to the new dynamic object entries
-        ObjectEntryIndex _rideTypeToRideEntryMap[EnumValue(RideType::Count)]{};
-        ObjectEntryIndex _vehicleTypeToRideEntryMap[RCT1_VEHICLE_TYPE_COUNT]{};
+        ObjectEntryIndex _rideTypeToRideEntryMap[EnumValue(RideType::count)]{};
+        ObjectEntryIndex _vehicleTypeToRideEntryMap[EnumValue(VehicleType::count)]{};
         ObjectEntryIndex _smallSceneryTypeToEntryMap[256]{};
         ObjectEntryIndex _largeSceneryTypeToEntryMap[256]{};
         ObjectEntryIndex _wallTypeToEntryMap[256]{};
+        ObjectEntryIndex _bannerTypeToEntryMap[9]{};
         ObjectEntryIndex _pathTypeToEntryMap[24]{};
         ObjectEntryIndex _pathAdditionTypeToEntryMap[16]{};
         ObjectEntryIndex _sceneryThemeTypeToEntryMap[24]{};
         ObjectEntryIndex _terrainSurfaceTypeToEntryMap[16]{};
         ObjectEntryIndex _terrainEdgeTypeToEntryMap[16]{};
         ObjectEntryIndex _footpathSurfaceTypeToEntryMap[32]{};
-        ObjectEntryIndex _footpathRailingsTypeToEntryMap[4]{};
 
         // Research
-        BitSet<MAX_RIDE_OBJECTS> _researchRideEntryUsed{};
-        BitSet<EnumValue(RideType::Count)> _researchRideTypeUsed{};
+        BitSet<kMaxRideObjects> _researchRideEntryUsed{};
+        BitSet<EnumValue(RideType::count)> _researchRideTypeUsed{};
 
         // Scenario repository - used for determining scenario name
         IScenarioRepository* _scenarioRepository = GetScenarioRepository();
 
     public:
-        ParkLoadResult Load(const u8string& path) override
+        ParkLoadResult Load(const u8string& path, const bool skipObjectCheck) override
         {
             const auto extension = Path::GetExtension(path);
-            if (String::Equals(extension, ".sc4", true))
+            if (String::iequals(extension, ".sc4"))
             {
-                return LoadScenario(path);
+                return LoadScenario(path, skipObjectCheck);
             }
-            if (String::Equals(extension, ".sv4", true))
+            if (String::iequals(extension, ".sv4"))
             {
-                return LoadSavedGame(path);
+                return LoadSavedGame(path, skipObjectCheck);
             }
 
             throw std::runtime_error("Invalid RCT1 park extension.");
@@ -143,14 +154,14 @@ namespace RCT1
 
         ParkLoadResult LoadSavedGame(const u8string& path, bool skipObjectCheck = false) override
         {
-            auto fs = FileStream(path, FILE_MODE_OPEN);
+            auto fs = FileStream(path, FileMode::open);
             auto result = LoadFromStream(&fs, false, skipObjectCheck, path);
             return result;
         }
 
         ParkLoadResult LoadScenario(const u8string& path, bool skipObjectCheck = false) override
         {
-            auto fs = FileStream(path, FILE_MODE_OPEN);
+            auto fs = FileStream(path, FileMode::open);
             auto result = LoadFromStream(&fs, true, skipObjectCheck, path);
             return result;
         }
@@ -161,7 +172,7 @@ namespace RCT1
             _s4 = *ReadAndDecodeS4(stream, isScenario);
             _s4Path = path;
             _isScenario = isScenario;
-            _gameVersion = SawyerCodingDetectRCT1Version(_s4.GameVersion) & FILE_VERSION_MASK;
+            _gameVersion = DetectRCT1Version(_s4.GameVersion) & FILE_VERSION_MASK;
 
             // Only determine what objects we required to import this saved game
             InitialiseEntryMaps();
@@ -169,29 +180,35 @@ namespace RCT1
             return ParkLoadResult(GetRequiredObjects());
         }
 
-        void Import() override
+        void Import(GameState_t& gameState) override
         {
-            Initialise();
-
-            CreateAvailableObjectMappings();
+            Initialise(gameState);
 
             ImportRides();
             ImportRideMeasurements();
-            ImportSprites();
-            ImportTileElements();
-            ImportPeepSpawns();
-            ImportFinance();
-            ImportResearch();
-            ImportParkName();
-            ImportParkFlags();
-            ImportClimate();
-            ImportScenarioNameDetails();
-            ImportScenarioObjective();
-            ImportSavedView();
-            FixLandOwnership();
-            FixUrbanPark();
+            ImportEntities(gameState);
+            ImportTileElements(gameState);
+            ImportMapAnimations();
+            ImportPeepSpawns(gameState);
+            ImportFinance(gameState);
+            ImportResearch(gameState);
+            ImportParkName(gameState);
+            ImportParkFlags(gameState);
+            ImportClimate(gameState);
+            ImportScenarioNameDetails(gameState);
+            ImportScenarioObjective(gameState);
+            ImportSavedView(gameState);
+
+            ConvertPeepAnimationTypeToObjects(gameState);
+            ResetPeepSpriteBounds(gameState);
+
+            if (_isScenario)
+            {
+                RCT12::FetchAndApplyScenarioPatch(_s4Path);
+            }
+            FixNextGuestNumber(gameState);
             CountBlockSections();
-            SetDefaultNames();
+            SetDefaultNames(gameState);
             DetermineRideEntranceAndExitLocations();
 
             ResearchDetermineFirstOfType();
@@ -201,13 +218,17 @@ namespace RCT1
             RestrictAllMiscScenery();
         }
 
-        bool GetDetails(ScenarioIndexEntry* dst) override
+        bool PopulateIndexEntry(ScenarioIndexEntry* dst) override
         {
             *dst = {};
 
             SourceDescriptor desc;
             // If no entry is found, this is a custom scenario.
             bool isOfficial = ScenarioSources::TryGetById(_s4.ScenarioSlotIndex, &desc);
+
+            // Perform an additional name check if this is detected to be a competition scenario
+            if (isOfficial && desc.category == Scenario::Category::competitions)
+                isOfficial = ScenarioSources::TryGetByName(_s4.ScenarioName, &desc);
 
             dst->Category = desc.category;
             dst->SourceGame = ScenarioSource{ desc.source };
@@ -217,18 +238,18 @@ namespace RCT1
             dst->ObjectiveType = _s4.ScenarioObjectiveType;
             dst->ObjectiveArg1 = _s4.ScenarioObjectiveYears;
             // RCT1 used another way of calculating park value.
-            if (_s4.ScenarioObjectiveType == OBJECTIVE_PARK_VALUE_BY)
+            if (_s4.ScenarioObjectiveType == Scenario::ObjectiveType::parkValueBy)
                 dst->ObjectiveArg2 = CorrectRCT1ParkValue(_s4.ScenarioObjectiveCurrency);
             else
                 dst->ObjectiveArg2 = _s4.ScenarioObjectiveCurrency;
             dst->ObjectiveArg3 = _s4.ScenarioObjectiveNumGuests;
             // This does not seem to be saved in the objective arguments, so look up the ID from the available rides instead.
-            if (_s4.ScenarioObjectiveType == OBJECTIVE_BUILD_THE_BEST)
+            if (_s4.ScenarioObjectiveType == Scenario::ObjectiveType::buildTheBest)
             {
                 dst->ObjectiveArg3 = GetBuildTheBestRideId();
             }
 
-            auto name = RCT2StringToUTF8(_s4.ScenarioName, RCT2LanguageId::EnglishUK);
+            std::string name = RCT2StringToUTF8(_s4.ScenarioName, RCT2LanguageId::englishUK);
             std::string details;
 
             // TryGetById won't set this property if the scenario is not recognised,
@@ -238,54 +259,55 @@ namespace RCT1
                 desc.title = name.c_str();
             }
 
-            String::Set(dst->InternalName, sizeof(dst->InternalName), desc.title);
+            dst->InternalName = desc.title;
 
-            StringId localisedStringIds[3];
-            if (LanguageGetLocalisedScenarioStrings(desc.title, localisedStringIds))
+            if (!desc.textObjectId.empty())
             {
-                if (localisedStringIds[0] != STR_NONE)
+                auto& objManager = GetContext()->GetObjectManager();
+
+                // Load the one specified
+                if (auto obj = objManager.LoadTempObject(desc.textObjectId, false); obj != nullptr)
                 {
-                    name = String::ToStd(LanguageGetString(localisedStringIds[0]));
-                }
-                if (localisedStringIds[2] != STR_NONE)
-                {
-                    details = String::ToStd(LanguageGetString(localisedStringIds[2]));
+                    auto& textObject = reinterpret_cast<ScenarioMetaObject&>(*obj);
+                    name = textObject.GetScenarioName();
+                    details = textObject.GetScenarioDetails();
                 }
             }
 
-            String::Set(dst->Name, sizeof(dst->Name), name.c_str());
-            String::Set(dst->Details, sizeof(dst->Details), details.c_str());
+            dst->Name = name;
+            dst->Details = details;
 
             return true;
         }
 
+        ParkPreview GetParkPreview() override
+        {
+            return {};
+        }
+
+    private:
+        uint8_t calculateParkValueConversionFactor(const Park::ParkData& park, const GameState_t& gameState)
+        {
+            if (_s4.ParkValue == 0)
+                return kDefaultParkValueConversionFactor;
+
+            // Use the ratio between the old and new park value to calculate the ratio to
+            // use for the park value history and the goal.
+            return (Park::CalculateParkValue(park, gameState) * 10) / _s4.ParkValue;
+        }
+
         money64 CorrectRCT1ParkValue(money32 oldParkValue)
         {
-            if (oldParkValue == MONEY32_UNDEFINED)
+            if (oldParkValue == kMoney32Undefined)
             {
-                return MONEY64_UNDEFINED;
+                return kMoney64Undefined;
             }
 
-            if (_parkValueConversionFactor == 0)
-            {
-                if (_s4.ParkValue != 0)
-                {
-                    // Use the ratio between the old and new park value to calcute the ratio to
-                    // use for the park value history and the goal.
-                    auto& park = GetContext()->GetGameState()->GetPark();
-                    _parkValueConversionFactor = (park.CalculateParkValue() * 10) / _s4.ParkValue;
-                }
-                else
-                {
-                    // In new games, the park value isn't set.
-                    _parkValueConversionFactor = 100;
-                }
-            }
+            assert(_parkValueConversionFactor != 0);
 
             return (oldParkValue * _parkValueConversionFactor) / 10;
         }
 
-    private:
         std::unique_ptr<S4> ReadAndDecodeS4(IStream* stream, bool isScenario)
         {
             auto s4 = std::make_unique<S4>();
@@ -294,14 +316,14 @@ namespace RCT1
             auto decodedData = std::make_unique<uint8_t[]>(sizeof(S4));
 
             size_t decodedSize;
-            int32_t fileType = SawyerCodingDetectFileType(data.get(), dataSize);
+            int32_t fileType = DetectFileType(data.get(), dataSize);
             if (isScenario && (fileType & FILE_VERSION_MASK) != FILE_VERSION_RCT1)
             {
-                decodedSize = SawyerCodingDecodeSC4(data.get(), decodedData.get(), dataSize, sizeof(S4));
+                decodedSize = DecodeSC4(data.get(), decodedData.get(), dataSize, sizeof(S4));
             }
             else
             {
-                decodedSize = SawyerCodingDecodeSV4(data.get(), decodedData.get(), dataSize, sizeof(S4));
+                decodedSize = DecodeSV4(data.get(), decodedData.get(), dataSize, sizeof(S4));
             }
 
             if (decodedSize == sizeof(S4))
@@ -313,21 +335,20 @@ namespace RCT1
             throw std::runtime_error("Unable to decode park.");
         }
 
-        void Initialise()
+        void Initialise(GameState_t& gameState)
         {
             // Avoid reusing the value used for last import
-            _parkValueConversionFactor = 0;
+            _parkValueConversionFactor = kDefaultParkValueConversionFactor;
 
-            uint16_t mapSize = _s4.MapSize == 0 ? Limits::MaxMapSize : _s4.MapSize;
+            uint16_t mapSize = _s4.MapSize == 0 ? Limits::kMaxMapSize : _s4.MapSize;
 
-            gScenarioFileName = GetRCT1ScenarioName();
+            gameState.scenarioFileName = GetRCT1ScenarioName();
 
             // Do map initialisation, same kind of stuff done when loading scenario editor
-            auto context = OpenRCT2::GetContext();
-            context->GetGameState()->InitAll({ mapSize, mapSize });
-            gEditorStep = EditorStep::ObjectSelection;
-            gParkFlags |= PARK_FLAGS_SHOW_REAL_GUEST_NAMES;
-            gScenarioCategory = SCENARIO_CATEGORY_OTHER;
+            gameStateInitAll(gameState, { mapSize, mapSize });
+            gameState.editorStep = EditorStep::ObjectSelection;
+            gameState.park.flags |= PARK_FLAGS_SHOW_REAL_GUEST_NAMES;
+            gameState.scenarioOptions.category = Scenario::Category::other;
         }
 
         std::string GetRCT1ScenarioName()
@@ -335,7 +356,7 @@ namespace RCT1
             const ScenarioIndexEntry* scenarioEntry = _scenarioRepository->GetByInternalName(_s4.ScenarioName);
             if (scenarioEntry == nullptr)
             {
-                return "";
+                return {};
             }
 
             return Path::GetFileName(scenarioEntry->Path);
@@ -343,22 +364,20 @@ namespace RCT1
 
         void InitialiseEntryMaps()
         {
-            std::fill(std::begin(_rideTypeToRideEntryMap), std::end(_rideTypeToRideEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(std::begin(_vehicleTypeToRideEntryMap), std::end(_vehicleTypeToRideEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(std::begin(_smallSceneryTypeToEntryMap), std::end(_smallSceneryTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(std::begin(_largeSceneryTypeToEntryMap), std::end(_largeSceneryTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(std::begin(_wallTypeToEntryMap), std::end(_wallTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(std::begin(_pathTypeToEntryMap), std::end(_pathTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(std::begin(_pathAdditionTypeToEntryMap), std::end(_pathAdditionTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(std::begin(_sceneryThemeTypeToEntryMap), std::end(_sceneryThemeTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
+            std::fill(std::begin(_rideTypeToRideEntryMap), std::end(_rideTypeToRideEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_vehicleTypeToRideEntryMap), std::end(_vehicleTypeToRideEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_smallSceneryTypeToEntryMap), std::end(_smallSceneryTypeToEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_largeSceneryTypeToEntryMap), std::end(_largeSceneryTypeToEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_wallTypeToEntryMap), std::end(_wallTypeToEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_bannerTypeToEntryMap), std::end(_bannerTypeToEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_pathTypeToEntryMap), std::end(_pathTypeToEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_pathAdditionTypeToEntryMap), std::end(_pathAdditionTypeToEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_sceneryThemeTypeToEntryMap), std::end(_sceneryThemeTypeToEntryMap), kObjectEntryIndexNull);
             std::fill(
-                std::begin(_terrainSurfaceTypeToEntryMap), std::end(_terrainSurfaceTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(std::begin(_terrainEdgeTypeToEntryMap), std::end(_terrainEdgeTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
+                std::begin(_terrainSurfaceTypeToEntryMap), std::end(_terrainSurfaceTypeToEntryMap), kObjectEntryIndexNull);
+            std::fill(std::begin(_terrainEdgeTypeToEntryMap), std::end(_terrainEdgeTypeToEntryMap), kObjectEntryIndexNull);
             std::fill(
-                std::begin(_footpathSurfaceTypeToEntryMap), std::end(_footpathSurfaceTypeToEntryMap), OBJECT_ENTRY_INDEX_NULL);
-            std::fill(
-                std::begin(_footpathRailingsTypeToEntryMap), std::end(_footpathRailingsTypeToEntryMap),
-                OBJECT_ENTRY_INDEX_NULL);
+                std::begin(_footpathSurfaceTypeToEntryMap), std::end(_footpathSurfaceTypeToEntryMap), kObjectEntryIndexNull);
         }
 
         /**
@@ -372,20 +391,22 @@ namespace RCT1
             AddAvailableEntriesFromMap();
             AddAvailableEntriesFromRides();
             AddAvailableEntriesFromSceneryGroups();
+            AddAvailableEntriesFromBannerList();
             AddEntryForWater();
         }
 
         void AddDefaultEntries()
         {
             // Add default scenery groups
-            _sceneryGroupEntries.AddRange({
-                "rct2.scenery_group.scgtrees",
-                "rct2.scenery_group.scgshrub",
-                "rct2.scenery_group.scggardn",
-                "rct2.scenery_group.scgfence",
-                "rct2.scenery_group.scgwalls",
-                "rct2.scenery_group.scgpathx",
-            });
+            _sceneryGroupEntries.AddRange(
+                {
+                    "rct2.scenery_group.scgtrees",
+                    "rct2.scenery_group.scgshrub",
+                    "rct2.scenery_group.scggardn",
+                    "rct2.scenery_group.scgfence",
+                    "rct2.scenery_group.scgwalls",
+                    "rct2.scenery_group.scgpathx",
+                });
 
             // Add default footpaths
             _footpathSurfaceEntries.AddRange(
@@ -396,8 +417,14 @@ namespace RCT1
                   "rct1ll.footpath_surface.tiles_red", "rct1.footpath_surface.queue_blue", "rct1aa.footpath_surface.queue_red",
                   "rct1aa.footpath_surface.queue_yellow", "rct1aa.footpath_surface.queue_green" });
 
-            _footpathRailingsEntries.AddRange({ "rct2.footpath_railings.wood", "rct1ll.footpath_railings.space",
-                                                "rct1ll.footpath_railings.bamboo", "rct2.footpath_railings.concrete" });
+            // All four are always available. By using the same order as RCT1, we don’t need to map the indices later on.
+            _footpathRailingsEntries.AddRange(
+                {
+                    "rct2.footpath_railings.wood",     // RCT1_PATH_SUPPORT_TYPE_TRUSS
+                    "rct2.footpath_railings.concrete", // RCT1_PATH_SUPPORT_TYPE_COATED_WOOD
+                    "rct1ll.footpath_railings.space",  // RCT1_PATH_SUPPORT_TYPE_SPACE
+                    "rct1ll.footpath_railings.bamboo", // RCT1_PATH_SUPPORT_TYPE_BAMBOO
+                });
 
             // Add default surfaces
             _terrainSurfaceEntries.AddRange(
@@ -409,19 +436,19 @@ namespace RCT1
                   "rct1ll.terrain_surface.roof_grey", "rct1ll.terrain_surface.rust", "rct1ll.terrain_surface.wood" });
 
             // Add default edges
-            _terrainEdgeEntries.AddRange({ "rct2.terrain_edge.rock", "rct2.terrain_edge.wood_red",
-                                           "rct2.terrain_edge.wood_black", "rct2.terrain_edge.ice", "rct1.terrain_edge.brick",
-                                           "rct1.terrain_edge.iron", "rct1aa.terrain_edge.grey", "rct1aa.terrain_edge.yellow",
-                                           "rct1aa.terrain_edge.red", "rct1ll.terrain_edge.purple", "rct1ll.terrain_edge.green",
-                                           "rct1ll.terrain_edge.stone_brown", "rct1ll.terrain_edge.stone_grey",
-                                           "rct1ll.terrain_edge.skyscraper_a", "rct1ll.terrain_edge.skyscraper_b" });
+            _terrainEdgeEntries.AddRange(
+                { "rct2.terrain_edge.rock", "rct2.terrain_edge.wood_red", "rct2.terrain_edge.wood_black",
+                  "rct2.terrain_edge.ice", "rct1.terrain_edge.brick", "rct1.terrain_edge.iron", "rct1aa.terrain_edge.grey",
+                  "rct1aa.terrain_edge.yellow", "rct1aa.terrain_edge.red", "rct1ll.terrain_edge.purple",
+                  "rct1ll.terrain_edge.green", "rct1ll.terrain_edge.stone_brown", "rct1ll.terrain_edge.stone_grey",
+                  "rct1ll.terrain_edge.skyscraper_a", "rct1ll.terrain_edge.skyscraper_b" });
         }
 
         void AddAvailableEntriesFromResearchList()
         {
             size_t researchListCount;
             const ResearchItem* researchList = GetResearchList(&researchListCount);
-            BitSet<EnumValue(RideType::Count)> rideTypeInResearch = GetRideTypesPresentInResearchList(
+            BitSet<EnumValue(RideType::count)> rideTypeInResearch = GetRideTypesPresentInResearchList(
                 researchList, researchListCount);
             for (size_t i = 0; i < researchListCount; i++)
             {
@@ -450,10 +477,10 @@ namespace RCT1
                         break;
                     case RCT1_RESEARCH_TYPE_VEHICLE:
                         // For some bizarre reason, RCT1 research lists contain vehicles that aren't actually researched.
-                        // Extra bizarrely, this does not seem to apply to Loopy Landscapes saves/scenarios.
-                        if (rideTypeInResearch[researchItem->RelatedRide] || _gameVersion == FILE_VERSION_RCT1_LL)
+                        if (rideTypeInResearch[researchItem->RelatedRide])
                         {
-                            AddEntryForVehicleType(static_cast<RideType>(researchItem->RelatedRide), researchItem->Item);
+                            AddEntryForVehicleType(
+                                static_cast<RideType>(researchItem->RelatedRide), static_cast<VehicleType>(researchItem->Item));
                         }
                         break;
                 }
@@ -462,7 +489,7 @@ namespace RCT1
 
         void AddAvailableEntriesFromMap()
         {
-            size_t maxTiles = Limits::MaxMapSize * Limits::MaxMapSize;
+            size_t maxTiles = Limits::kMaxMapSize * Limits::kMaxMapSize;
             size_t tileIndex = 0;
             RCT12TileElement* tileElement = _s4.TileElements;
 
@@ -470,7 +497,7 @@ namespace RCT1
             {
                 switch (tileElement->GetType())
                 {
-                    case RCT12TileElementType::Surface:
+                    case RCT12TileElementType::surface:
                     {
                         auto surfaceEl = tileElement->AsSurface();
                         auto surfaceStyle = surfaceEl->GetSurfaceStyle();
@@ -479,28 +506,22 @@ namespace RCT1
                         AddEntryForTerrainEdge(edgeStyle);
                         break;
                     }
-                    case RCT12TileElementType::Path:
+                    case RCT12TileElementType::path:
                     {
                         uint8_t pathType = tileElement->AsPath()->GetRCT1PathType();
                         uint8_t pathAdditionsType = tileElement->AsPath()->GetAddition();
-                        uint8_t footpathRailingsType = RCT1_PATH_SUPPORT_TYPE_TRUSS;
-                        if (_gameVersion == FILE_VERSION_RCT1_LL)
-                        {
-                            footpathRailingsType = tileElement->AsPath()->GetRCT1SupportType();
-                        }
 
                         AddEntryForPathAddition(pathAdditionsType);
                         AddEntryForPathSurface(pathType);
-                        AddEntryForFootpathRailings(footpathRailingsType);
                         break;
                     }
-                    case RCT12TileElementType::SmallScenery:
+                    case RCT12TileElementType::smallScenery:
                         AddEntryForSmallScenery(tileElement->AsSmallScenery()->GetEntryIndex());
                         break;
-                    case RCT12TileElementType::LargeScenery:
+                    case RCT12TileElementType::largeScenery:
                         AddEntryForLargeScenery(tileElement->AsLargeScenery()->GetEntryIndex());
                         break;
-                    case RCT12TileElementType::Wall:
+                    case RCT12TileElementType::wall:
                     {
                         for (int32_t edge = 0; edge < 4; edge++)
                         {
@@ -529,12 +550,12 @@ namespace RCT1
             for (size_t i = 0; i < std::size(_s4.Rides); i++)
             {
                 auto ride = &_s4.Rides[i];
-                if (ride->Type != RideType::Null)
+                if (ride->type != RideType::null)
                 {
-                    if (RCT1::RideTypeUsesVehicles(ride->Type))
-                        AddEntryForVehicleType(ride->Type, ride->VehicleType);
+                    if (RideTypeUsesVehicles(ride->type))
+                        AddEntryForVehicleType(ride->type, ride->vehicleType);
                     else
-                        AddEntryForRideType(ride->Type);
+                        AddEntryForRideType(ride->type);
                 }
             }
         }
@@ -543,29 +564,29 @@ namespace RCT1
         {
             for (int32_t sceneryTheme = 0; sceneryTheme <= RCT1_SCENERY_THEME_PAGODA; sceneryTheme++)
             {
-                if (sceneryTheme != 0 && _sceneryThemeTypeToEntryMap[sceneryTheme] == OBJECT_ENTRY_INDEX_NULL)
+                if (sceneryTheme != 0 && _sceneryThemeTypeToEntryMap[sceneryTheme] == kObjectEntryIndexNull)
                     continue;
 
-                auto objects = RCT1::GetSceneryObjects(sceneryTheme);
+                auto objects = GetSceneryObjects(sceneryTheme);
                 for (auto objectName : objects)
                 {
-                    auto& objectRepository = OpenRCT2::GetContext()->GetObjectRepository();
+                    auto& objectRepository = GetContext()->GetObjectRepository();
                     auto foundObject = objectRepository.FindObject(objectName);
                     if (foundObject != nullptr)
                     {
                         auto objectType = foundObject->Type;
                         switch (objectType)
                         {
-                            case ObjectType::SmallScenery:
-                            case ObjectType::LargeScenery:
-                            case ObjectType::Walls:
-                            case ObjectType::Paths:
-                            case ObjectType::PathBits:
+                            case ObjectType::smallScenery:
+                            case ObjectType::largeScenery:
+                            case ObjectType::walls:
+                            case ObjectType::banners:
+                            case ObjectType::pathAdditions:
                             {
                                 RCT12::EntryList* entries = GetEntryList(objectType);
 
                                 // Check if there are spare entries available
-                                size_t maxEntries = static_cast<size_t>(object_entry_group_counts[EnumValue(objectType)]);
+                                size_t maxEntries = getObjectEntryGroupCount(objectType);
                                 if (entries != nullptr && entries->GetCount() < maxEntries)
                                 {
                                     entries->GetOrAddEntry(objectName);
@@ -585,16 +606,29 @@ namespace RCT1
             }
         }
 
+        void AddAvailableEntriesFromBannerList()
+        {
+            for (size_t i = 0; i < std::size(_s4.Banners); i++)
+            {
+                auto& banner = _s4.Banners[i];
+                auto type = static_cast<BannerType>(banner.Type);
+                if (type == BannerType::null)
+                    continue;
+
+                AddEntryForBanner(type);
+            }
+        }
+
         void AddEntryForWater()
         {
             std::string_view entryName;
             if (_gameVersion < FILE_VERSION_RCT1_LL)
             {
-                entryName = RCT1::GetWaterObject(RCT1_WATER_CYAN);
+                entryName = GetWaterObject(RCT1_WATER_CYAN);
             }
             else
             {
-                entryName = RCT1::GetWaterObject(_s4.WaterColour);
+                entryName = GetWaterObject(_s4.WaterColour);
             }
             _waterEntry.GetOrAddEntry(entryName);
         }
@@ -603,9 +637,9 @@ namespace RCT1
         {
             Guard::Assert(EnumValue(rideType) < std::size(_rideTypeToRideEntryMap));
 
-            if (_rideTypeToRideEntryMap[EnumValue(rideType)] == OBJECT_ENTRY_INDEX_NULL)
+            if (_rideTypeToRideEntryMap[EnumValue(rideType)] == kObjectEntryIndexNull)
             {
-                auto entryName = RCT1::GetRideTypeObject(rideType);
+                auto entryName = GetRideTypeObject(rideType, _gameVersion == FILE_VERSION_RCT1_LL);
                 if (!entryName.empty())
                 {
                     auto entryIndex = _rideEntries.GetOrAddEntry(entryName);
@@ -614,19 +648,19 @@ namespace RCT1
             }
         }
 
-        void AddEntryForVehicleType(RideType rideType, uint8_t vehicleType)
+        void AddEntryForVehicleType(RideType rideType, VehicleType vehicleType)
         {
             Guard::Assert(EnumValue(rideType) < std::size(_rideTypeToRideEntryMap));
 
-            if (_vehicleTypeToRideEntryMap[vehicleType] == OBJECT_ENTRY_INDEX_NULL)
+            if (_vehicleTypeToRideEntryMap[EnumValue(vehicleType)] == kObjectEntryIndexNull)
             {
-                auto entryName = RCT1::GetVehicleObject(vehicleType);
+                auto entryName = GetVehicleObject(vehicleType);
                 if (!entryName.empty())
                 {
                     auto entryIndex = _rideEntries.GetOrAddEntry(entryName);
-                    _vehicleTypeToRideEntryMap[vehicleType] = entryIndex;
+                    _vehicleTypeToRideEntryMap[EnumValue(vehicleType)] = entryIndex;
 
-                    if (rideType != RideType::Null)
+                    if (rideType != RideType::null)
                         AddEntryForRideType(rideType);
                 }
             }
@@ -635,9 +669,9 @@ namespace RCT1
         void AddEntryForSmallScenery(ObjectEntryIndex smallSceneryType)
         {
             assert(smallSceneryType < std::size(_smallSceneryTypeToEntryMap));
-            if (_smallSceneryTypeToEntryMap[smallSceneryType] == OBJECT_ENTRY_INDEX_NULL)
+            if (_smallSceneryTypeToEntryMap[smallSceneryType] == kObjectEntryIndexNull)
             {
-                auto entryName = RCT1::GetSmallSceneryObject(smallSceneryType);
+                auto entryName = GetSmallSceneryObject(smallSceneryType);
                 auto entryIndex = _smallSceneryEntries.GetOrAddEntry(entryName);
 
                 _smallSceneryTypeToEntryMap[smallSceneryType] = entryIndex;
@@ -647,9 +681,9 @@ namespace RCT1
         void AddEntryForLargeScenery(ObjectEntryIndex largeSceneryType)
         {
             assert(largeSceneryType < std::size(_largeSceneryTypeToEntryMap));
-            if (_largeSceneryTypeToEntryMap[largeSceneryType] == OBJECT_ENTRY_INDEX_NULL)
+            if (_largeSceneryTypeToEntryMap[largeSceneryType] == kObjectEntryIndexNull)
             {
-                auto entryName = RCT1::GetLargeSceneryObject(largeSceneryType);
+                auto entryName = GetLargeSceneryObject(largeSceneryType);
                 auto entryIndex = _largeSceneryEntries.GetOrAddEntry(entryName);
 
                 _largeSceneryTypeToEntryMap[largeSceneryType] = entryIndex;
@@ -659,21 +693,33 @@ namespace RCT1
         void AddEntryForWall(ObjectEntryIndex wallType)
         {
             assert(wallType < std::size(_wallTypeToEntryMap));
-            if (_wallTypeToEntryMap[wallType] == OBJECT_ENTRY_INDEX_NULL)
+            if (_wallTypeToEntryMap[wallType] == kObjectEntryIndexNull)
             {
-                auto entryName = RCT1::GetWallObject(wallType);
+                auto entryName = GetWallObject(wallType);
                 auto entryIndex = _wallEntries.GetOrAddEntry(entryName);
 
                 _wallTypeToEntryMap[wallType] = entryIndex;
             }
         }
 
+        void AddEntryForBanner(BannerType bannerType)
+        {
+            assert(EnumValue(bannerType) < std::size(_bannerTypeToEntryMap));
+            if (_bannerTypeToEntryMap[EnumValue(bannerType)] == kObjectEntryIndexNull)
+            {
+                auto entryName = GetBannerObject(bannerType);
+                auto entryIndex = _bannerEntries.GetOrAddEntry(entryName);
+
+                _bannerTypeToEntryMap[EnumValue(bannerType)] = entryIndex;
+            }
+        }
+
         void AddEntryForPathSurface(ObjectEntryIndex pathType)
         {
             assert(pathType < std::size(_footpathSurfaceTypeToEntryMap));
-            if (_footpathSurfaceTypeToEntryMap[pathType] == OBJECT_ENTRY_INDEX_NULL)
+            if (_footpathSurfaceTypeToEntryMap[pathType] == kObjectEntryIndexNull)
             {
-                auto identifier = RCT1::GetPathSurfaceObject(pathType);
+                auto identifier = GetPathSurfaceObject(pathType);
                 if (!identifier.empty())
                 {
                     auto entryIndex = _footpathSurfaceEntries.GetOrAddEntry(identifier);
@@ -687,12 +733,12 @@ namespace RCT1
             if (pathAdditionType == RCT1_PATH_ADDITION_NONE)
                 return;
 
-            if (_pathAdditionTypeToEntryMap[pathAdditionType] == OBJECT_ENTRY_INDEX_NULL)
+            if (_pathAdditionTypeToEntryMap[pathAdditionType] == kObjectEntryIndexNull)
             {
-                uint8_t normalisedPathAdditionType = RCT1::NormalisePathAddition(pathAdditionType);
-                if (_pathAdditionTypeToEntryMap[normalisedPathAdditionType] == OBJECT_ENTRY_INDEX_NULL)
+                uint8_t normalisedPathAdditionType = NormalisePathAddition(pathAdditionType);
+                if (_pathAdditionTypeToEntryMap[normalisedPathAdditionType] == kObjectEntryIndexNull)
                 {
-                    auto entryName = RCT1::GetPathAddtionObject(normalisedPathAdditionType);
+                    auto entryName = GetPathAddtionObject(normalisedPathAdditionType);
                     auto entryIndex = _pathAdditionEntries.GetOrAddEntry(entryName);
 
                     _pathAdditionTypeToEntryMap[normalisedPathAdditionType] = entryIndex;
@@ -711,10 +757,10 @@ namespace RCT1
             }
             else
             {
-                auto entryName = RCT1::GetSceneryGroupObject(sceneryThemeType);
-                if (_sceneryGroupEntries.GetCount() >= MAX_SCENERY_GROUP_OBJECTS)
+                auto entryName = GetSceneryGroupObject(sceneryThemeType);
+                if (_sceneryGroupEntries.GetCount() >= kMaxSceneryGroupObjects)
                 {
-                    Console::WriteLine("Warning: More than %d (max scenery groups) in RCT1 park.", MAX_SCENERY_GROUP_OBJECTS);
+                    Console::WriteLine("Warning: More than %d (max scenery groups) in RCT1 park.", kMaxSceneryGroupObjects);
                     std::string entryNameString = std::string(entryName);
                     Console::WriteLine("         [%s] scenery group not added.", entryNameString.c_str());
                 }
@@ -729,9 +775,9 @@ namespace RCT1
         void AddEntryForTerrainSurface(ObjectEntryIndex terrainSurfaceType)
         {
             assert(terrainSurfaceType < std::size(_terrainSurfaceTypeToEntryMap));
-            if (_terrainSurfaceTypeToEntryMap[terrainSurfaceType] == OBJECT_ENTRY_INDEX_NULL)
+            if (_terrainSurfaceTypeToEntryMap[terrainSurfaceType] == kObjectEntryIndexNull)
             {
-                auto identifier = RCT1::GetTerrainSurfaceObject(terrainSurfaceType);
+                auto identifier = GetTerrainSurfaceObject(terrainSurfaceType);
                 if (!identifier.empty())
                 {
                     auto entryIndex = _terrainSurfaceEntries.GetOrAddEntry(identifier);
@@ -743,9 +789,9 @@ namespace RCT1
         void AddEntryForTerrainEdge(ObjectEntryIndex terrainEdgeType)
         {
             assert(terrainEdgeType < std::size(_terrainEdgeTypeToEntryMap));
-            if (_terrainEdgeTypeToEntryMap[terrainEdgeType] == OBJECT_ENTRY_INDEX_NULL)
+            if (_terrainEdgeTypeToEntryMap[terrainEdgeType] == kObjectEntryIndexNull)
             {
-                auto identifier = RCT1::GetTerrainEdgeObject(terrainEdgeType);
+                auto identifier = GetTerrainEdgeObject(terrainEdgeType);
                 if (!identifier.empty())
                 {
                     auto entryIndex = _terrainEdgeEntries.GetOrAddEntry(identifier);
@@ -754,25 +800,11 @@ namespace RCT1
             }
         }
 
-        void AddEntryForFootpathRailings(ObjectEntryIndex railingsType)
-        {
-            assert(railingsType < std::size(_footpathRailingsTypeToEntryMap));
-            if (_footpathRailingsTypeToEntryMap[railingsType] == OBJECT_ENTRY_INDEX_NULL)
-            {
-                auto identifier = RCT1::GetFootpathRailingsObject(railingsType);
-                if (!identifier.empty())
-                {
-                    auto entryIndex = _footpathRailingsEntries.GetOrAddEntry(identifier);
-                    _footpathRailingsTypeToEntryMap[railingsType] = entryIndex;
-                }
-            }
-        }
-
         void ImportRides()
         {
-            for (int32_t i = 0; i < Limits::MaxRidesInPark; i++)
+            for (int32_t i = 0; i < Limits::kMaxRidesInPark; i++)
             {
-                if (_s4.Rides[i].Type != RideType::Null)
+                if (_s4.Rides[i].type != RideType::null)
                 {
                     const auto rideId = RideId::FromUnderlying(i);
                     ImportRide(RideAllocateAtIndex(rideId), &_s4.Rides[i], rideId);
@@ -780,28 +812,28 @@ namespace RCT1
             }
         }
 
-        void ImportRide(::Ride* dst, RCT1::Ride* src, RideId rideIndex)
+        void ImportRide(::Ride* dst, Ride* src, RideId rideIndex)
         {
             *dst = {};
             dst->id = rideIndex;
 
             // This is a peculiarity of this exact version number, which only Heide-Park seems to use.
-            if (_s4.GameVersion == 110018 && src->Type == RideType::InvertedRollerCoaster)
+            if (_s4.GameVersion == 110018 && src->type == RideType::invertedRollerCoaster)
             {
                 dst->type = RIDE_TYPE_COMPACT_INVERTED_COASTER;
             }
             else
             {
-                dst->type = RCT1::GetRideType(src->Type, src->VehicleType);
+                dst->type = GetRideType(src->type, src->vehicleType);
             }
 
-            if (RCT1::RideTypeUsesVehicles(src->Type))
+            if (RideTypeUsesVehicles(src->type))
             {
-                dst->subtype = _vehicleTypeToRideEntryMap[src->VehicleType];
+                dst->subtype = _vehicleTypeToRideEntryMap[EnumValue(src->vehicleType)];
             }
             else
             {
-                dst->subtype = _rideTypeToRideEntryMap[EnumValue(src->Type)];
+                dst->subtype = _rideTypeToRideEntryMap[EnumValue(src->type)];
             }
 
             const auto* rideEntry = GetRideEntryByIndex(dst->subtype);
@@ -809,120 +841,124 @@ namespace RCT1
             if (rideEntry == nullptr)
             {
                 LOG_WARNING("Discarding ride with invalid ride entry");
-                dst->type = RIDE_TYPE_NULL;
+                dst->type = kRideTypeNull;
                 return;
             }
 
             // Ride name
-            if (IsUserStringID(src->Name))
+            if (IsUserStringID(src->name))
             {
-                dst->custom_name = GetUserString(src->Name);
+                dst->customName = GetUserString(src->name);
             }
 
-            dst->status = static_cast<RideStatus>(src->Status);
+            dst->status = static_cast<RideStatus>(src->status);
 
             // Flags
-            dst->lifecycle_flags = src->LifecycleFlags;
+            dst->flags.holder = src->flags;
             // These flags were not in the base game
             if (_gameVersion == FILE_VERSION_RCT1)
             {
-                dst->lifecycle_flags &= ~RIDE_LIFECYCLE_MUSIC;
-                dst->lifecycle_flags &= ~RIDE_LIFECYCLE_INDESTRUCTIBLE;
-                dst->lifecycle_flags &= ~RIDE_LIFECYCLE_INDESTRUCTIBLE_TRACK;
+                dst->flags.unset(RideFlag::music, RideFlag::indestructible, RideFlag::indestructibleTrack);
+            }
+            if (VehicleTypeIsReversed(src->vehicleType))
+            {
+                dst->flags.set(RideFlag::reversedTrains);
             }
 
             // Station
-            if (src->OverallView.IsNull())
+            if (src->overallView.IsNull())
             {
-                dst->overall_view.SetNull();
+                dst->overallView.SetNull();
             }
             else
             {
-                dst->overall_view = TileCoordsXY{ src->OverallView.x, src->OverallView.y }.ToCoordsXY();
+                dst->overallView = TileCoordsXY{ src->overallView.x, src->overallView.y }.ToCoordsXY();
             }
 
-            for (StationIndex::UnderlyingType i = 0; i < Limits::MaxStationsPerRide; i++)
+            for (StationIndex::UnderlyingType i = 0; i < Limits::kMaxStationsPerRide; i++)
             {
-                auto& dstStation = dst->GetStation(StationIndex::FromUnderlying(i));
-                if (src->StationStarts[i].IsNull())
+                auto& dstStation = dst->getStation(StationIndex::FromUnderlying(i));
+                if (src->stationStarts[i].IsNull())
                 {
                     dstStation.Start.SetNull();
                 }
                 else
                 {
-                    auto tileStartLoc = TileCoordsXY{ src->StationStarts[i].x, src->StationStarts[i].y };
+                    auto tileStartLoc = TileCoordsXY{ src->stationStarts[i].x, src->stationStarts[i].y };
                     dstStation.Start = tileStartLoc.ToCoordsXY();
                 }
-                dstStation.SetBaseZ(src->StationHeights[i] * Limits::CoordsZStep);
-                dstStation.Length = src->StationLengths[i];
-                dstStation.Depart = src->StationLights[i];
+                dstStation.SetBaseZ(src->stationHeights[i] * Limits::kCoordsZStep);
+                dstStation.Length = src->stationLengths[i];
+                dstStation.Depart = src->stationLights[i];
 
-                dstStation.TrainAtStation = src->StationDeparts[i];
+                dstStation.TrainAtStation = src->stationDeparts[i];
 
                 // Direction is fixed later.
-                if (src->Entrances[i].IsNull())
+                if (src->entrances[i].IsNull())
                     dstStation.Entrance.SetNull();
                 else
-                    dstStation.Entrance = { src->Entrances[i].x, src->Entrances[i].y, src->StationHeights[i] / 2, 0 };
+                    dstStation.Entrance = { src->entrances[i].x, src->entrances[i].y, src->stationHeights[i] / 2, 0 };
 
-                if (src->Exits[i].IsNull())
+                if (src->exits[i].IsNull())
                     dstStation.Exit.SetNull();
                 else
-                    dstStation.Exit = { src->Exits[i].x, src->Exits[i].y, src->StationHeights[i] / 2, 0 };
+                    dstStation.Exit = { src->exits[i].x, src->exits[i].y, src->stationHeights[i] / 2, 0 };
 
-                dstStation.QueueTime = src->QueueTime[i];
-                dstStation.LastPeepInQueue = EntityId::FromUnderlying(src->LastPeepInQueue[i]);
-                dstStation.QueueLength = src->NumPeepsInQueue[i];
+                dstStation.QueueTime = src->queueTime[i];
+                dstStation.LastPeepInQueue = EntityId::FromUnderlying(src->lastPeepInQueue[i]);
+                dstStation.QueueLength = src->numPeepsInQueue[i];
 
-                dstStation.SegmentTime = src->Time[i];
-                dstStation.SegmentLength = src->Length[i];
+                dstStation.SegmentTime = src->time[i];
+                dstStation.SegmentLength = src->length[i];
             }
             // All other values take 0 as their default. Since they're already memset to that, no need to do it again.
-            for (int32_t i = Limits::MaxStationsPerRide; i < OpenRCT2::Limits::MaxStationsPerRide; i++)
+            for (int32_t i = Limits::kMaxStationsPerRide; i < OpenRCT2::Limits::kMaxStationsPerRide; i++)
             {
-                auto& dstStation = dst->GetStation(StationIndex::FromUnderlying(i));
+                auto& dstStation = dst->getStation(StationIndex::FromUnderlying(i));
                 dstStation.Start.SetNull();
-                dstStation.TrainAtStation = RideStation::NO_TRAIN;
+                dstStation.TrainAtStation = RideStation::kNoTrain;
                 dstStation.Entrance.SetNull();
                 dstStation.Exit.SetNull();
                 dstStation.LastPeepInQueue = EntityId::GetNull();
             }
 
-            dst->num_stations = src->NumStations;
+            dst->numStations = src->numStations;
 
             // Vehicle links (indexes converted later)
-            for (int32_t i = 0; i < Limits::MaxTrainsPerRide; i++)
+            for (int32_t i = 0; i < Limits::kMaxTrainsPerRide; i++)
             {
-                dst->vehicles[i] = EntityId::FromUnderlying(src->Vehicles[i]);
+                dst->vehicles[i] = EntityId::FromUnderlying(src->vehicles[i]);
             }
-            for (int32_t i = Limits::MaxTrainsPerRide; i <= OpenRCT2::Limits::MaxTrainsPerRide; i++)
+            for (int32_t i = Limits::kMaxTrainsPerRide; i <= OpenRCT2::Limits::kMaxTrainsPerRide; i++)
             {
                 dst->vehicles[i] = EntityId::GetNull();
             }
 
-            dst->NumTrains = src->NumTrains;
-            dst->num_cars_per_train = src->NumCarsPerTrain + rideEntry->zero_cars;
-            dst->ProposedNumTrains = src->NumTrains;
-            dst->max_trains = src->MaxTrains;
-            dst->proposed_num_cars_per_train = src->NumCarsPerTrain + rideEntry->zero_cars;
-            dst->special_track_elements = src->SpecialTrackElements;
-            dst->num_sheltered_sections = src->NumShelteredSections;
-            dst->sheltered_length = src->ShelteredLength;
+            dst->numTrains = src->numTrains;
+            dst->numCarsPerTrain = src->numCarsPerTrain + rideEntry->zero_cars;
+            dst->proposedNumTrains = src->numTrains;
+            dst->maxTrains = src->maxTrains;
+            dst->proposedNumCarsPerTrain = src->numCarsPerTrain + rideEntry->zero_cars;
+            auto split = splitCombinedHelicesAndSpecialElements(src->specialTrackElements);
+            dst->numHelices = split.first;
+            dst->specialTrackElements = split.second;
+            dst->numShelteredSections = src->numShelteredSections;
+            dst->shelteredLength = src->shelteredLength;
 
             // Operation
-            dst->depart_flags = src->DepartFlags;
-            dst->min_waiting_time = src->MinWaitingTime;
-            dst->max_waiting_time = src->MaxWaitingTime;
-            dst->operation_option = src->OperationOption;
-            dst->num_circuits = 1;
-            dst->MinCarsPerTrain = rideEntry->min_cars_in_train;
-            dst->MaxCarsPerTrain = rideEntry->max_cars_in_train;
+            dst->departFlags = src->departFlags;
+            dst->minWaitingTime = src->minWaitingTime;
+            dst->maxWaitingTime = src->maxWaitingTime;
+            dst->operationOption = src->operationOption;
+            dst->numCircuits = 1;
+            dst->minCarsPerTrain = rideEntry->min_cars_in_train;
+            dst->maxCarsPerTrain = rideEntry->max_cars_in_train;
 
             // RCT1 used 5mph / 8 km/h for every lift hill
-            dst->lift_hill_speed = 5;
+            dst->liftHillSpeed = 5;
 
-            dst->music = OBJECT_ENTRY_INDEX_NULL;
-            if (GetRideTypeDescriptor(dst->type).HasFlag(RIDE_TYPE_FLAG_ALLOW_MUSIC))
+            dst->music = kObjectEntryIndexNull;
+            if (GetRideTypeDescriptor(dst->type).flags.has(RtdFlag::allowMusic))
             {
                 if (_gameVersion == FILE_VERSION_RCT1)
                 {
@@ -935,231 +971,234 @@ namespace RCT1
 
                     // Only merry-go-round and dodgems had music and used
                     // the same flag as synchronise stations for the option to enable it
-                    if (src->Type == RideType::MerryGoRound || src->Type == RideType::Dodgems)
+                    if (src->type == RideType::merryGoRound || src->type == RideType::dodgems)
                     {
-                        if (src->DepartFlags & RCT1_RIDE_DEPART_PLAY_MUSIC)
+                        if (src->departFlags & RCT1_RIDE_DEPART_PLAY_MUSIC)
                         {
-                            dst->depart_flags &= ~RCT1_RIDE_DEPART_PLAY_MUSIC;
-                            dst->lifecycle_flags |= RIDE_LIFECYCLE_MUSIC;
+                            dst->departFlags &= ~RCT1_RIDE_DEPART_PLAY_MUSIC;
+                            dst->flags.set(RideFlag::music);
                         }
                     }
                 }
                 else
                 {
-                    dst->music = src->Music;
+                    dst->music = src->music;
                 }
             }
 
-            if (src->OperatingMode == RCT1_RIDE_MODE_POWERED_LAUNCH)
+            if (src->operatingMode == RCT1_RIDE_MODE_POWERED_LAUNCH)
             {
                 // Launched rides never passed through the station in RCT1.
-                dst->mode = RideMode::PoweredLaunch;
+                dst->mode = RideMode::poweredLaunch;
             }
             else
             {
-                dst->mode = static_cast<RideMode>(src->OperatingMode);
+                dst->mode = static_cast<RideMode>(src->operatingMode);
             }
 
             SetRideColourScheme(dst, src);
 
             // Maintenance
-            dst->build_date = static_cast<int32_t>(src->BuildDate);
-            dst->inspection_interval = src->InspectionInterval;
-            dst->last_inspection = src->LastInspection;
-            dst->reliability = src->Reliability;
-            dst->unreliability_factor = src->UnreliabilityFactor;
-            dst->downtime = src->Downtime;
-            dst->breakdown_reason = src->BreakdownReason;
-            dst->mechanic_status = src->MechanicStatus;
-            dst->mechanic = EntityId::FromUnderlying(src->Mechanic);
-            dst->breakdown_reason_pending = src->BreakdownReasonPending;
-            dst->inspection_station = StationIndex::FromUnderlying(src->InspectionStation);
-            dst->broken_car = src->BrokenCar;
-            dst->broken_vehicle = src->BrokenVehicle;
+            dst->buildDate = static_cast<int32_t>(src->buildDate);
+            auto clampedInspectionInterval = std::clamp<uint8_t>(src->inspectionInterval, 0, EnumValue(RideInspection::never));
+            dst->inspectionInterval = static_cast<RideInspection>(clampedInspectionInterval);
+            dst->lastInspection = src->lastInspection;
+            dst->reliability = src->reliability;
+            dst->unreliabilityFactor = src->unreliabilityFactor;
+            dst->downtime = src->downtime;
+            dst->breakdownReason = src->breakdownReason;
+            dst->mechanicStatus = src->mechanicStatus;
+            dst->mechanic = EntityId::FromUnderlying(src->mechanic);
+            dst->breakdownReasonPending = src->breakdownReasonPending;
+            dst->inspectionStation = StationIndex::FromUnderlying(src->inspectionStation);
+            dst->brokenCar = src->brokenCar;
+            dst->brokenTrain = src->brokenTrain;
 
             // Measurement data
-            dst->excitement = src->Excitement;
-            dst->intensity = src->Intensity;
-            dst->nausea = src->Nausea;
+            dst->ratings = src->ratings;
 
-            dst->max_speed = src->MaxSpeed;
-            dst->average_speed = src->AverageSpeed;
+            dst->maxSpeed = src->maxSpeed;
+            dst->averageSpeed = src->averageSpeed;
 
-            dst->max_positive_vertical_g = src->MaxPositiveVerticalG;
-            dst->max_negative_vertical_g = src->MaxNegativeVerticalG;
-            dst->max_lateral_g = src->MaxLateralG;
-            dst->previous_lateral_g = src->PreviousLateralG;
-            dst->previous_vertical_g = src->PreviousVerticalG;
-            dst->turn_count_banked = src->TurnCountBanked;
-            dst->turn_count_default = src->TurnCountDefault;
-            dst->turn_count_sloped = src->TurnCountSloped;
-            dst->drops = src->NumDrops;
-            dst->start_drop_height = src->StartDropHeight / 2;
-            dst->highest_drop_height = src->HighestDropHeight / 2;
-            if (dst->type == RIDE_TYPE_MINI_GOLF)
-                dst->holes = src->NumInversions & 0x1F;
+            dst->maxPositiveVerticalG = src->maxPositiveVerticalG;
+            dst->maxNegativeVerticalG = src->maxNegativeVerticalG;
+            dst->maxLateralG = src->maxLateralG;
+            dst->previousLateralG = src->previousLateralG;
+            dst->previousVerticalG = src->previousVerticalG;
+            dst->turnCountBanked = src->turnCountBanked;
+            dst->turnCountDefault = src->turnCountDefault;
+            dst->turnCountSloped = src->turnCountSloped;
+
+            auto splitDropsLifts = splitCombinedNumDropsPoweredLifts(src->numDrops);
+            dst->numDrops = splitDropsLifts.first;
+            dst->numPoweredLifts = splitDropsLifts.second;
+
+            dst->startDropHeight = src->startDropHeight / 2;
+            dst->highestDropHeight = src->highestDropHeight / 2;
+            if (src->type == RideType::miniatureGolf)
+                dst->numHoles = src->numInversions & kRCT12InversionAndHoleMask;
             else
-                dst->inversions = src->NumInversions & 0x1F;
-            dst->sheltered_eighths = src->NumInversions >> 5;
-            dst->boat_hire_return_direction = src->BoatHireReturnDirection;
-            dst->boat_hire_return_position = { src->BoatHireReturnPosition.x, src->BoatHireReturnPosition.y };
-            dst->chairlift_bullwheel_rotation = src->ChairliftBullwheelRotation;
+                dst->numInversions = src->numInversions & kRCT12InversionAndHoleMask;
+            dst->shelteredEighths = src->numInversions >> 5;
+            dst->boatHireReturnDirection = src->boatHireReturnDirection;
+            dst->boatHireReturnPosition = { src->boatHireReturnPosition.x, src->boatHireReturnPosition.y };
+            dst->chairliftBullwheelRotation = src->chairliftBullwheelRotation;
             for (int i = 0; i < 2; i++)
             {
-                dst->ChairliftBullwheelLocation[i] = { src->ChairliftBullwheelLocation[i].x,
-                                                       src->ChairliftBullwheelLocation[i].y, src->ChairliftBullwheelZ[i] / 2 };
+                dst->chairliftBullwheelLocation[i] = { src->chairliftBullwheelLocation[i].x,
+                                                       src->chairliftBullwheelLocation[i].y, src->chairliftBullwheelZ[i] / 2 };
             }
 
-            if (src->CurTestTrackLocation.IsNull())
+            if (src->curTestTrackLocation.IsNull())
             {
-                dst->CurTestTrackLocation.SetNull();
+                dst->curTestTrackLocation.SetNull();
             }
             else
             {
-                dst->CurTestTrackLocation = { src->CurTestTrackLocation.x, src->CurTestTrackLocation.y,
-                                              src->CurTestTrackZ / 2 };
+                dst->curTestTrackLocation = { src->curTestTrackLocation.x, src->curTestTrackLocation.y,
+                                              src->curTestTrackZ / 2 };
             }
-            dst->testing_flags = src->TestingFlags;
-            dst->current_test_segment = src->CurrentTestSegment;
-            dst->current_test_station = StationIndex::GetNull();
-            dst->average_speed_test_timeout = src->AverageSpeedTestTimeout;
-            dst->slide_in_use = src->SlideInUse;
-            dst->slide_peep_t_shirt_colour = RCT1::GetColour(src->SlidePeepTshirtColour);
-            dst->spiral_slide_progress = src->SpiralSlideProgress;
-            // Doubles as slide_peep
-            dst->maze_tiles = src->MazeTiles;
+            dst->testingFlags.holder = src->testingFlags;
+            dst->currentTestSegment = src->currentTestSegment;
+            dst->currentTestStation = StationIndex::GetNull();
+            dst->averageSpeedTestTimeout = src->averageSpeedTestTimeout;
+            dst->slideInUse = src->slideInUse;
+            dst->slidePeepTShirtColour = GetColour(src->slidePeepTshirtColour);
+            dst->spiralSlideProgress = src->spiralSlideProgress;
+            // Doubles as slidePeep
+            dst->mazeTiles = src->mazeTiles;
 
             // Finance / customers
-            dst->upkeep_cost = ToMoney64(src->UpkeepCost);
-            dst->price[0] = src->Price;
-            dst->price[1] = src->PriceSecondary;
-            dst->income_per_hour = ToMoney64(src->IncomePerHour);
-            dst->total_customers = src->TotalCustomers;
-            dst->profit = ToMoney64(src->Profit);
-            dst->total_profit = ToMoney64(src->TotalProfit);
-            dst->value = ToMoney64(src->Value);
-            for (size_t i = 0; i < std::size(src->NumCustomers); i++)
+            dst->upkeepCost = ToMoney64(src->upkeepCost);
+            dst->price[0] = src->price;
+            dst->price[1] = src->priceSecondary;
+            dst->incomePerHour = ToMoney64(src->incomePerHour);
+            dst->totalCustomers = src->totalCustomers;
+            dst->profit = ToMoney64(src->profit);
+            dst->totalProfit = ToMoney64(src->totalProfit);
+            dst->value = ToMoney64(src->value);
+            for (size_t i = 0; i < std::size(src->numCustomers); i++)
             {
-                dst->num_customers[i] = src->NumCustomers[i];
+                dst->numCustomers[i] = src->numCustomers[i];
             }
 
-            dst->satisfaction = src->Satisfaction;
-            dst->satisfaction_time_out = src->SatisfactionTimeOut;
-            dst->satisfaction_next = src->SatisfactionNext;
-            dst->popularity = src->Popularity;
-            dst->popularity_next = src->PopularityNext;
-            dst->popularity_time_out = src->PopularityTimeOut;
+            dst->satisfaction = src->satisfaction;
+            dst->satisfactionTimeout = src->satisfactionTimeOut;
+            dst->satisfactionNext = src->satisfactionNext;
+            dst->popularity = src->popularity;
+            dst->popularityNext = src->popularityNext;
+            dst->popularityTimeout = src->popularityTimeOut;
 
-            dst->num_riders = src->NumRiders;
+            dst->numRiders = src->numRiders;
 
-            dst->music_tune_id = TUNE_ID_NULL;
+            dst->musicTuneId = kTuneIDNull;
         }
 
-        void SetRideColourScheme(::Ride* dst, RCT1::Ride* src)
+        void SetRideColourScheme(::Ride* dst, Ride* src)
         {
             // Colours
-            dst->colour_scheme_type = src->ColourScheme;
+            dst->vehicleColourSettings = src->vehicleColourSettings;
             if (_gameVersion == FILE_VERSION_RCT1)
             {
-                dst->track_colour[0].main = RCT1::GetColour(src->TrackPrimaryColour);
-                dst->track_colour[0].additional = RCT1::GetColour(src->TrackSecondaryColour);
-                dst->track_colour[0].supports = RCT1::GetColour(src->TrackSupportColour);
+                dst->trackColours[0].main = GetColour(src->trackPrimaryColour);
+                dst->trackColours[0].additional = GetColour(src->trackSecondaryColour);
+                dst->trackColours[0].supports = GetColour(src->trackSupportColour);
 
                 // Balloons were always blue in the original RCT.
-                if (src->Type == RideType::BalloonStall)
+                if (src->type == RideType::balloonStall)
                 {
-                    dst->track_colour[0].main = COLOUR_LIGHT_BLUE;
+                    dst->trackColours[0].main = Drawing::Colour::lightBlue;
                 }
-                else if (src->Type == RideType::RiverRapids)
+                else if (src->type == RideType::riverRapids)
                 {
-                    dst->track_colour[0].main = COLOUR_WHITE;
+                    dst->trackColours[0].main = Drawing::Colour::white;
                 }
             }
             else
             {
-                for (int i = 0; i < Limits::NumColourSchemes; i++)
+                for (int i = 0; i < Limits::kNumColourSchemes; i++)
                 {
-                    dst->track_colour[i].main = RCT1::GetColour(src->TrackColourMain[i]);
-                    dst->track_colour[i].additional = RCT1::GetColour(src->TrackColourAdditional[i]);
-                    dst->track_colour[i].supports = RCT1::GetColour(src->TrackColourSupports[i]);
+                    dst->trackColours[i].main = GetColour(src->trackColourMain[i]);
+                    dst->trackColours[i].additional = GetColour(src->trackColourAdditional[i]);
+                    dst->trackColours[i].supports = GetColour(src->trackColourSupports[i]);
                 }
             }
 
-            dst->entrance_style = OBJECT_ENTRY_INDEX_NULL;
-            if (dst->GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_HAS_ENTRANCE_EXIT))
+            dst->entranceStyle = kObjectEntryIndexNull;
+            if (dst->getRideTypeDescriptor().flags.has(RtdFlag::hasEntranceAndExit))
             {
                 // Entrance styles were introduced with AA. They correspond directly with those in RCT2.
                 if (_gameVersion == FILE_VERSION_RCT1)
                 {
-                    dst->entrance_style = 0; // plain entrance
+                    dst->entranceStyle = 0; // plain entrance
                 }
                 else
                 {
-                    dst->entrance_style = src->EntranceStyle;
+                    dst->entranceStyle = src->entranceStyle;
                 }
             }
 
-            if (_gameVersion < FILE_VERSION_RCT1_LL && dst->type == RIDE_TYPE_MERRY_GO_ROUND)
+            if (_gameVersion < FILE_VERSION_RCT1_LL && src->type == RideType::merryGoRound)
             {
                 // The merry-go-round in pre-LL versions was always yellow with red
-                dst->vehicle_colours[0].Body = COLOUR_YELLOW;
-                dst->vehicle_colours[0].Trim = COLOUR_BRIGHT_RED;
+                dst->vehicleColours[0].Body = Drawing::Colour::yellow;
+                dst->vehicleColours[0].Trim = Drawing::Colour::brightRed;
             }
             else
             {
-                for (int i = 0; i < Limits::MaxTrainsPerRide; i++)
+                for (int i = 0; i < Limits::kMaxTrainsPerRide; i++)
                 {
                     // RCT1 had no third colour
-                    const auto colourSchemeCopyDescriptor = GetColourSchemeCopyDescriptor(src->VehicleType);
-                    if (colourSchemeCopyDescriptor.colour1 == COPY_COLOUR_1)
+                    const auto colourSchemeCopyDescriptor = GetColourSchemeCopyDescriptor(src->vehicleType);
+                    if (colourSchemeCopyDescriptor.colour1 == kCopyColour1)
                     {
-                        dst->vehicle_colours[i].Body = RCT1::GetColour(src->VehicleColours[i].Body);
+                        dst->vehicleColours[i].Body = GetColour(src->vehicleColours[i].body);
                     }
-                    else if (colourSchemeCopyDescriptor.colour1 == COPY_COLOUR_2)
+                    else if (colourSchemeCopyDescriptor.colour1 == kCopyColour2)
                     {
-                        dst->vehicle_colours[i].Body = RCT1::GetColour(src->VehicleColours[i].Trim);
+                        dst->vehicleColours[i].Body = GetColour(src->vehicleColours[i].trim);
                     }
                     else
                     {
-                        dst->vehicle_colours[i].Body = colourSchemeCopyDescriptor.colour1;
+                        dst->vehicleColours[i].Body = colourSchemeCopyDescriptor.colour1;
                     }
 
-                    if (colourSchemeCopyDescriptor.colour2 == COPY_COLOUR_1)
+                    if (colourSchemeCopyDescriptor.colour2 == kCopyColour1)
                     {
-                        dst->vehicle_colours[i].Trim = RCT1::GetColour(src->VehicleColours[i].Body);
+                        dst->vehicleColours[i].Trim = GetColour(src->vehicleColours[i].body);
                     }
-                    else if (colourSchemeCopyDescriptor.colour2 == COPY_COLOUR_2)
+                    else if (colourSchemeCopyDescriptor.colour2 == kCopyColour2)
                     {
-                        dst->vehicle_colours[i].Trim = RCT1::GetColour(src->VehicleColours[i].Trim);
+                        dst->vehicleColours[i].Trim = GetColour(src->vehicleColours[i].trim);
                     }
                     else
                     {
-                        dst->vehicle_colours[i].Trim = colourSchemeCopyDescriptor.colour2;
+                        dst->vehicleColours[i].Trim = colourSchemeCopyDescriptor.colour2;
                     }
 
-                    if (colourSchemeCopyDescriptor.colour3 == COPY_COLOUR_1)
+                    if (colourSchemeCopyDescriptor.colour3 == kCopyColour1)
                     {
-                        dst->vehicle_colours[i].Tertiary = RCT1::GetColour(src->VehicleColours[i].Body);
+                        dst->vehicleColours[i].Tertiary = GetColour(src->vehicleColours[i].body);
                     }
-                    else if (colourSchemeCopyDescriptor.colour3 == COPY_COLOUR_2)
+                    else if (colourSchemeCopyDescriptor.colour3 == kCopyColour2)
                     {
-                        dst->vehicle_colours[i].Tertiary = RCT1::GetColour(src->VehicleColours[i].Trim);
+                        dst->vehicleColours[i].Tertiary = GetColour(src->vehicleColours[i].trim);
                     }
                     else
                     {
-                        dst->vehicle_colours[i].Tertiary = colourSchemeCopyDescriptor.colour3;
+                        dst->vehicleColours[i].Tertiary = colourSchemeCopyDescriptor.colour3;
                     }
                 }
             }
 
             // In RCT1 and AA, the maze was always hedges.
             // LL has 4 types, like RCT2. For LL, only guard against invalid values.
-            if (src->Type == RideType::HedgeMaze)
+            if (src->type == RideType::hedgeMaze)
             {
-                if (_gameVersion < FILE_VERSION_RCT1_LL || src->TrackColourSupports[0] > 3)
-                    dst->track_colour[0].supports = MAZE_WALL_TYPE_HEDGE;
+                if (_gameVersion < FILE_VERSION_RCT1_LL || src->trackColourSupports[0] > 3)
+                    dst->trackColours[0].supports = static_cast<Drawing::Colour>(hedges);
                 else
-                    dst->track_colour[0].supports = src->TrackColourSupports[0];
+                    dst->trackColours[0].supports = static_cast<Drawing::Colour>(src->trackColourSupports[0]);
             }
         }
 
@@ -1167,7 +1206,7 @@ namespace RCT1
         {
             for (const auto& src : _s4.RideMeasurements)
             {
-                if (src.RideIndex != RCT12_RIDE_ID_NULL)
+                if (src.RideIndex != kRCT12RideIdNull)
                 {
                     auto ride = GetRide(RCT12RideIdToOpenRCT2RideId(src.RideIndex));
                     if (ride != nullptr)
@@ -1181,7 +1220,7 @@ namespace RCT1
 
         void ImportRideMeasurement(RideMeasurement& dst, const RCT12RideMeasurement& src)
         {
-            dst.flags = src.Flags;
+            dst.flags.holder = src.Flags;
             dst.last_use_tick = src.LastUseTick;
             dst.num_items = src.NumItems;
             dst.current_item = src.CurrentItem;
@@ -1196,58 +1235,84 @@ namespace RCT1
             }
         }
 
-        void ImportEntity(const RCT12EntityBase& src);
-        template<typename T> void ImportEntity(const RCT12EntityBase& src);
+        void ImportEntity(GameState_t& gameState, const RCT12EntityBase& src);
+        template<typename T>
+        void ImportEntity(GameState_t& gameState, const RCT12EntityBase& src);
 
-        void ImportSprites()
+        void ImportEntities(GameState_t& gameState)
         {
-            for (int i = 0; i < Limits::MaxEntities; i++)
+            for (int i = 0; i < Limits::kMaxEntities; i++)
             {
-                ImportEntity(_s4.Entities[i].Unknown);
+                // Make sure the EntityIndex matches the array position to handle corrupted saves where duplicate or invalid
+                // indices would cause CreateEntityAt to fail
+                _s4.Entities[i].Unknown.EntityIndex = static_cast<uint16_t>(i);
+                ImportEntity(gameState, _s4.Entities[i].Unknown);
             }
         }
 
-        void SetVehicleColours(::Vehicle* dst, const RCT1::Vehicle* src)
+        void ResetPeepSpriteBounds([[maybe_unused]] GameState_t& gameState)
+        {
+            // TODO: Entities are currently read from the global state, change this once entities are stored
+            // in the passed gameState.
+            auto* animObj = findPeepAnimationsObjectForType(AnimationPeepType::guest);
+            for (auto* peep : EntityList<Guest>())
+            {
+                const auto& spriteBounds = animObj->GetSpriteBounds(peep->AnimationGroup, peep->AnimationType);
+                peep->SpriteData.Width = spriteBounds.spriteWidth;
+                peep->SpriteData.HeightMin = spriteBounds.spriteHeightNegative;
+                peep->SpriteData.HeightMax = spriteBounds.spriteHeightPositive;
+            }
+
+            auto& objManager = GetContext()->GetObjectManager();
+            for (auto* peep : EntityList<Staff>())
+            {
+                animObj = objManager.GetLoadedObject<PeepAnimationsObject>(peep->AnimationObjectIndex);
+                const auto& spriteBounds = animObj->GetSpriteBounds(peep->AnimationGroup, peep->AnimationType);
+                peep->SpriteData.Width = spriteBounds.spriteWidth;
+                peep->SpriteData.HeightMin = spriteBounds.spriteHeightNegative;
+                peep->SpriteData.HeightMax = spriteBounds.spriteHeightPositive;
+            }
+        }
+
+        void SetVehicleColours(::Vehicle* dst, const Vehicle* src)
         {
             const auto& srcRide = _s4.Rides[src->Ride];
-            uint8_t vehicleTypeIndex = srcRide.VehicleType;
-            RCT1::VehicleColourSchemeCopyDescriptor colourSchemeCopyDescriptor = RCT1::GetColourSchemeCopyDescriptor(
-                vehicleTypeIndex);
+            VehicleColourSchemeCopyDescriptor colourSchemeCopyDescriptor = GetColourSchemeCopyDescriptor(srcRide.vehicleType);
 
             // RCT1 had no third colour
-            if (colourSchemeCopyDescriptor.colour1 == COPY_COLOUR_1)
+            if (colourSchemeCopyDescriptor.colour1 == kCopyColour1)
             {
-                dst->colours.Body = RCT1::GetColour(src->Colours.BodyColour);
+                dst->colours.Body = GetColour(src->Colours.BodyColour);
             }
-            else if (colourSchemeCopyDescriptor.colour1 == COPY_COLOUR_2)
+            else if (colourSchemeCopyDescriptor.colour1 == kCopyColour2)
             {
-                dst->colours.Body = RCT1::GetColour(src->Colours.TrimColour);
+                dst->colours.Body = GetColour(src->Colours.TrimColour);
             }
             else
             {
                 dst->colours.Body = colourSchemeCopyDescriptor.colour1;
             }
 
-            if (colourSchemeCopyDescriptor.colour2 == COPY_COLOUR_1)
+            if (colourSchemeCopyDescriptor.colour2 == kCopyColour1)
             {
-                dst->colours.Trim = RCT1::GetColour(src->Colours.BodyColour);
+                dst->colours.Trim = GetColour(src->Colours.BodyColour);
             }
-            else if (colourSchemeCopyDescriptor.colour2 == COPY_COLOUR_2)
+            else if (colourSchemeCopyDescriptor.colour2 == kCopyColour2)
             {
-                dst->colours.Trim = RCT1::GetColour(src->Colours.TrimColour);
+                dst->colours.Trim = GetColour(src->Colours.TrimColour);
             }
             else
             {
                 dst->colours.Trim = colourSchemeCopyDescriptor.colour2;
             }
 
-            if (colourSchemeCopyDescriptor.colour3 == COPY_COLOUR_1)
+            if (colourSchemeCopyDescriptor.colour3 == kCopyColour1)
             {
-                dst->colours.Tertiary = RCT1::GetColour(src->Colours.BodyColour);
+                dst->colours.Tertiary = GetColour(src->Colours.BodyColour);
             }
-            else if (colourSchemeCopyDescriptor.colour3 == COPY_COLOUR_2)
+            else if (colourSchemeCopyDescriptor.colour3 == kCopyColour2)
             {
-                dst->colours.Tertiary = RCT1::GetColour(src->Colours.TrimColour);
+                dst->colours.Tertiary = GetColour(src->Colours.TrimColour);
             }
             else
             {
@@ -1261,26 +1326,25 @@ namespace RCT1
             UpdateConsolidatedPatrolAreas();
         }
 
-        void ImportPeep(::Peep* dst, const RCT1::Peep* src)
+        void ImportPeep(::Peep* dst, const Peep* src)
         {
-            // Peep vs. staff (including which kind)
-            dst->SpriteType = RCT1::GetPeepSpriteType(src->SpriteType);
+            dst->AnimationObjectIndex = kObjectEntryIndexNull;
+            auto rct12AnimGroup = GetPeepAnimationGroup(src->AnimationGroup);
+            dst->AnimationGroup = static_cast<::PeepAnimationGroup>(rct12AnimGroup);
+
             dst->Action = static_cast<PeepActionType>(src->Action);
             dst->SpecialSprite = src->SpecialSprite;
-            dst->NextActionSpriteType = static_cast<PeepActionSpriteType>(src->NextActionSpriteType);
-            dst->ActionSpriteImageOffset = src->ActionSpriteImageOffset;
-            dst->WalkingFrameNum = src->NoActionFrameNum;
-            dst->ActionSpriteType = static_cast<PeepActionSpriteType>(src->ActionSpriteType);
-            dst->ActionFrame = src->ActionFrame;
+            dst->NextAnimationType = static_cast<PeepAnimationType>(src->NextAnimationType);
+            dst->AnimationImageIdOffset = src->AnimationImageIdOffset;
+            dst->WalkingAnimationFrameNum = src->NoActionFrameNum;
+            dst->AnimationType = static_cast<PeepAnimationType>(src->AnimationType);
+            dst->AnimationFrameNum = src->AnimationFrameNum;
 
-            const SpriteBounds* spriteBounds = &GetSpriteBounds(dst->SpriteType, dst->ActionSpriteType);
-            dst->sprite_width = spriteBounds->sprite_width;
-            dst->sprite_height_negative = spriteBounds->sprite_height_negative;
-            dst->sprite_height_positive = spriteBounds->sprite_height_positive;
+            // Peep sprite bounds used to be set here. These are now set in a finishing step after loading peep anim objects.
 
             dst->MoveTo({ src->x, src->y, src->z });
 
-            dst->sprite_direction = src->EntityDirection;
+            dst->Orientation = src->EntityDirection;
 
             // Peep name
             if (IsUserStringID(src->NameStringID))
@@ -1290,12 +1354,12 @@ namespace RCT1
 
             dst->State = static_cast<PeepState>(src->State);
             dst->SubState = src->SubState;
-            dst->NextLoc = { src->NextX, src->NextY, src->NextZ * Limits::CoordsZStep };
+            dst->NextLoc = { src->NextX, src->NextY, src->NextZ * Limits::kCoordsZStep };
             dst->NextFlags = src->NextFlags;
             dst->Var37 = src->Var37;
             dst->StepProgress = src->StepProgress;
-            dst->TshirtColour = RCT1::GetColour(src->TshirtColour);
-            dst->TrousersColour = RCT1::GetColour(src->TrousersColour);
+            dst->TshirtColour = GetColour(src->TshirtColour);
+            dst->TrousersColour = GetColour(src->TrousersColour);
             dst->DestinationX = src->DestinationX;
             dst->DestinationY = src->DestinationY;
             dst->DestinationTolerance = src->DestinationTolerance;
@@ -1316,7 +1380,7 @@ namespace RCT1
             dst->PathfindGoal.x = 0xFF;
             dst->PathfindGoal.y = 0xFF;
             dst->PathfindGoal.z = 0xFF;
-            dst->PathfindGoal.direction = INVALID_DIRECTION;
+            dst->PathfindGoal.direction = kInvalidDirection;
         }
 
         void ImportStaffPatrolArea(Staff* staffmember, uint8_t staffId)
@@ -1334,8 +1398,8 @@ namespace RCT1
             //                                          index in the array ----^     ^--- bit position in the 8-bit value
             // We do the opposite in this function to recover the x and y values.
 
-            int32_t peepOffset = staffId * Limits::PatrolAreaSize;
-            for (int32_t i = 0; i < Limits::PatrolAreaSize; i++)
+            int32_t peepOffset = staffId * Limits::kPatrolAreaSize;
+            for (int32_t i = 0; i < Limits::kPatrolAreaSize; i++)
             {
                 if (_s4.PatrolAreas[peepOffset + i] == 0)
                 {
@@ -1358,73 +1422,97 @@ namespace RCT1
                     x <<= 7;
                     int32_t y = val & 0x3E0;
                     y <<= 2;
-                    staffmember->SetPatrolArea(
-                        MapRange(x, y, x + (4 * COORDS_XY_STEP) - 1, y + (4 * COORDS_XY_STEP) - 1), true);
+                    staffmember->SetPatrolArea(MapRange(x, y, x + (4 * kCoordsXYStep) - 1, y + (4 * kCoordsXYStep) - 1), true);
                 }
             }
         }
 
         void ImportEntityCommonProperties(EntityBase* dst, const RCT12EntityBase* src)
         {
-            dst->sprite_direction = src->EntityDirection;
-            dst->sprite_width = src->SpriteWidth;
-            dst->sprite_height_negative = src->SpriteHeightNegative;
-            dst->sprite_height_positive = src->SpriteHeightPositive;
+            dst->Orientation = src->EntityDirection;
+            dst->SpriteData.Width = src->SpriteWidth;
+            dst->SpriteData.HeightMin = src->SpriteHeightNegative;
+            dst->SpriteData.HeightMax = src->SpriteHeightPositive;
             dst->x = src->x;
             dst->y = src->y;
             dst->z = src->z;
         }
 
-        void ImportPeepSpawns()
+        void ImportMapAnimations()
         {
-            gPeepSpawns.clear();
-            for (size_t i = 0; i < Limits::MaxPeepSpawns; i++)
+            for (const auto& mapAnimation : std::span(_s4.MapAnimations, _s4.NumMapAnimations))
             {
-                if (_s4.PeepSpawn[i].x != RCT12_PEEP_SPAWN_UNDEFINED)
+                switch (mapAnimation.Type)
                 {
-                    PeepSpawn spawn = { _s4.PeepSpawn[i].x, _s4.PeepSpawn[i].y, _s4.PeepSpawn[i].z * 16,
-                                        _s4.PeepSpawn[i].direction };
-                    gPeepSpawns.push_back(spawn);
+                    case kRCT12MapAnimationTypeOnRidePhoto:
+                        MapAnimations::CreateTemporary(
+                            { mapAnimation.x, mapAnimation.y, (mapAnimation.BaseZ / 2) * kCoordsZStep },
+                            MapAnimations::TemporaryType::onRidePhoto);
+                        break;
+                    case kRCT12MapAnimationTypeLandEdgeDoor:
+                        MapAnimations::CreateTemporary(
+                            { mapAnimation.x, mapAnimation.y, (mapAnimation.BaseZ / 2) * kCoordsZStep },
+                            MapAnimations::TemporaryType::landEdgeDoor);
+                        break;
                 }
             }
         }
 
-        void ImportFinance()
+        void ImportPeepSpawns(GameState_t& gameState)
         {
-            gParkEntranceFee = _s4.ParkEntranceFee;
-            gLandPrice = ToMoney64(_s4.LandPrice);
-            gConstructionRightsPrice = ToMoney64(_s4.ConstructionRightsPrice);
-
-            gCash = ToMoney64(_s4.Cash);
-            gBankLoan = ToMoney64(_s4.Loan);
-            gMaxBankLoan = ToMoney64(_s4.MaxLoan);
-            // It's more like 1.33%, but we can only use integers. Can be fixed once we have our own save format.
-            gBankLoanInterestRate = 1;
-            gInitialCash = ToMoney64(_s4.Cash);
-
-            gCompanyValue = ToMoney64(_s4.CompanyValue);
-            gParkValue = CorrectRCT1ParkValue(_s4.ParkValue);
-            gCurrentProfit = ToMoney64(_s4.Profit);
-
-            for (size_t i = 0; i < Limits::FinanceGraphSize; i++)
+            gameState.peepSpawns.clear();
+            for (size_t i = 0; i < Limits::kMaxPeepSpawns; i++)
             {
-                gCashHistory[i] = ToMoney64(_s4.CashHistory[i]);
-                gParkValueHistory[i] = CorrectRCT1ParkValue(_s4.ParkValueHistory[i]);
-                gWeeklyProfitHistory[i] = ToMoney64(_s4.WeeklyProfitHistory[i]);
-            }
-
-            for (size_t i = 0; i < Limits::ExpenditureTableMonthCount; i++)
-            {
-                for (size_t j = 0; j < Limits::ExpenditureTypeCount; j++)
+                if (_s4.PeepSpawn[i].x != kRCT12PeepSpawnUndefined)
                 {
-                    gExpenditureTable[i][j] = ToMoney64(_s4.Expenditure[i][j]);
+                    PeepSpawn spawn = { _s4.PeepSpawn[i].x, _s4.PeepSpawn[i].y, _s4.PeepSpawn[i].z * 16,
+                                        _s4.PeepSpawn[i].direction };
+                    gameState.peepSpawns.push_back(spawn);
                 }
             }
-            gCurrentExpenditure = ToMoney64(_s4.TotalExpenditure);
+        }
 
-            gScenarioCompletedCompanyValue = RCT12CompletedCompanyValueToOpenRCT2(_s4.CompletedCompanyValue);
-            gTotalAdmissions = _s4.NumAdmissions;
-            gTotalIncomeFromAdmissions = ToMoney64(_s4.AdmissionTotalIncome);
+        void ImportFinance(GameState_t& gameState)
+        {
+            auto& park = gameState.park;
+
+            park.entranceFee = _s4.ParkEntranceFee;
+            gameState.scenarioOptions.landPrice = ToMoney64(_s4.LandPrice);
+            gameState.scenarioOptions.constructionRightsPrice = ToMoney64(_s4.ConstructionRightsPrice);
+
+            park.cash = ToMoney64(_s4.Cash);
+            park.bankLoan = ToMoney64(_s4.Loan);
+            park.maxBankLoan = ToMoney64(_s4.MaxLoan);
+            // It's more like 1.33%, but we can only use integers. Can be fixed once we have our own save format.
+            park.bankLoanInterestRate = 1;
+            gameState.scenarioOptions.initialCash = ToMoney64(_s4.Cash);
+
+            park.companyValue = ToMoney64(_s4.CompanyValue);
+            park.value = CorrectRCT1ParkValue(_s4.ParkValue);
+            park.currentProfit = ToMoney64(_s4.Profit);
+
+            // With park value known, we can recalculate the conversion factor
+            _parkValueConversionFactor = calculateParkValueConversionFactor(park, gameState);
+
+            for (size_t i = 0; i < Limits::kFinanceGraphSize; i++)
+            {
+                park.cashHistory[i] = ToMoney64(_s4.CashHistory[i]);
+                park.valueHistory[i] = CorrectRCT1ParkValue(_s4.ParkValueHistory[i]);
+                park.weeklyProfitHistory[i] = ToMoney64(_s4.WeeklyProfitHistory[i]);
+            }
+
+            for (size_t i = 0; i < Limits::kExpenditureTableMonthCount; i++)
+            {
+                for (size_t j = 0; j < Limits::kExpenditureTypeCount; j++)
+                {
+                    park.expenditureTable[i][j] = ToMoney64(_s4.Expenditure[i][j]);
+                }
+            }
+            park.currentExpenditure = ToMoney64(_s4.TotalExpenditure);
+
+            gameState.scenarioCompletedCompanyValue = RCT12CompletedCompanyValueToOpenRCT2(_s4.CompletedCompanyValue);
+            park.totalAdmissions = _s4.NumAdmissions;
+            park.totalIncomeFromAdmissions = ToMoney64(_s4.AdmissionTotalIncome);
 
             // TODO marketing campaigns not working
             static_assert(
@@ -1445,72 +1533,62 @@ namespace RCT1
                     {
                         campaign.ShopItemType = ShopItem(_s4.MarketingAssoc[i]);
                     }
-                    gMarketingCampaigns.push_back(campaign);
+                    park.marketingCampaigns.push_back(campaign);
                 }
-            }
-        }
-
-        void AppendRequiredObjects(ObjectList& objectList, ObjectType objectType, const RCT12::EntryList& entryList)
-        {
-            AppendRequiredObjects(objectList, objectType, entryList.GetEntries());
-        }
-
-        void AppendRequiredObjects(ObjectList& objectList, ObjectType objectType, const std::vector<std::string>& objectNames)
-        {
-            for (const auto& objectName : objectNames)
-            {
-                auto descriptor = ObjectEntryDescriptor(objectName);
-                descriptor.Type = objectType;
-                objectList.Add(descriptor);
             }
         }
 
         ObjectList GetRequiredObjects()
         {
             ObjectList result;
-            AppendRequiredObjects(result, ObjectType::Ride, _rideEntries);
-            AppendRequiredObjects(result, ObjectType::SmallScenery, _smallSceneryEntries);
-            AppendRequiredObjects(result, ObjectType::LargeScenery, _largeSceneryEntries);
-            AppendRequiredObjects(result, ObjectType::Walls, _wallEntries);
-            AppendRequiredObjects(result, ObjectType::Paths, _pathEntries);
-            AppendRequiredObjects(result, ObjectType::PathBits, _pathAdditionEntries);
-            AppendRequiredObjects(result, ObjectType::SceneryGroup, _sceneryGroupEntries);
+            AppendRequiredObjects(result, ObjectType::ride, _rideEntries);
+            AppendRequiredObjects(result, ObjectType::smallScenery, _smallSceneryEntries);
+            AppendRequiredObjects(result, ObjectType::largeScenery, _largeSceneryEntries);
+            AppendRequiredObjects(result, ObjectType::walls, _wallEntries);
+            AppendRequiredObjects(result, ObjectType::paths, _pathEntries);
+            AppendRequiredObjects(result, ObjectType::pathAdditions, _pathAdditionEntries);
+            AppendRequiredObjects(result, ObjectType::sceneryGroup, _sceneryGroupEntries);
+            AppendRequiredObjects(result, ObjectType::banners, _bannerEntries);
             AppendRequiredObjects(
-                result, ObjectType::Banners,
-                std::vector<std::string>({
-                    "rct2.footpath_banner.bn1",
-                    "rct2.footpath_banner.bn2",
-                    "rct2.footpath_banner.bn3",
-                    "rct2.footpath_banner.bn4",
-                    "rct2.footpath_banner.bn5",
-                    "rct2.footpath_banner.bn6",
-                    "rct2.footpath_banner.bn7",
-                    "rct2.footpath_banner.bn8",
-                    "rct2.footpath_banner.bn9",
-                }));
-            AppendRequiredObjects(result, ObjectType::ParkEntrance, std::vector<std::string>({ "rct2.park_entrance.pkent1" }));
-            AppendRequiredObjects(result, ObjectType::Water, _waterEntry);
-            AppendRequiredObjects(result, ObjectType::TerrainSurface, _terrainSurfaceEntries);
-            AppendRequiredObjects(result, ObjectType::TerrainEdge, _terrainEdgeEntries);
-            AppendRequiredObjects(result, ObjectType::FootpathSurface, _footpathSurfaceEntries);
-            AppendRequiredObjects(result, ObjectType::FootpathRailings, _footpathRailingsEntries);
-            RCT12AddDefaultObjects(result);
+                result, ObjectType::parkEntrance, std::vector<std::string_view>({ "rct2.park_entrance.pkent1" }));
+            AppendRequiredObjects(result, ObjectType::water, _waterEntry);
+            AppendRequiredObjects(result, ObjectType::terrainSurface, _terrainSurfaceEntries);
+            AppendRequiredObjects(result, ObjectType::terrainEdge, _terrainEdgeEntries);
+            AppendRequiredObjects(result, ObjectType::footpathSurface, _footpathSurfaceEntries);
+            AppendRequiredObjects(result, ObjectType::footpathRailings, _footpathRailingsEntries);
+            AppendRequiredObjects(result, ObjectType::peepNames, std::vector<std::string_view>({ "rct2.peep_names.original" }));
+            AppendRequiredObjects(result, ObjectType::station, kDefaultStationStyles);
+            RCT12AddDefaultMusic(result);
+
+            // Normalise the name to make the scenario as recognisable as possible
+            auto normalisedName = ScenarioSources::NormaliseName(_s4.ScenarioName);
+
+            // Infer what scenario meta object to use, if any
+            SourceDescriptor desc;
+            if (ScenarioSources::TryGetByName(normalisedName.c_str(), &desc) && !desc.textObjectId.empty())
+                AppendRequiredObjects(result, ObjectType::scenarioMeta, std::vector<std::string_view>({ desc.textObjectId }));
+
+            // Add all legacy peep animation objects
+            auto animObjects = GetLegacyPeepAnimationObjects();
+            AppendRequiredObjects(result, ObjectType::peepAnimations, animObjects);
+
+            auto climateObjId = GetClimateObjectIdFromLegacyClimateType(_s4.Climate);
+            AppendRequiredObjects(result, ObjectType::climate, std::vector({ climateObjId }));
+
             return result;
         }
 
-        void ImportTileElements()
+        void ImportTileElements(GameState_t& gameState)
         {
-            gMapBaseZ = 7;
-
             // Build tile pointer cache (needed to get the first element at a certain location)
             auto tilePointerIndex = TilePointerIndex<RCT12TileElement>(
-                Limits::MaxMapSize, _s4.TileElements, std::size(_s4.TileElements));
+                Limits::kMaxMapSize, _s4.TileElements, std::size(_s4.TileElements));
 
             std::vector<TileElement> tileElements;
-            const auto maxSize = _s4.MapSize == 0 ? Limits::MaxMapSize : _s4.MapSize;
-            for (TileCoordsXY coords = { 0, 0 }; coords.y < MAXIMUM_MAP_SIZE_TECHNICAL; coords.y++)
+            const auto maxSize = _s4.MapSize == 0 ? Limits::kMaxMapSize : _s4.MapSize;
+            for (TileCoordsXY coords = { 0, 0 }; coords.y < kMaximumMapSizeTechnical; coords.y++)
             {
-                for (coords.x = 0; coords.x < MAXIMUM_MAP_SIZE_TECHNICAL; coords.x++)
+                for (coords.x = 0; coords.x < kMaximumMapSizeTechnical; coords.x++)
                 {
                     auto tileAdded = false;
                     if (coords.x < maxSize && coords.y < maxSize)
@@ -1519,7 +1597,7 @@ namespace RCT1
                         RCT12TileElement* srcElement = tilePointerIndex.GetFirstElementAt(coords);
                         do
                         {
-                            if (srcElement->BaseHeight == Limits::MaxElementHeight)
+                            if (srcElement->BaseHeight == Limits::kMaxElementHeight)
                                 continue;
 
                             // Reserve 8 elements for import
@@ -1541,15 +1619,16 @@ namespace RCT1
                     }
 
                     // Set last element flag in case the original last element was never added
-                    if (tileElements.size() > 0)
+                    if (!tileElements.empty())
                     {
                         tileElements.back().SetLastForTile(true);
                     }
                 }
             }
 
-            SetTileElements(std::move(tileElements));
-            FixEntrancePositions();
+            SetTileElements(gameState, std::move(tileElements));
+            FixEntrancePositions(gameState);
+            FixSupportsOnGroundPath(gameState);
         }
 
         size_t ImportTileElement(TileElement* dst, const RCT12TileElement* src)
@@ -1565,8 +1644,8 @@ namespace RCT1
             // This flag will be set by the caller.
             dst->SetLastForTile(false);
 
-            dst->SetBaseZ(src->BaseHeight * Limits::CoordsZStep);
-            dst->SetClearanceZ(src->ClearanceHeight * Limits::CoordsZStep);
+            dst->SetBaseZ(src->BaseHeight * Limits::kCoordsZStep);
+            dst->SetClearanceZ(src->ClearanceHeight * Limits::kCoordsZStep);
 
             switch (tileElementType)
             {
@@ -1579,8 +1658,8 @@ namespace RCT1
                     auto edgeStyle = _terrainEdgeTypeToEntryMap[src2->GetEdgeStyle()];
 
                     dst2->SetSlope(src2->GetSlope());
-                    dst2->SetSurfaceStyle(surfaceStyle);
-                    dst2->SetEdgeStyle(edgeStyle);
+                    dst2->SetSurfaceObjectIndex(surfaceStyle);
+                    dst2->SetEdgeObjectIndex(edgeStyle);
                     dst2->SetGrassLength(src2->GetGrassLength());
                     dst2->SetOwnership(src2->GetOwnership());
                     dst2->SetParkFences(src2->GetParkFences());
@@ -1603,7 +1682,7 @@ namespace RCT1
                     dst2->SetHasQueueBanner(src2->HasQueueBanner());
                     dst2->SetEdges(src2->GetEdges());
                     dst2->SetCorners(src2->GetCorners());
-                    dst2->SetAddition(src2->GetAddition());
+                    dst2->SetAddition(0);
                     dst2->SetAdditionIsGhost(false);
                     dst2->SetAdditionStatus(src2->GetAdditionStatus());
 
@@ -1617,7 +1696,7 @@ namespace RCT1
 
                     dst2->SetLegacyPathEntryIndex(entryIndex);
                     dst2->SetShouldDrawPathOverSupports(true);
-                    if (RCT1::PathIsQueue(pathType))
+                    if (PathIsQueue(pathType))
                     {
                         dst2->SetIsQueue(true);
                     }
@@ -1627,20 +1706,20 @@ namespace RCT1
                     {
                         railingsType = src2->GetRCT1SupportType();
                     }
-                    auto railingsEntryIndex = _footpathRailingsTypeToEntryMap[railingsType];
-                    dst2->SetRailingsEntryIndex(railingsEntryIndex);
+                    // All types are already loaded, in the same order as RCT1.
+                    dst2->SetRailingsEntryIndex(railingsType);
 
                     // Additions
-                    ObjectEntryIndex additionType = dst2->GetAddition();
+                    ObjectEntryIndex additionType = src2->GetAddition();
                     if (additionType != RCT1_PATH_ADDITION_NONE)
                     {
-                        ObjectEntryIndex normalisedType = RCT1::NormalisePathAddition(additionType);
+                        ObjectEntryIndex normalisedType = NormalisePathAddition(additionType);
                         entryIndex = _pathAdditionTypeToEntryMap[normalisedType];
                         if (additionType != normalisedType)
                         {
                             dst2->SetIsBroken(true);
                         }
-                        dst2->SetAddition(entryIndex + 1);
+                        dst2->SetAdditionEntryIndex(entryIndex);
                     }
                     return 1;
                 }
@@ -1649,7 +1728,8 @@ namespace RCT1
                     auto dst2 = dst->AsTrack();
                     auto src2 = src->AsTrack();
                     const auto* ride = GetRide(RCT12RideIdToOpenRCT2RideId(src2->GetRideIndex()));
-                    auto rideType = (ride != nullptr) ? ride->type : RIDE_TYPE_NULL;
+                    auto rideType = (ride != nullptr) ? ride->type : kRideTypeNull;
+                    auto rct1RideType = _s4.Rides[src2->GetRideIndex()].type;
 
                     dst2->SetTrackType(RCT1TrackTypeToOpenRCT2(src2->GetTrackType(), rideType));
                     dst2->SetRideType(rideType);
@@ -1662,35 +1742,36 @@ namespace RCT1
                     dst2->SetStationIndex(StationIndex::FromUnderlying(src2->GetStationIndex()));
                     dst2->SetHasGreenLight(src2->HasGreenLight());
                     dst2->SetIsIndestructible(src2->IsIndestructible());
-                    if (rideType == RIDE_TYPE_GHOST_TRAIN)
+                    if (rct1RideType == RideType::ghostTrain)
                     {
                         dst2->SetDoorAState(src2->GetDoorAState());
                         dst2->SetDoorBState(src2->GetDoorBState());
                     }
                     else
                     {
-                        dst2->SetSeatRotation(DEFAULT_SEAT_ROTATION);
+                        dst2->SetSeatRotation(kDefaultSeatRotation);
                     }
                     // Skipping IsHighlighted()
 
                     auto trackType = dst2->GetTrackType();
-                    if (TrackTypeHasSpeedSetting(trackType))
+                    // Brakes import as closed to preserve legacy behaviour
+                    dst2->SetBrakeClosed(trackType == TrackElemType::brakes);
+                    if (trackTypeHasSpeedSetting(trackType))
                     {
                         dst2->SetBrakeBoosterSpeed(src2->GetBrakeBoosterSpeed());
                     }
-                    else if (trackType == TrackElemType::OnRidePhoto)
+                    else if (trackType == TrackElemType::onRidePhoto)
                     {
                         dst2->SetPhotoTimeout(src2->GetPhotoTimeout());
                     }
 
                     // This has to be done last, since the maze entry shares fields with the colour and sequence fields.
-                    const auto& rtd = GetRideTypeDescriptor(rideType);
-                    if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+                    if (rct1RideType == RideType::hedgeMaze)
                     {
                         dst2->SetMazeEntry(src2->GetMazeEntry());
                     }
 
-                    if (TrackTypeMustBeMadeInvisible(rideType, trackType))
+                    if (TrackTypeMustBeMadeInvisible(*dst2))
                     {
                         dst->SetInvisible(true);
                     }
@@ -1706,7 +1787,7 @@ namespace RCT1
                     dst2->SetEntryIndex(entryIndex);
                     dst2->SetAge(src2->GetAge());
                     dst2->SetSceneryQuadrant(src2->GetSceneryQuadrant());
-                    dst2->SetPrimaryColour(RCT1::GetColour(src2->GetPrimaryColour()));
+                    dst2->SetPrimaryColour(GetColour(EnumValue(src2->GetPrimaryColour())));
                     if (src2->NeedsSupports())
                         dst2->SetNeedsSupports();
 
@@ -1718,15 +1799,15 @@ namespace RCT1
                         case RCT1_SCENERY_GEOMETRIC_SCULPTURE_3:
                         case RCT1_SCENERY_GEOMETRIC_SCULPTURE_4:
                         case RCT1_SCENERY_GEOMETRIC_SCULPTURE_5:
-                            dst2->SetSecondaryColour(COLOUR_WHITE);
+                            dst2->SetSecondaryColour(Drawing::Colour::white);
                             break;
                         case RCT1_SCENERY_TULIPS_1:
                         case RCT1_SCENERY_TULIPS_2:
-                            dst2->SetPrimaryColour(COLOUR_BRIGHT_RED);
-                            dst2->SetSecondaryColour(COLOUR_YELLOW);
+                            dst2->SetPrimaryColour(Drawing::Colour::brightRed);
+                            dst2->SetSecondaryColour(Drawing::Colour::yellow);
                             break;
                         case RCT1_SCENERY_SMALL_RED_GARDENS:
-                            dst2->SetPrimaryColour(COLOUR_BRIGHT_RED);
+                            dst2->SetPrimaryColour(Drawing::Colour::brightRed);
                             break;
                     }
 
@@ -1767,24 +1848,24 @@ namespace RCT1
                         if (type == -1)
                             continue;
 
-                        colour_t colourA = RCT1::GetColour(src2->GetRCT1WallColour());
-                        colour_t colourB = COLOUR_BLACK;
-                        colour_t colourC = COLOUR_BLACK;
+                        Drawing::Colour colourA = GetColour(EnumValue(src2->GetRCT1WallColour()));
+                        Drawing::Colour colourB = Drawing::Colour::black;
+                        Drawing::Colour colourC = Drawing::Colour::black;
                         ConvertWall(type, &colourA, &colourB);
 
                         type = _wallTypeToEntryMap[type];
-                        auto baseZ = src->BaseHeight * Limits::CoordsZStep;
-                        auto clearanceZ = src->ClearanceHeight * Limits::CoordsZStep;
-                        auto edgeSlope = LandSlopeToWallSlope[slope][edge & 3];
+                        auto baseZ = src->BaseHeight * Limits::kCoordsZStep;
+                        auto clearanceZ = src->ClearanceHeight * Limits::kCoordsZStep;
+                        auto edgeSlope = GetWallSlopeFromEdgeSlope(slope, edge & 3);
                         if (edgeSlope & (EDGE_SLOPE_UPWARDS | EDGE_SLOPE_DOWNWARDS))
                         {
-                            clearanceZ += LAND_HEIGHT_STEP;
+                            clearanceZ += kLandHeightStep;
                         }
                         if (edgeSlope & EDGE_SLOPE_ELEVATED)
                         {
                             edgeSlope &= ~EDGE_SLOPE_ELEVATED;
-                            baseZ += LAND_HEIGHT_STEP;
-                            clearanceZ += LAND_HEIGHT_STEP;
+                            baseZ += kLandHeightStep;
+                            clearanceZ += kLandHeightStep;
                         }
 
                         dst->SetType(TileElementType::Wall);
@@ -1818,8 +1899,8 @@ namespace RCT1
                     auto type = src2->GetEntryIndex();
                     dst2->SetEntryIndex(_largeSceneryTypeToEntryMap[type]);
                     dst2->SetSequenceIndex(src2->GetSequenceIndex());
-                    dst2->SetPrimaryColour(RCT1::GetColour(src2->GetPrimaryColour()));
-                    dst2->SetSecondaryColour(RCT1::GetColour(src2->GetSecondaryColour()));
+                    dst2->SetPrimaryColour(GetColour(EnumValue(src2->GetPrimaryColour())));
+                    dst2->SetSecondaryColour(GetColour(EnumValue(src2->GetSecondaryColour())));
 
                     return 1;
                 }
@@ -1859,15 +1940,15 @@ namespace RCT1
             return 0;
         }
 
-        void ImportResearch()
+        void ImportResearch(GameState_t& gameState)
         {
             // All available objects must be loaded before this method is called as it
             // requires them to correctly insert objects into the research list
 
-            ResearchResetItems();
+            ResearchResetItems(gameState);
 
             size_t researchListCount;
-            const RCT1::ResearchItem* researchList = GetResearchList(&researchListCount);
+            const ResearchItem* researchList = GetResearchList(&researchListCount);
 
             // Initialise the "seen" tables
             _researchRideEntryUsed.reset();
@@ -1881,7 +1962,7 @@ namespace RCT1
 
             bool researched = true;
             auto rideTypeInResearch = GetRideTypesPresentInResearchList(researchList, researchListCount);
-            std::vector<RCT1::ResearchItem> vehiclesWithMissingRideTypes;
+            std::vector<ResearchItem> vehiclesWithMissingRideTypes;
             for (size_t i = 0; i < researchListCount; i++)
             {
                 const auto& researchItem = researchList[i];
@@ -1905,8 +1986,7 @@ namespace RCT1
                     {
                         uint8_t rct1SceneryTheme = researchItem.Item;
                         auto sceneryGroupEntryIndex = _sceneryThemeTypeToEntryMap[rct1SceneryTheme];
-                        if (sceneryGroupEntryIndex != ObjectEntryIndexIgnore
-                            && sceneryGroupEntryIndex != OBJECT_ENTRY_INDEX_NULL)
+                        if (sceneryGroupEntryIndex != ObjectEntryIndexIgnore && sceneryGroupEntryIndex != kObjectEntryIndexNull)
                         {
                             ResearchInsertSceneryGroupEntry(sceneryGroupEntryIndex, researched);
                         }
@@ -1919,11 +1999,11 @@ namespace RCT1
 
                         auto ownRideEntryIndex = _rideTypeToRideEntryMap[EnumValue(rct1RideType)];
                         Guard::Assert(
-                            ownRideEntryIndex != OBJECT_ENTRY_INDEX_NULL, "ownRideEntryIndex was OBJECT_ENTRY_INDEX_NULL");
+                            ownRideEntryIndex != kObjectEntryIndexNull, "ownRideEntryIndex was kObjectEntryIndexNull");
 
                         bool foundOwnType = false;
                         // If the ride type does not use vehicles, no point looking for them in the research list.
-                        if (RCT1::RideTypeUsesVehicles(rct1RideType))
+                        if (RideTypeUsesVehicles(rct1RideType))
                         {
                             // Add all vehicles for this ride type that are researched or before this research item
                             for (size_t j = 0; j < researchListCount; j++)
@@ -2001,68 +2081,68 @@ namespace RCT1
             uint8_t activeResearchTypes = 0;
             if (_s4.ResearchPriority & RCT1_RESEARCH_CATEGORY_ROLLERCOASTERS)
             {
-                activeResearchTypes |= EnumToFlag(ResearchCategory::Rollercoaster);
+                activeResearchTypes |= EnumToFlag(ResearchCategory::rollercoaster);
             }
             if (_s4.ResearchPriority & RCT1_RESEARCH_CATEGORY_THRILL_RIDES)
             {
-                activeResearchTypes |= EnumToFlag(ResearchCategory::Thrill);
-                activeResearchTypes |= EnumToFlag(ResearchCategory::Water);
+                activeResearchTypes |= EnumToFlag(ResearchCategory::thrill);
+                activeResearchTypes |= EnumToFlag(ResearchCategory::water);
             }
             if (_s4.ResearchPriority & RCT1_RESEARCH_CATEGORY_GENTLE_TRANSPORT_RIDES)
             {
-                activeResearchTypes |= EnumToFlag(ResearchCategory::Gentle);
-                activeResearchTypes |= EnumToFlag(ResearchCategory::Transport);
+                activeResearchTypes |= EnumToFlag(ResearchCategory::gentle);
+                activeResearchTypes |= EnumToFlag(ResearchCategory::transport);
             }
             if (_s4.ResearchPriority & RCT1_RESEARCH_CATEGORY_SHOPS)
             {
-                activeResearchTypes |= EnumToFlag(ResearchCategory::Shop);
+                activeResearchTypes |= EnumToFlag(ResearchCategory::shop);
             }
             if (_s4.ResearchPriority & RCT1_RESEARCH_CATEGORY_SCENERY_THEMING)
             {
-                activeResearchTypes |= EnumToFlag(ResearchCategory::SceneryGroup);
+                activeResearchTypes |= EnumToFlag(ResearchCategory::sceneryGroup);
             }
-            gResearchPriorities = activeResearchTypes;
-            gResearchFundingLevel = _s4.ResearchLevel;
+            gameState.researchPriorities = activeResearchTypes;
+            gameState.researchFundingLevel = _s4.ResearchLevel;
 
             // This will mark items as researched/unresearched according to the research list.
             // This needs to be called before importing progress, as it will reset it.
             ResearchResetCurrentItem();
 
             // Research history
-            gResearchProgress = _s4.ResearchProgress;
-            gResearchProgressStage = _s4.ResearchProgressStage;
-            gResearchExpectedDay = _s4.NextResearchExpectedDay;
-            gResearchExpectedMonth = _s4.NextResearchExpectedMonth;
+            gameState.researchProgress = _s4.ResearchProgress;
+            gameState.researchProgressStage = _s4.ResearchProgressStage;
+            gameState.researchExpectedDay = _s4.NextResearchExpectedDay;
+            gameState.researchExpectedMonth = _s4.NextResearchExpectedMonth;
 
             if (_s4.LastResearchFlags == 0xFF)
             {
-                gResearchLastItem = std::nullopt;
+                gameState.researchLastItem = std::nullopt;
             }
             else
             {
                 ::ResearchItem researchItem = {};
                 ConvertResearchEntry(&researchItem, _s4.LastResearchItem, _s4.LastResearchType);
-                gResearchLastItem = researchItem;
+                gameState.researchLastItem = researchItem;
             }
 
             if (_s4.NextResearchFlags == 0xFF)
             {
-                gResearchNextItem = std::nullopt;
-                gResearchProgressStage = RESEARCH_STAGE_INITIAL_RESEARCH;
-                gResearchProgress = 0;
+                gameState.researchNextItem = std::nullopt;
+                gameState.researchProgressStage = RESEARCH_STAGE_INITIAL_RESEARCH;
+                gameState.researchProgress = 0;
             }
             else
             {
                 ::ResearchItem researchItem = {};
                 ConvertResearchEntry(&researchItem, _s4.NextResearchItem, _s4.NextResearchType);
-                gResearchNextItem = researchItem;
+                gameState.researchNextItem = researchItem;
             }
         }
 
-        static BitSet<EnumValue(RideType::Count)> GetRideTypesPresentInResearchList(
-            const RCT1::ResearchItem* researchList, size_t researchListCount)
+        static BitSet<EnumValue(RideType::count)> GetRideTypesPresentInResearchList(
+            const ResearchItem* researchList, size_t researchListCount)
         {
-            BitSet<EnumValue(RideType::Count)> ret = {};
+            BitSet<EnumValue(RideType::count)> ret = {};
 
             for (size_t i = 0; i < researchListCount; i++)
             {
@@ -2091,16 +2171,18 @@ namespace RCT1
         void InsertResearchVehicle(const ResearchItem& researchItem, bool researched)
         {
             uint8_t vehicle = researchItem.Item;
+            // RCT1 research sometimes contain vehicles that aren’t actually researched.
+            // In such cases, `_vehicleTypeToRideEntryMap` will return kObjectEntryIndexNull. This is expected.
             auto rideEntryIndex = _vehicleTypeToRideEntryMap[vehicle];
 
-            if (!_researchRideEntryUsed[rideEntryIndex])
+            if (rideEntryIndex < std::size(_researchRideEntryUsed) && !_researchRideEntryUsed[rideEntryIndex])
             {
                 _researchRideEntryUsed[rideEntryIndex] = true;
                 ResearchInsertRideEntry(rideEntryIndex, researched);
             }
         }
 
-        void ImportParkName()
+        void ImportParkName(GameState_t& gameState)
         {
             std::string parkName = std::string(_s4.ScenarioName);
             if (IsUserStringID(static_cast<StringId>(_s4.ParkNameStringIndex)))
@@ -2112,110 +2194,132 @@ namespace RCT1
                 }
             }
 
-            auto& park = GetContext()->GetGameState()->GetPark();
-            park.Name = std::move(parkName);
+            auto& park = gameState.park;
+            park.name = std::move(parkName);
         }
 
-        void ImportParkFlags()
+        std::vector<News::Item> convertNewsQueue(std::span<const RCT12NewsItem> queue)
+        {
+            std::vector<News::Item> output{};
+
+            for (const auto& src : queue)
+            {
+                News::Item dst{};
+
+                if (src.Type == 0)
+                    break;
+
+                dst.type = static_cast<News::ItemType>(src.Type);
+                dst.flags = src.Flags;
+                dst.ticks = src.Ticks;
+                dst.monthYear = src.MonthYear;
+                dst.day = src.Day;
+                dst.text = ConvertFormattedStringToOpenRCT2(std::string_view(src.Text, sizeof(src.Text)));
+
+                if (dst.type == News::ItemType::research)
+                {
+                    uint8_t researchItem = src.Assoc & 0x000000FF;
+                    uint8_t researchType = (src.Assoc & 0x00FF0000) >> 16;
+
+                    ::ResearchItem tmpResearchItem = {};
+                    ConvertResearchEntry(&tmpResearchItem, researchItem, researchType);
+                    dst.assoc = tmpResearchItem.rawValue;
+                }
+                else
+                {
+                    dst.assoc = src.Assoc;
+                }
+
+                output.emplace_back(dst);
+            }
+
+            return output;
+        }
+
+        void ImportParkFlags(GameState_t& gameState)
         {
             // Date and srand
-            gCurrentTicks = _s4.Ticks;
+            gameState.currentTicks = _s4.Ticks;
             ScenarioRandSeed(_s4.RandomA, _s4.RandomB);
-            gDateMonthsElapsed = static_cast<int32_t>(_s4.Month);
-            gDateMonthTicks = _s4.Day;
+            gameState.date = Date{ _s4.Month, _s4.Day };
+
+            auto& park = gameState.park;
 
             // Park rating
-            gParkRating = _s4.ParkRating;
+            park.rating = _s4.ParkRating;
 
-            auto& park = OpenRCT2::GetContext()->GetGameState()->GetPark();
-            park.ResetHistories();
-            std::copy(std::begin(_s4.ParkRatingHistory), std::end(_s4.ParkRatingHistory), gParkRatingHistory);
+            Park::ResetHistories(park);
+            for (size_t i = 0; i < std::size(_s4.ParkRatingHistory); i++)
+            {
+                if (_s4.ParkRatingHistory[i] != kRCT12ParkHistoryUndefined)
+                {
+                    park.ratingHistory[i] = _s4.ParkRatingHistory[i] * kRCT12ParkRatingHistoryFactor;
+                }
+            }
             for (size_t i = 0; i < std::size(_s4.GuestsInParkHistory); i++)
             {
-                if (_s4.GuestsInParkHistory[i] != RCT12ParkHistoryUndefined)
+                if (_s4.GuestsInParkHistory[i] != kRCT12ParkHistoryUndefined)
                 {
-                    gGuestsInParkHistory[i] = _s4.GuestsInParkHistory[i] * RCT12GuestsInParkHistoryFactor;
+                    park.guestsInParkHistory[i] = _s4.GuestsInParkHistory[i] * kRCT12GuestsInParkHistoryFactor;
                 }
             }
 
             // Awards
-            auto& awards = GetAwards();
+            auto& currentAwards = park.currentAwards;
             for (auto& src : _s4.Awards)
             {
                 if (src.Time != 0)
                 {
-                    awards.push_back(Award{ src.Time, static_cast<AwardType>(src.Type) });
+                    currentAwards.push_back(Award{ src.Time, static_cast<AwardType>(src.Type) });
                 }
             }
 
             // Number of guests history
-            std::fill(std::begin(gGuestsInParkHistory), std::end(gGuestsInParkHistory), std::numeric_limits<uint32_t>::max());
+            std::fill(
+                std::begin(park.guestsInParkHistory), std::end(park.guestsInParkHistory), std::numeric_limits<uint32_t>::max());
             for (size_t i = 0; i < std::size(_s4.GuestsInParkHistory); i++)
             {
                 if (_s4.GuestsInParkHistory[i] != std::numeric_limits<uint8_t>::max())
                 {
-                    gGuestsInParkHistory[i] = _s4.GuestsInParkHistory[i] * 20;
+                    park.guestsInParkHistory[i] = _s4.GuestsInParkHistory[i] * 20;
                 }
             }
 
             // News items
-            for (size_t i = 0; i < Limits::MaxNewsItems; i++)
-            {
-                const RCT12NewsItem* src = &_s4.Messages[i];
-                News::Item* dst = &gNewsItems[i];
-
-                dst->Type = static_cast<News::ItemType>(src->Type);
-                dst->Flags = src->Flags;
-                dst->Ticks = src->Ticks;
-                dst->MonthYear = src->MonthYear;
-                dst->Day = src->Day;
-                dst->Text = ConvertFormattedStringToOpenRCT2(std::string_view(src->Text, sizeof(src->Text)));
-
-                if (dst->Type == News::ItemType::Research)
-                {
-                    uint8_t researchItem = src->Assoc & 0x000000FF;
-                    uint8_t researchType = (src->Assoc & 0x00FF0000) >> 16;
-
-                    ::ResearchItem tmpResearchItem = {};
-                    ConvertResearchEntry(&tmpResearchItem, researchItem, researchType);
-                    dst->Assoc = tmpResearchItem.rawValue;
-                }
-                else
-                {
-                    dst->Assoc = src->Assoc;
-                }
-            }
+            auto recentMessages = convertNewsQueue(_s4.recentMessages);
+            auto archivedMessages = convertNewsQueue(_s4.archivedMessages);
+            News::importNewsItems(gameState, recentMessages, archivedMessages);
 
             // Initial guest status
-            gGuestInitialCash = ToMoney64(_s4.GuestInitialCash);
-            gGuestInitialHunger = _s4.GuestInitialHunger;
-            gGuestInitialThirst = _s4.GuestInitialThirst;
-            gGuestInitialHappiness = _s4.GuestInitialHappiness;
+            gameState.scenarioOptions.guestInitialCash = ToMoney64(_s4.GuestInitialCash);
+            gameState.scenarioOptions.guestInitialHunger = _s4.GuestInitialHunger;
+            gameState.scenarioOptions.guestInitialThirst = _s4.GuestInitialThirst;
+            gameState.scenarioOptions.guestInitialHappiness = _s4.GuestInitialHappiness;
 
-            _guestGenerationProbability = _s4.GuestGenerationProbability;
+            park.guestGenerationProbability = _s4.GuestGenerationProbability;
 
             // Staff colours
-            gStaffHandymanColour = RCT1::GetColour(_s4.HandymanColour);
-            gStaffMechanicColour = RCT1::GetColour(_s4.MechanicColour);
-            gStaffSecurityColour = RCT1::GetColour(_s4.SecurityGuardColour);
+            park.staffHandymanColour = GetColour(_s4.HandymanColour);
+            park.staffMechanicColour = GetColour(_s4.MechanicColour);
+            park.staffSecurityColour = GetColour(_s4.SecurityGuardColour);
 
             // Flags
-            gParkFlags = _s4.ParkFlags;
-            gParkFlags &= ~PARK_FLAGS_ANTI_CHEAT_DEPRECATED;
-            gParkFlags |= PARK_FLAGS_RCT1_INTEREST;
+            park.flags = _s4.ParkFlags;
+            park.flags &= ~PARK_FLAGS_ANTI_CHEAT_DEPRECATED;
+            park.flags |= PARK_FLAGS_RCT1_INTEREST;
             // Loopy Landscape parks can set a flag to lock the entry price to free.
             // If this flag is not set, the player can ask money for both rides and entry.
             if (!(_s4.ParkFlags & RCT1_PARK_FLAGS_PARK_ENTRY_LOCKED_AT_FREE))
             {
-                gParkFlags |= PARK_FLAGS_UNLOCK_ALL_PRICES;
+                park.flags |= PARK_FLAGS_UNLOCK_ALL_PRICES;
             }
 
-            gParkSize = _s4.ParkSize;
-            gTotalRideValueForMoney = _s4.TotalRideValueForMoney;
-            gSamePriceThroughoutPark = 0;
+            park.size = _s4.ParkSize;
+            park.totalRideValueForMoney = _s4.TotalRideValueForMoney;
+            park.samePriceThroughoutPark = 0;
             if (_gameVersion == FILE_VERSION_RCT1_LL)
             {
-                gSamePriceThroughoutPark = _s4.SamePriceThroughout;
+                park.samePriceThroughoutPark = _s4.SamePriceThroughout;
             }
         }
 
@@ -2226,7 +2330,7 @@ namespace RCT1
             {
                 auto entryIndex = _rideTypeToRideEntryMap[srcItem];
 
-                if (entryIndex != OBJECT_ENTRY_INDEX_NULL)
+                if (entryIndex != kObjectEntryIndexNull)
                 {
                     const auto* rideEntry = GetRideEntryByIndex(entryIndex);
 
@@ -2235,7 +2339,7 @@ namespace RCT1
                         auto rideType = rideEntry->GetFirstNonNullRideType();
                         dst->entryIndex = entryIndex;
                         dst->baseRideType = rideType;
-                        dst->type = Research::EntryType::Ride;
+                        dst->type = Research::EntryType::ride;
                         dst->flags = 0;
                         dst->category = GetRideTypeDescriptor(rideType).GetResearchCategory();
                     }
@@ -2245,7 +2349,7 @@ namespace RCT1
             {
                 auto entryIndex = _vehicleTypeToRideEntryMap[srcItem];
 
-                if (entryIndex != OBJECT_ENTRY_INDEX_NULL)
+                if (entryIndex != kObjectEntryIndexNull)
                 {
                     const auto* rideEntry = GetRideEntryByIndex(entryIndex);
 
@@ -2254,7 +2358,7 @@ namespace RCT1
                         auto rideType = rideEntry->GetFirstNonNullRideType();
                         dst->entryIndex = entryIndex;
                         dst->baseRideType = rideType;
-                        dst->type = Research::EntryType::Ride;
+                        dst->type = Research::EntryType::ride;
                         dst->flags = 0;
                         dst->category = GetRideTypeDescriptor(rideType).GetResearchCategory();
                     }
@@ -2264,112 +2368,121 @@ namespace RCT1
             {
                 auto entryIndex = _sceneryThemeTypeToEntryMap[srcItem];
 
-                if (entryIndex != ObjectEntryIndexIgnore && entryIndex != OBJECT_ENTRY_INDEX_NULL)
+                if (entryIndex != ObjectEntryIndexIgnore && entryIndex != kObjectEntryIndexNull)
                 {
                     dst->entryIndex = entryIndex;
-                    dst->type = Research::EntryType::Scenery;
-                    dst->category = ResearchCategory::SceneryGroup;
+                    dst->type = Research::EntryType::scenery;
+                    dst->category = ResearchCategory::sceneryGroup;
                     dst->baseRideType = 0;
                     dst->flags = 0;
                 }
             }
         }
 
-        void ImportClimate()
+        void ImportClimate(GameState_t& gameState)
         {
-            gClimate = ClimateType{ _s4.Climate };
-            gClimateUpdateTimer = _s4.ClimateTimer;
-            gClimateCurrent.Temperature = _s4.Temperature;
-            gClimateCurrent.Weather = WeatherType{ _s4.Weather };
-            gClimateCurrent.WeatherEffect = WeatherEffectType::None;
-            gClimateCurrent.WeatherGloom = _s4.WeatherGloom;
-            gClimateCurrent.Level = static_cast<WeatherLevel>(_s4.Rain);
-            gClimateNext.Temperature = _s4.TargetTemperature;
-            gClimateNext.Weather = WeatherType{ _s4.TargetWeather };
-            gClimateNext.WeatherEffect = WeatherEffectType::None;
-            gClimateNext.WeatherGloom = _s4.TargetWeatherGloom;
-            gClimateNext.Level = static_cast<WeatherLevel>(_s4.TargetRain);
+            gameState.weatherUpdateTimer = _s4.WeatherUpdateTimer;
+            gameState.weatherCurrent = {
+                .weatherType = Weather::Type{ _s4.Weather },
+                .temperature = static_cast<int8_t>(_s4.Temperature),
+                .weatherEffect = Weather::EffectType::None,
+                .weatherGloom = _s4.WeatherGloom,
+                .level = static_cast<Weather::Level>(_s4.Rain),
+            };
+            gameState.weatherNext = {
+                .weatherType = Weather::Type{ _s4.TargetWeather },
+                .temperature = static_cast<int8_t>(_s4.TargetTemperature),
+                .weatherEffect = Weather::EffectType::None,
+                .weatherGloom = _s4.TargetWeatherGloom,
+                .level = static_cast<Weather::Level>(_s4.TargetRain),
+            };
         }
 
-        void ImportScenarioNameDetails()
+        void ImportScenarioNameDetails(GameState_t& gameState)
         {
-            std::string name = String::ToStd(_s4.ScenarioName);
+            std::string name = String::toStd(_s4.ScenarioName);
+            std::string parkName;
             std::string details;
 
             int32_t scNumber = _s4.ScenarioSlotIndex;
             if (scNumber != -1)
             {
-                SourceDescriptor sourceDesc;
-                if (ScenarioSources::TryGetById(scNumber, &sourceDesc))
+                SourceDescriptor desc;
+                // If no entry is found, this is a custom scenario
+                bool isOfficial = ScenarioSources::TryGetById(_s4.ScenarioSlotIndex, &desc);
+
+                // Perform an additional name check if this is detected to be a competition scenario
+                if (isOfficial && desc.category == Scenario::Category::competitions)
+                    isOfficial = ScenarioSources::TryGetByName(_s4.ScenarioName, &desc);
+
+                if (isOfficial && !desc.textObjectId.empty())
                 {
-                    StringId localisedStringIds[3];
-                    if (LanguageGetLocalisedScenarioStrings(sourceDesc.title, localisedStringIds))
+                    auto& objManager = GetContext()->GetObjectManager();
+
+                    if (auto obj = objManager.LoadTempObject(desc.textObjectId, false); obj != nullptr)
                     {
-                        if (localisedStringIds[0] != STR_NONE)
-                        {
-                            name = String::ToStd(LanguageGetString(localisedStringIds[0]));
-                        }
-                        if (localisedStringIds[2] != STR_NONE)
-                        {
-                            details = String::ToStd(LanguageGetString(localisedStringIds[2]));
-                        }
+                        auto& textObject = reinterpret_cast<ScenarioMetaObject&>(*obj);
+                        name = textObject.GetScenarioName();
+                        parkName = textObject.GetParkName();
+                        details = textObject.GetScenarioDetails();
                     }
                 }
             }
 
-            gScenarioName = std::move(name);
-            gScenarioDetails = std::move(details);
+            gameState.scenarioOptions.name = std::move(name);
+            gameState.scenarioOptions.details = std::move(details);
+            if (_isScenario && !parkName.empty())
+            {
+                auto& park = gameState.park;
+                park.name = std::move(parkName);
+            }
         }
 
-        void ImportScenarioObjective()
+        void ImportScenarioObjective(GameState_t& gameState)
         {
-            gScenarioObjective.Type = _s4.ScenarioObjectiveType;
-            gScenarioObjective.Year = _s4.ScenarioObjectiveYears;
-            gScenarioObjective.NumGuests = _s4.ScenarioObjectiveNumGuests;
+            gameState.scenarioOptions.objective.Type = _s4.ScenarioObjectiveType;
+            gameState.scenarioOptions.objective.Year = _s4.ScenarioObjectiveYears;
+            gameState.scenarioOptions.objective.NumGuests = _s4.ScenarioObjectiveNumGuests;
 
             // RCT1 used a different way of calculating the park value.
             // This is corrected here, but since scenario_objective_currency doubles as minimum excitement rating,
             // we need to check the goal to avoid affecting scenarios like Volcania.
-            if (_s4.ScenarioObjectiveType == OBJECTIVE_PARK_VALUE_BY)
-                gScenarioObjective.Currency = CorrectRCT1ParkValue(_s4.ScenarioObjectiveCurrency);
+            if (_s4.ScenarioObjectiveType == Scenario::ObjectiveType::parkValueBy)
+                gameState.scenarioOptions.objective.Currency = CorrectRCT1ParkValue(_s4.ScenarioObjectiveCurrency);
             else
-                gScenarioObjective.Currency = ToMoney64(_s4.ScenarioObjectiveCurrency);
+                gameState.scenarioOptions.objective.Currency = ToMoney64(_s4.ScenarioObjectiveCurrency);
 
             // This does not seem to be saved in the objective arguments, so look up the ID from the available rides instead.
-            if (_s4.ScenarioObjectiveType == OBJECTIVE_BUILD_THE_BEST)
-                gScenarioObjective.RideId = GetBuildTheBestRideId();
+            if (_s4.ScenarioObjectiveType == Scenario::ObjectiveType::buildTheBest)
+                gameState.scenarioOptions.objective.RideId = GetBuildTheBestRideId();
         }
 
-        void ImportSavedView()
+        void ImportSavedView(GameState_t& gameState)
         {
-            gSavedView = ScreenCoordsXY{ _s4.ViewX, _s4.ViewY };
-            gSavedViewZoom = ZoomLevel{ static_cast<int8_t>(_s4.ViewZoom) };
-            gSavedViewRotation = _s4.ViewRotation;
+            gameState.savedView = ScreenCoordsXY{ _s4.ViewX, _s4.ViewY };
+            gameState.savedViewZoom = ZoomLevel{ static_cast<int8_t>(_s4.ViewZoom) };
+            gameState.savedViewRotation = _s4.ViewRotation;
         }
 
-        void ConvertWall(const int32_t& type, colour_t* colourA, colour_t* colourB)
+        void ConvertWall(const int32_t& type, Drawing::Colour* colourA, Drawing::Colour* colourB)
         {
             switch (type)
             {
                 case RCT1_WALL_TYPE_WOODEN_PANEL_FENCE:
-                    *colourA = COLOUR_DARK_BROWN;
+                    *colourA = Drawing::Colour::darkBrown;
                     break;
                 case RCT1_WALL_TYPE_WHITE_WOODEN_PANEL_FENCE:
-                    *colourA = COLOUR_WHITE;
+                    *colourA = Drawing::Colour::white;
                     break;
                 case RCT1_WALL_TYPE_RED_WOODEN_PANEL_FENCE:
-                    *colourA = COLOUR_SALMON_PINK;
+                    *colourA = Drawing::Colour::salmonPink;
                     break;
                 case RCT1_WALL_TYPE_WOODEN_PANEL_FENCE_WITH_SNOW:
-                    *colourA = COLOUR_DARK_BROWN;
-                    break;
-                case RCT1_WALL_TYPE_WOODEN_PANEL_FENCE_WITH_GATE:
-                    *colourB = *colourA;
-                    *colourA = COLOUR_DARK_BROWN;
+                    *colourA = Drawing::Colour::darkBrown;
                     break;
                 case RCT1_WALL_TYPE_GLASS_SMOOTH:
                 case RCT1_WALL_TYPE_GLASS_PANELS:
-                    *colourB = COLOUR_WHITE;
+                    *colourB = Drawing::Colour::white;
                     break;
                 case RCT1_WALL_TYPE_SMALL_GREY_CASTLE:
                 case RCT1_WALL_TYPE_LARGE_GREY_CASTLE:
@@ -2377,7 +2490,7 @@ namespace RCT1
                 case RCT1_WALL_TYPE_LARGE_GREY_CASTLE_GATE:
                 case RCT1_WALL_TYPE_LARGE_GREY_CASTLE_WINDOW:
                 case RCT1_WALL_TYPE_MEDIUM_GREY_CASTLE:
-                    *colourA = COLOUR_GREY;
+                    *colourA = Drawing::Colour::grey;
                     break;
             }
         }
@@ -2388,12 +2501,17 @@ namespace RCT1
 
             *dst = {};
             dst->id = id;
-            dst->type = RCTEntryIndexToOpenRCT2EntryIndex(src->Type);
+            auto type = RCTEntryIndexToOpenRCT2EntryIndex(src->Type);
+            if (type < std::size(_bannerTypeToEntryMap))
+                type = _bannerTypeToEntryMap[type];
+            else
+                type = kObjectEntryIndexNull;
+            dst->type = type;
 
-            dst->flags = 0;
-            if (src->Flags & BANNER_FLAG_NO_ENTRY)
+            dst->flags = {};
+            if (src->flags.has(BannerFlag::noEntry))
             {
-                dst->flags |= BANNER_FLAG_NO_ENTRY;
+                dst->flags.set(BannerFlag::noEntry);
             }
 
             if (IsUserStringID(src->StringID))
@@ -2401,18 +2519,20 @@ namespace RCT1
                 dst->text = GetUserString(src->StringID);
             }
 
-            dst->colour = RCT1::GetColour(src->Colour);
-            dst->text_colour = src->TextColour;
+            dst->colour = GetColour(src->Colour);
+            dst->textColour = src->textColour;
             dst->position.x = src->x;
             dst->position.y = src->y;
         }
 
-        void FixEntrancePositions()
+        void FixEntrancePositions(GameState_t& gameState)
         {
-            gParkEntrances.clear();
+            auto& park = gameState.park;
+            park.entrances.clear();
+
             TileElementIterator it;
             TileElementIteratorBegin(&it);
-            while (TileElementIteratorNext(&it) && gParkEntrances.size() < Limits::MaxParkEntrances)
+            while (TileElementIteratorNext(&it) && park.entrances.size() < Limits::kMaxParkEntrances)
             {
                 TileElement* element = it.element;
 
@@ -2424,7 +2544,40 @@ namespace RCT1
                     continue;
 
                 CoordsXYZD entrance = { TileCoordsXY(it.x, it.y).ToCoordsXY(), element->GetBaseZ(), element->GetDirection() };
-                gParkEntrances.push_back(entrance);
+                park.entrances.push_back(entrance);
+            }
+        }
+
+        void FixSupportsOnGroundPath(GameState_t& gameState)
+        {
+            TileElementIterator it;
+            TileElementIteratorBegin(&it);
+            while (TileElementIteratorNext(&it))
+            {
+                if (it.element->GetType() != TileElementType::Path)
+                    continue;
+
+                auto* pathElement = it.element->AsPath();
+                if (pathElement->IsSloped())
+                    continue;
+
+                if (pathElement->IsQueue())
+                    continue;
+
+                auto* surface = MapGetSurfaceElementAt(TileCoordsXY(it.x, it.y));
+                if (surface == nullptr)
+                    continue;
+
+                if (surface->GetSlope() != kTileSlopeFlat)
+                    continue;
+
+                if (surface->GetBaseZ() != pathElement->GetBaseZ())
+                    continue;
+
+                // RCT1 would always draw supports around a path if it was flat on the ground.
+                // In RCT2, this depends on the support type of the path, even though that isn’t even visible in this case.
+                // As such, always import footpath that is on the ground with box supports.
+                pathElement->SetRailingsEntryIndex(RCT1_PATH_SUPPORT_TYPE_TRUSS);
             }
         }
 
@@ -2432,21 +2585,23 @@ namespace RCT1
         {
             switch (objectType)
             {
-                case ObjectType::Ride:
+                case ObjectType::ride:
                     return &_rideEntries;
-                case ObjectType::SmallScenery:
+                case ObjectType::smallScenery:
                     return &_smallSceneryEntries;
-                case ObjectType::LargeScenery:
+                case ObjectType::largeScenery:
                     return &_largeSceneryEntries;
-                case ObjectType::Walls:
+                case ObjectType::walls:
                     return &_wallEntries;
-                case ObjectType::Paths:
+                case ObjectType::banners:
+                    return &_bannerEntries;
+                case ObjectType::paths:
                     return &_pathEntries;
-                case ObjectType::PathBits:
+                case ObjectType::pathAdditions:
                     return &_pathAdditionEntries;
-                case ObjectType::SceneryGroup:
+                case ObjectType::sceneryGroup:
                     return &_sceneryGroupEntries;
-                case ObjectType::Water:
+                case ObjectType::water:
                     return &_waterEntry;
                 default:
                     // This switch processes only ObjectType for for Entries
@@ -2455,7 +2610,7 @@ namespace RCT1
             return nullptr;
         }
 
-        const RCT1::ResearchItem* GetResearchList(size_t* count)
+        const ResearchItem* GetResearchList(size_t* count)
         {
             // Loopy Landscapes stores research items in a different place
             if (_gameVersion == FILE_VERSION_RCT1_LL)
@@ -2470,90 +2625,28 @@ namespace RCT1
 
         std::string GetUserString(StringId stringId)
         {
-            const auto originalString = _s4.StringTable[(stringId - USER_STRING_START) % 1024];
+            const auto originalString = _s4.StringTable[stringId % 1024];
             auto originalStringView = std::string_view(
-                originalString, RCT2::GetRCT2StringBufferLen(originalString, USER_STRING_MAX_LENGTH));
-            auto asUtf8 = RCT2StringToUTF8(originalStringView, RCT2LanguageId::EnglishUK);
+                originalString, RCT12::GetRCTStringBufferLen(originalString, kUserStringMaxLength));
+            auto asUtf8 = RCT2StringToUTF8(originalStringView, RCT2LanguageId::englishUK);
             auto justText = RCT12RemoveFormattingUTF8(asUtf8);
             return justText.data();
         }
 
-        void FixLandOwnership()
+        void FixNextGuestNumber(GameState_t& gameState)
         {
-            switch (_s4.ScenarioSlotIndex)
+            // In RCT1, the next guest number is not saved, so we have to calculate it.
+            // This is done by finding the highest guest number in the park, and adding 1.
+            uint32_t nextGuestNumber = 0;
+
+            // TODO: Entities are currently read from the global state, change this once entities are stored
+            // in the passed gameState.
+            for (auto peep : EntityList<Guest>())
             {
-                case SC_DYNAMITE_DUNES:
-                    FixLandOwnershipTiles({ { 97, 18 }, { 99, 19 }, { 83, 34 } });
-                    break;
-                case SC_LEAFY_LAKE:
-                    FixLandOwnershipTiles({ { 49, 66 } });
-                    break;
-                case SC_KATIES_DREAMLAND:
-                    FixLandOwnershipTiles({ { 74, 70 }, { 75, 70 }, { 76, 70 }, { 77, 73 }, { 80, 77 } });
-                    break;
-                case SC_POKEY_PARK:
-                    FixLandOwnershipTiles({ { 64, 102 } });
-                    break;
-                case SC_MYSTIC_MOUNTAIN:
-                    FixLandOwnershipTiles({ { 98, 69 }, { 98, 70 }, { 103, 64 }, { 53, 79 }, { 86, 93 }, { 87, 93 } });
-                    break;
-                case SC_PACIFIC_PYRAMIDS:
-                    FixLandOwnershipTiles({ { 93, 105 }, { 63, 34 }, { 76, 25 }, { 85, 31 }, { 96, 47 }, { 96, 48 } });
-                    break;
-                case SC_UTOPIA_PARK:
-                    FixLandOwnershipTiles({ { 85, 73 } });
-                    break;
-                case SC_URBAN_PARK:
-                    FixLandOwnershipTiles({ { 64, 77 }, { 61, 66 }, { 61, 67 }, { 39, 20 } });
-                    break;
+                nextGuestNumber = std::max(nextGuestNumber, peep->PeepId);
             }
-        }
 
-        /**
-         * In Urban Park, the entrance and exit of the merry-go-round are the wrong way round. This code fixes that.
-         * To avoid messing up saves (in which this problem is most likely solved by the user), only carry out this
-         * fix when loading from a scenario.
-         */
-        void FixUrbanPark()
-        {
-            if (_s4.ScenarioSlotIndex == SC_URBAN_PARK && _isScenario)
-            {
-                const auto merryGoRoundId = RideId::FromUnderlying(0);
-
-                // First, make the queuing peep exit
-                for (auto peep : EntityList<Guest>())
-                {
-                    if (peep->State == PeepState::QueuingFront && peep->CurrentRide == merryGoRoundId)
-                    {
-                        peep->RemoveFromQueue();
-                        peep->SetState(PeepState::Falling);
-                        break;
-                    }
-                }
-
-                // Now, swap the entrance and exit.
-                auto ride = GetRide(merryGoRoundId);
-                if (ride != nullptr)
-                {
-                    auto& station = ride->GetStation();
-                    auto entranceCoords = station.Exit;
-                    auto exitCoords = station.Entrance;
-                    station.Entrance = entranceCoords;
-                    station.Exit = exitCoords;
-
-                    auto entranceElement = MapGetRideExitElementAt(entranceCoords.ToCoordsXYZD(), false);
-                    entranceElement->SetEntranceType(ENTRANCE_TYPE_RIDE_ENTRANCE);
-                    auto exitElement = MapGetRideEntranceElementAt(exitCoords.ToCoordsXYZD(), false);
-                    exitElement->SetEntranceType(ENTRANCE_TYPE_RIDE_EXIT);
-
-                    // Trigger footpath update
-                    FootpathQueueChainReset();
-                    FootpathConnectEdges(
-                        entranceCoords.ToCoordsXY(), reinterpret_cast<TileElement*>(entranceElement),
-                        GAME_COMMAND_FLAG_APPLY | GAME_COMMAND_FLAG_ALLOW_DURING_PAUSED);
-                    FootpathUpdateQueueChains();
-                }
-            }
+            gameState.nextGuestNumber = nextGuestNumber + 1;
         }
 
         /**
@@ -2562,9 +2655,9 @@ namespace RCT1
          */
         void CountBlockSections()
         {
-            for (int32_t x = 0; x < Limits::MaxMapSize; x++)
+            for (int32_t x = 0; x < Limits::kMaxMapSize; x++)
             {
-                for (int32_t y = 0; y < Limits::MaxMapSize; y++)
+                for (int32_t y = 0; y < Limits::kMaxMapSize; y++)
                 {
                     TileElement* tileElement = MapGetFirstElementAt(TileCoordsXY{ x, y });
                     if (tileElement == nullptr)
@@ -2580,10 +2673,10 @@ namespace RCT1
                             auto trackType = tileElement->AsTrack()->GetTrackType();
                             switch (trackType)
                             {
-                                case TrackElemType::Up25ToFlat:
-                                case TrackElemType::Up60ToFlat:
-                                case TrackElemType::DiagUp25ToFlat:
-                                case TrackElemType::DiagUp60ToFlat:
+                                case TrackElemType::up25ToFlat:
+                                case TrackElemType::up60ToFlat:
+                                case TrackElemType::diagUp25ToFlat:
+                                case TrackElemType::diagUp60ToFlat:
                                     break;
                                 default:
                                     continue;
@@ -2593,7 +2686,7 @@ namespace RCT1
                             auto ride = GetRide(rideIndex);
                             if (ride != nullptr)
                             {
-                                ride->num_block_brakes++;
+                                ride->numBlockBrakes++;
                             }
                         }
                     } while (!(tileElement++)->IsLastForTile());
@@ -2605,13 +2698,13 @@ namespace RCT1
          * This has to be done after importing tile elements, because it needs those to detect if a pre-existing ride
          * name should be considered reserved.
          */
-        void SetDefaultNames()
+        void SetDefaultNames(GameState_t& gameState)
         {
-            for (auto& ride : GetRideManager())
+            for (auto& ride : RideManager(gameState))
             {
-                if (ride.custom_name.empty())
+                if (ride.customName.empty())
                 {
-                    ride.SetNameToDefault();
+                    ride.setNameToDefault();
                 }
             }
         }
@@ -2619,7 +2712,7 @@ namespace RCT1
         ObjectEntryIndex GetBuildTheBestRideId()
         {
             size_t researchListCount;
-            const RCT1::ResearchItem* researchList = GetResearchList(&researchListCount);
+            const ResearchItem* researchList = GetResearchList(&researchListCount);
             for (size_t i = 0; i < researchListCount; i++)
             {
                 if (researchList[i].Flags == 0xFF)
@@ -2629,74 +2722,74 @@ namespace RCT1
 
                 if (researchList[i].Type == RCT1_RESEARCH_TYPE_RIDE)
                 {
-                    return RCT1::GetRideType(static_cast<RideType>(researchList[i].Item), 0);
+                    return GetRideType(static_cast<RideType>(researchList[i].Item), static_cast<VehicleType>(0));
                 }
             }
 
-            return RIDE_TYPE_NULL;
+            return kRideTypeNull;
         }
     };
 
     // Very similar but not the same as S6Importer version (due to peeps)
     constexpr EntityType GetEntityTypeFromRCT1Sprite(const RCT12EntityBase& src)
     {
-        EntityType output = EntityType::Null;
+        EntityType output = EntityType::null;
         switch (src.EntityIdentifier)
         {
-            case RCT12EntityIdentifier::Vehicle:
-                output = EntityType::Vehicle;
+            case RCT12EntityIdentifier::vehicle:
+                output = EntityType::vehicle;
                 break;
-            case RCT12EntityIdentifier::Peep:
+            case RCT12EntityIdentifier::peep:
             {
-                const auto& peep = static_cast<const RCT1::Peep&>(src);
-                if (peep.PeepType == RCT12PeepType::Guest)
+                const auto& peep = static_cast<const Peep&>(src);
+                if (peep.PeepType == RCT12PeepType::guest)
                 {
-                    output = EntityType::Guest;
+                    output = EntityType::guest;
                 }
                 else
                 {
-                    output = EntityType::Staff;
+                    output = EntityType::staff;
                 }
                 break;
             }
-            case RCT12EntityIdentifier::Misc:
+            case RCT12EntityIdentifier::misc:
 
                 switch (RCT12MiscEntityType(src.Type))
                 {
-                    case RCT12MiscEntityType::SteamParticle:
-                        output = EntityType::SteamParticle;
+                    case RCT12MiscEntityType::steamParticle:
+                        output = EntityType::steamParticle;
                         break;
-                    case RCT12MiscEntityType::MoneyEffect:
-                        output = EntityType::MoneyEffect;
+                    case RCT12MiscEntityType::moneyEffect:
+                        output = EntityType::moneyEffect;
                         break;
-                    case RCT12MiscEntityType::CrashedVehicleParticle:
-                        output = EntityType::CrashedVehicleParticle;
+                    case RCT12MiscEntityType::crashedVehicleParticle:
+                        output = EntityType::crashedVehicleParticle;
                         break;
-                    case RCT12MiscEntityType::ExplosionCloud:
-                        output = EntityType::ExplosionCloud;
+                    case RCT12MiscEntityType::explosionCloud:
+                        output = EntityType::explosionCloud;
                         break;
-                    case RCT12MiscEntityType::CrashSplash:
-                        output = EntityType::CrashSplash;
+                    case RCT12MiscEntityType::crashSplash:
+                        output = EntityType::crashSplash;
                         break;
-                    case RCT12MiscEntityType::ExplosionFlare:
-                        output = EntityType::ExplosionFlare;
+                    case RCT12MiscEntityType::explosionFlare:
+                        output = EntityType::explosionFlare;
                         break;
-                    case RCT12MiscEntityType::JumpingFountainWater:
-                    case RCT12MiscEntityType::JumpingFountainSnow:
-                        output = EntityType::JumpingFountain;
+                    case RCT12MiscEntityType::jumpingFountainWater:
+                    case RCT12MiscEntityType::jumpingFountainSnow:
+                        output = EntityType::jumpingFountain;
                         break;
-                    case RCT12MiscEntityType::Balloon:
-                        output = EntityType::Balloon;
+                    case RCT12MiscEntityType::balloon:
+                        output = EntityType::balloon;
                         break;
-                    case RCT12MiscEntityType::Duck:
-                        output = EntityType::Duck;
+                    case RCT12MiscEntityType::duck:
+                        output = EntityType::duck;
                         break;
                     default:
                         break;
                 }
                 break;
-            case RCT12EntityIdentifier::Litter:
-                output = EntityType::Litter;
+            case RCT12EntityIdentifier::litter:
+                output = EntityType::litter;
                 break;
             default:
                 break;
@@ -2704,16 +2797,17 @@ namespace RCT1
         return output;
     }
 
-    template<> void S4Importer::ImportEntity<::Vehicle>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<::Vehicle>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<::Vehicle>(EntityId::FromUnderlying(srcBase.EntityIndex));
-        auto* src = static_cast<const RCT1::Vehicle*>(&srcBase);
+        auto* dst = getGameState().entities.CreateEntityAt<::Vehicle>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* src = static_cast<const Vehicle*>(&srcBase);
         const auto* ride = GetRide(RideId::FromUnderlying(src->Ride));
         if (ride == nullptr)
             return;
 
         const auto& rct1Ride = _s4.Rides[src->Ride];
-        uint8_t vehicleEntryIndex = RCT1::GetVehicleSubEntryIndex(rct1Ride.VehicleType, src->CarType);
+        uint8_t vehicleEntryIndex = GetVehicleSubEntryIndex(rct1Ride.vehicleType, src->CarType);
 
         dst->ride = RideId::FromUnderlying(src->Ride);
         dst->ride_subtype = RCTEntryIndexToOpenRCT2EntryIndex(ride->subtype);
@@ -2724,12 +2818,12 @@ namespace RCT1
         dst->remaining_distance = src->RemainingDistance;
 
         // Properties from vehicle entry
-        dst->sprite_width = src->SpriteWidth;
-        dst->sprite_height_negative = src->SpriteHeightNegative;
-        dst->sprite_height_positive = src->SpriteHeightPositive;
-        dst->sprite_direction = src->EntityDirection;
+        dst->SpriteData.Width = src->SpriteWidth;
+        dst->SpriteData.HeightMin = src->SpriteHeightNegative;
+        dst->SpriteData.HeightMax = src->SpriteHeightPositive;
+        dst->Orientation = src->EntityDirection;
 
-        dst->SpriteRect = ScreenRect(src->SpriteLeft, src->SpriteTop, src->SpriteRight, src->SpriteBottom);
+        dst->SpriteData.SpriteRect = ScreenRect(src->SpriteLeft, src->SpriteTop, src->SpriteRight, src->SpriteBottom);
 
         dst->mass = src->Mass;
         dst->num_seats = src->NumSeats;
@@ -2744,24 +2838,24 @@ namespace RCT1
         dst->SwingSpeed = src->SwingSpeed;
         dst->restraints_position = src->RestraintsPosition;
         dst->spin_sprite = src->SpinSprite;
-        dst->sound_vector_factor = src->SoundVectorFactor;
+        dst->dopplerShift = src->SoundVectorFactor;
         dst->spin_speed = src->SpinSpeed;
         dst->sound2_flags = src->Sound2Flags;
-        dst->sound1_id = OpenRCT2::Audio::SoundId::Null;
-        dst->sound2_id = OpenRCT2::Audio::SoundId::Null;
+        dst->sound1_id = Audio::SoundId::null;
+        dst->sound2_id = Audio::SoundId::null;
         dst->var_C0 = src->VarC0;
         dst->CollisionDetectionTimer = src->CollisionDetectionTimer;
         dst->animation_frame = src->AnimationFrame;
         dst->animationState = src->AnimationState;
         dst->NumLaps = src->NumLaps;
         dst->var_D3 = src->VarD3;
-        dst->scream_sound_id = OpenRCT2::Audio::SoundId::Null;
-        dst->Pitch = src->Pitch;
-        dst->bank_rotation = src->BankRotation;
+        dst->scream_sound_id = Audio::SoundId::null;
+        dst->pitch = src->pitch;
+        dst->roll = src->roll;
 
         // Seat rotation was not in RCT1
-        dst->target_seat_rotation = DEFAULT_SEAT_ROTATION;
-        dst->seat_rotation = DEFAULT_SEAT_ROTATION;
+        dst->target_seat_rotation = kDefaultSeatRotation;
+        dst->seat_rotation = kDefaultSeatRotation;
 
         // Vehicle links (indexes converted later)
         dst->prev_vehicle_on_ride = EntityId::FromUnderlying(src->PrevVehicleOnRide);
@@ -2775,12 +2869,12 @@ namespace RCT1
             dst->peep[i] = spriteIndex;
             if (!spriteIndex.IsNull())
             {
-                dst->peep_tshirt_colours[i] = RCT1::GetColour(src->PeepTshirtColours[i]);
+                dst->peep_tshirt_colours[i] = GetColour(src->PeepTshirtColours[i]);
             }
         }
 
-        ::Vehicle::Status statusSrc = ::Vehicle::Status::MovingToEndOfStation;
-        if (src->Status <= static_cast<uint8_t>(::Vehicle::Status::StoppedByBlockBrakes))
+        ::Vehicle::Status statusSrc = ::Vehicle::Status::movingToEndOfStation;
+        if (src->Status <= static_cast<uint8_t>(::Vehicle::Status::stoppedByBlockBrakes))
         {
             statusSrc = static_cast<::Vehicle::Status>(src->Status);
         }
@@ -2788,7 +2882,7 @@ namespace RCT1
         dst->TrackSubposition = VehicleTrackSubposition{ src->TrackSubposition };
         dst->TrackLocation = { src->TrackX, src->TrackY, src->TrackZ };
         dst->current_station = StationIndex::FromUnderlying(src->CurrentStation);
-        if (src->BoatLocation.IsNull() || ride->mode != RideMode::BoatHire || statusSrc != ::Vehicle::Status::TravellingBoat)
+        if (src->BoatLocation.IsNull() || ride->mode != RideMode::boatHire || statusSrc != ::Vehicle::Status::travellingBoat)
         {
             dst->BoatLocation.SetNull();
             dst->SetTrackDirection(src->GetTrackDirection());
@@ -2798,17 +2892,17 @@ namespace RCT1
         {
             dst->BoatLocation = TileCoordsXY{ src->BoatLocation.x, src->BoatLocation.y }.ToCoordsXY();
             dst->SetTrackDirection(0);
-            dst->SetTrackType(0);
+            dst->SetTrackType(TrackElemType::flat);
         }
         dst->track_progress = src->TrackProgress;
         dst->vertical_drop_countdown = src->VerticalDropCountdown;
         dst->sub_state = src->SubState;
-        dst->Flags = src->UpdateFlags;
+        dst->flags.holder = src->UpdateFlags;
 
         SetVehicleColours(dst, src);
 
         dst->mini_golf_current_animation = MiniGolfAnimation(src->MiniGolfCurrentAnimation);
-        dst->mini_golf_flags = src->MiniGolfFlags;
+        dst->miniGolfFlags.holder = src->MiniGolfFlags;
 
         dst->MoveTo({ src->x, src->y, src->z });
 
@@ -2816,31 +2910,40 @@ namespace RCT1
         dst->next_free_seat = src->NextFreeSeat;
         if (src->Flags & RCT12_ENTITY_FLAGS_IS_CRASHED_VEHICLE_ENTITY)
         {
-            dst->SetFlag(VehicleFlags::Crashed);
+            dst->flags.set(VehicleFlag::crashed);
+        }
+        dst->BlockBrakeSpeed = kRCT2DefaultBlockBrakeSpeed;
+
+        if (VehicleTypeIsReversed(rct1Ride.vehicleType))
+        {
+            dst->flags.set(VehicleFlag::carIsReversed);
         }
     }
 
-    template<> void S4Importer::ImportEntity<Guest>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<Guest>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<Guest>(EntityId::FromUnderlying(srcBase.EntityIndex));
-        auto* src = static_cast<const RCT1::Peep*>(&srcBase);
+        auto* dst = getGameState().entities.CreateEntityAt<Guest>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* src = static_cast<const Peep*>(&srcBase);
         ImportPeep(dst, src);
 
         dst->OutsideOfPark = static_cast<bool>(src->OutsideOfPark);
         dst->TimeToConsume = src->TimeToConsume;
         dst->VandalismSeen = src->VandalismSeen;
-        dst->UmbrellaColour = RCT1::GetColour(src->UmbrellaColour);
-        dst->HatColour = RCT1::GetColour(src->HatColour);
 
-        // Balloons were always blue in RCT1 without AA/LL
+        // Balloons were always blue in RCT1 without AA/LL, umbrellas always red
         if (_gameVersion == FILE_VERSION_RCT1)
         {
-            dst->BalloonColour = COLOUR_LIGHT_BLUE;
+            dst->UmbrellaColour = Drawing::Colour::brightRed;
+            dst->BalloonColour = Drawing::Colour::lightBlue;
         }
         else
         {
-            dst->BalloonColour = RCT1::GetColour(src->BalloonColour);
+            dst->UmbrellaColour = GetColour(src->UmbrellaColour);
+            dst->BalloonColour = GetColour(src->BalloonColour);
         }
+        dst->HatColour = GetColour(src->HatColour);
+
         dst->Happiness = src->Happiness;
         dst->HappinessTarget = src->HappinessTarget;
         dst->Nausea = src->Nausea;
@@ -2872,18 +2975,19 @@ namespace RCT1
         dst->Angriness = src->Angriness;
         dst->TimeLost = src->TimeLost;
 
-        OpenRCT2::RideUse::GetHistory().Set(dst->Id, RCT12GetRidesBeenOn(src));
-        OpenRCT2::RideUse::GetTypeHistory().Set(dst->Id, RCT12GetRideTypesBeenOn(src));
+        RideUse::GetHistory().Set(dst->Id, RCT12GetRidesBeenOn(src));
+        RideUse::GetTypeHistory().Set(dst->Id, RCT12GetRideTypesBeenOn(src));
 
         dst->Photo1RideRef = RCT12RideIdToOpenRCT2RideId(src->Photo1RideRef);
+        dst->PeepFlags = src->getPeepFlags(_gameVersion == FILE_VERSION_RCT1_LL);
 
         for (size_t i = 0; i < std::size(src->Thoughts); i++)
         {
             auto srcThought = &src->Thoughts[i];
             auto dstThought = &dst->Thoughts[i];
             dstThought->type = static_cast<PeepThoughtType>(srcThought->Type);
-            if (srcThought->Item == RCT12PeepThoughtItemNone)
-                dstThought->item = PeepThoughtItemNone;
+            if (srcThought->Item == kRCT12PeepThoughtItemNone)
+                dstThought->item = kPeepThoughtItemNone;
             else
                 dstThought->item = srcThought->Item;
             dstThought->freshness = srcThought->Freshness;
@@ -2908,22 +3012,14 @@ namespace RCT1
             dst->FavouriteRideRating = 0;
         }
 
-        dst->SetItemFlags(src->GetItemFlags());
-
-        if (dst->OutsideOfPark && dst->State != PeepState::LeavingPark)
-        {
-            IncrementGuestsHeadingForPark();
-        }
-        else
-        {
-            IncrementGuestsInPark();
-        }
+        dst->SetItemFlags(src->GetItemFlags(_gameVersion == FILE_VERSION_RCT1));
     }
 
-    template<> void S4Importer::ImportEntity<Staff>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<Staff>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<Staff>(EntityId::FromUnderlying(srcBase.EntityIndex));
-        auto* src = static_cast<const RCT1::Peep*>(&srcBase);
+        auto* dst = getGameState().entities.CreateEntityAt<Staff>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* src = static_cast<const Peep*>(&srcBase);
         ImportPeep(dst, src);
         dst->AssignedStaffType = StaffType(src->StaffType);
         dst->MechanicTimeSinceCall = src->MechanicTimeSinceCall;
@@ -2938,9 +3034,10 @@ namespace RCT1
         ImportStaffPatrolArea(dst, src->StaffID);
     }
 
-    template<> void S4Importer::ImportEntity<Litter>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<Litter>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<Litter>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<Litter>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityLitter*>(&srcBase);
         ImportEntityCommonProperties(dst, src);
 
@@ -2948,9 +3045,10 @@ namespace RCT1
         dst->creationTick = src->CreationTick;
     }
 
-    template<> void S4Importer::ImportEntity<SteamParticle>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<SteamParticle>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<SteamParticle>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<SteamParticle>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntitySteamParticle*>(&srcBase);
 
         ImportEntityCommonProperties(dst, src);
@@ -2958,29 +3056,31 @@ namespace RCT1
         dst->time_to_move = src->TimeToMove;
     }
 
-    template<> void S4Importer::ImportEntity<MoneyEffect>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<MoneyEffect>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<MoneyEffect>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<MoneyEffect>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityMoneyEffect*>(&srcBase);
 
         ImportEntityCommonProperties(dst, src);
         dst->MoveDelay = src->MoveDelay;
         dst->NumMovements = src->NumMovements;
-        dst->Vertical = src->Vertical;
+        dst->GuestPurchase = src->Vertical;
         dst->Value = src->Value;
         dst->OffsetX = src->OffsetX;
         dst->Wiggle = src->Wiggle;
     }
 
-    template<> void S4Importer::ImportEntity<VehicleCrashParticle>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<VehicleCrashParticle>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<VehicleCrashParticle>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<VehicleCrashParticle>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityCrashedVehicleParticle*>(&srcBase);
         ImportEntityCommonProperties(dst, src);
         dst->frame = src->Frame;
         dst->time_to_live = src->TimeToLive;
-        dst->colour[0] = RCT1::GetColour(src->Colour[0]);
-        dst->colour[1] = RCT1::GetColour(src->Colour[1]);
+        dst->colour[0] = GetColour(src->Colour[0]);
+        dst->colour[1] = GetColour(src->Colour[1]);
         dst->crashed_sprite_base = src->CrashedEntityBase;
         dst->velocity_x = src->VelocityX;
         dst->velocity_y = src->VelocityY;
@@ -2990,52 +3090,57 @@ namespace RCT1
         dst->acceleration_z = src->AccelerationZ;
     }
 
-    template<> void S4Importer::ImportEntity<ExplosionCloud>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<ExplosionCloud>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<ExplosionCloud>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<ExplosionCloud>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityParticle*>(&srcBase);
         ImportEntityCommonProperties(dst, src);
         dst->frame = src->Frame;
     }
 
-    template<> void S4Importer::ImportEntity<ExplosionFlare>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<ExplosionFlare>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<ExplosionFlare>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<ExplosionFlare>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityParticle*>(&srcBase);
         ImportEntityCommonProperties(dst, src);
         dst->frame = src->Frame;
     }
 
-    template<> void S4Importer::ImportEntity<CrashSplashParticle>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<CrashSplashParticle>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<CrashSplashParticle>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<CrashSplashParticle>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityParticle*>(&srcBase);
         ImportEntityCommonProperties(dst, src);
         dst->frame = src->Frame;
     }
 
-    template<> void S4Importer::ImportEntity<JumpingFountain>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<JumpingFountain>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<JumpingFountain>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<JumpingFountain>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityJumpingFountain*>(&srcBase);
 
         auto fountainType = JumpingFountainType::Water;
-        if (RCT12MiscEntityType(src->Type) == RCT12MiscEntityType::JumpingFountainSnow)
+        if (RCT12MiscEntityType(src->Type) == RCT12MiscEntityType::jumpingFountainSnow)
             fountainType = JumpingFountainType::Snow;
 
         ImportEntityCommonProperties(dst, src);
         dst->frame = src->Frame;
         dst->FountainType = fountainType;
         dst->NumTicksAlive = src->NumTicksAlive;
-        dst->FountainFlags = src->FountainFlags;
+        dst->fountainFlags = src->fountainFlags;
         dst->TargetX = src->TargetX;
         dst->TargetY = src->TargetY;
         dst->Iteration = src->Iteration;
     }
 
-    template<> void S4Importer::ImportEntity<Balloon>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<Balloon>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<Balloon>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<Balloon>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityBalloon*>(&srcBase);
 
         ImportEntityCommonProperties(dst, src);
@@ -3045,17 +3150,18 @@ namespace RCT1
         // Balloons were always blue in RCT1 without AA/LL
         if (_gameVersion == FILE_VERSION_RCT1)
         {
-            dst->colour = COLOUR_LIGHT_BLUE;
+            dst->colour = Drawing::Colour::lightBlue;
         }
         else
         {
-            dst->colour = RCT1::GetColour(src->Colour);
+            dst->colour = GetColour(src->Colour);
         }
     }
 
-    template<> void S4Importer::ImportEntity<Duck>(const RCT12EntityBase& srcBase)
+    template<>
+    void S4Importer::ImportEntity<Duck>(GameState_t& gameState, const RCT12EntityBase& srcBase)
     {
-        auto* dst = CreateEntityAt<Duck>(EntityId::FromUnderlying(srcBase.EntityIndex));
+        auto* dst = getGameState().entities.CreateEntityAt<Duck>(EntityId::FromUnderlying(srcBase.EntityIndex));
         auto* src = static_cast<const RCT12EntityDuck*>(&srcBase);
 
         ImportEntityCommonProperties(dst, src);
@@ -3065,55 +3171,55 @@ namespace RCT1
         dst->state = static_cast<Duck::DuckState>(src->State);
     }
 
-    void S4Importer::ImportEntity(const RCT12EntityBase& src)
+    void S4Importer::ImportEntity(GameState_t& gameState, const RCT12EntityBase& src)
     {
         switch (GetEntityTypeFromRCT1Sprite(src))
         {
-            case EntityType::Vehicle:
-                ImportEntity<::Vehicle>(src);
+            case EntityType::vehicle:
+                ImportEntity<::Vehicle>(gameState, src);
                 break;
-            case EntityType::Guest:
-                ImportEntity<Guest>(src);
+            case EntityType::guest:
+                ImportEntity<Guest>(gameState, src);
                 break;
-            case EntityType::Staff:
-                ImportEntity<Staff>(src);
+            case EntityType::staff:
+                ImportEntity<Staff>(gameState, src);
                 break;
-            case EntityType::SteamParticle:
-                ImportEntity<SteamParticle>(src);
+            case EntityType::steamParticle:
+                ImportEntity<SteamParticle>(gameState, src);
                 break;
-            case EntityType::MoneyEffect:
-                ImportEntity<MoneyEffect>(src);
+            case EntityType::moneyEffect:
+                ImportEntity<MoneyEffect>(gameState, src);
                 break;
-            case EntityType::CrashedVehicleParticle:
-                ImportEntity<VehicleCrashParticle>(src);
+            case EntityType::crashedVehicleParticle:
+                ImportEntity<VehicleCrashParticle>(gameState, src);
                 break;
-            case EntityType::ExplosionCloud:
-                ImportEntity<ExplosionCloud>(src);
+            case EntityType::explosionCloud:
+                ImportEntity<ExplosionCloud>(gameState, src);
                 break;
-            case EntityType::ExplosionFlare:
-                ImportEntity<ExplosionFlare>(src);
+            case EntityType::explosionFlare:
+                ImportEntity<ExplosionFlare>(gameState, src);
                 break;
-            case EntityType::CrashSplash:
-                ImportEntity<CrashSplashParticle>(src);
+            case EntityType::crashSplash:
+                ImportEntity<CrashSplashParticle>(gameState, src);
                 break;
-            case EntityType::JumpingFountain:
-                ImportEntity<JumpingFountain>(src);
+            case EntityType::jumpingFountain:
+                ImportEntity<JumpingFountain>(gameState, src);
                 break;
-            case EntityType::Balloon:
-                ImportEntity<Balloon>(src);
+            case EntityType::balloon:
+                ImportEntity<Balloon>(gameState, src);
                 break;
-            case EntityType::Duck:
-                ImportEntity<Duck>(src);
+            case EntityType::duck:
+                ImportEntity<Duck>(gameState, src);
                 break;
-            case EntityType::Litter:
-                ImportEntity<Litter>(src);
+            case EntityType::litter:
+                ImportEntity<Litter>(gameState, src);
                 break;
             default:
                 // Null elements do not need imported
                 break;
         }
     }
-} // namespace RCT1
+} // namespace OpenRCT2::RCT1
 
 std::unique_ptr<IParkImporter> ParkImporter::CreateS4()
 {

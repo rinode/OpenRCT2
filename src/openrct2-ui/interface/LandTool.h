@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -10,25 +10,22 @@
 #pragma once
 
 #include <openrct2-ui/interface/Window.h>
-#include <openrct2/common.h>
-#include <openrct2/sprites.h>
+#include <openrct2/object/ObjectTypes.h>
 
-#define MINIMUM_TOOL_SIZE 1
-#define MAXIMUM_TOOL_SIZE 64
+constexpr uint16_t kLandToolMinimumSize = 1;
+constexpr uint16_t kLandToolMaximumSize = 64;
 // The highest tool size to have a sprite. Bigger tool sizes simply display a number.
-#define MAX_TOOL_SIZE_WITH_SPRITE 7
+constexpr uint16_t kLandToolMaximumSizeWithSprite = 7;
 
 extern uint16_t gLandToolSize;
-extern money64 gLandToolRaiseCost;
-extern money64 gLandToolLowerCost;
-extern ObjectEntryIndex gLandToolTerrainSurface;
-extern ObjectEntryIndex gLandToolTerrainEdge;
-extern money64 gWaterToolRaiseCost;
-extern money64 gWaterToolLowerCost;
+extern OpenRCT2::ObjectEntryIndex gLandToolTerrainSurface;
+extern OpenRCT2::ObjectEntryIndex gLandToolTerrainEdge;
 
-namespace LandTool
+namespace OpenRCT2::LandTool
 {
     uint32_t SizeToSpriteIndex(uint16_t size);
     void ShowSurfaceStyleDropdown(WindowBase* w, Widget* widget, ObjectEntryIndex currentSurfaceType);
+    ObjectEntryIndex GetSurfaceStyleFromDropdownIndex(size_t index);
     void ShowEdgeStyleDropdown(WindowBase* w, Widget* widget, ObjectEntryIndex currentEdgeType);
-} // namespace LandTool
+    ObjectEntryIndex GetEdgeStyleFromDropdownIndex(size_t index);
+} // namespace OpenRCT2::LandTool

@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -13,15 +13,15 @@
 #include <openrct2-ui/interface/Window.h>
 #include <openrct2/Context.h>
 #include <openrct2/Input.h>
+#include <openrct2/SpriteIds.h>
 #include <openrct2/drawing/Drawing.h>
 #include <openrct2/object/ObjectLimits.h>
 #include <openrct2/object/ObjectManager.h>
 #include <openrct2/object/TerrainEdgeObject.h>
 #include <openrct2/object/TerrainSurfaceObject.h>
-#include <openrct2/world/Map.h>
-#include <openrct2/world/Surface.h>
 
 using namespace OpenRCT2;
+using namespace OpenRCT2::Ui::Windows;
 
 // clang-format off
 static uint16_t toolSizeSpriteIndices[] =
@@ -38,16 +38,12 @@ static uint16_t toolSizeSpriteIndices[] =
 // clang-format on
 
 uint16_t gLandToolSize;
-money64 gLandToolRaiseCost;
-money64 gLandToolLowerCost;
 ObjectEntryIndex gLandToolTerrainSurface;
 ObjectEntryIndex gLandToolTerrainEdge;
-money64 gWaterToolRaiseCost;
-money64 gWaterToolLowerCost;
 
 uint32_t LandTool::SizeToSpriteIndex(uint16_t size)
 {
-    if (size <= MAX_TOOL_SIZE_WITH_SPRITE)
+    if (size <= kLandToolMaximumSizeWithSprite)
     {
         return toolSizeSpriteIndices[size];
     }
@@ -61,18 +57,17 @@ void LandTool::ShowSurfaceStyleDropdown(WindowBase* w, Widget* widget, ObjectEnt
 
     auto defaultIndex = 0;
     auto itemIndex = 0;
-    for (size_t i = 0; i < MAX_TERRAIN_SURFACE_OBJECTS; i++)
+    for (size_t i = 0; i < kMaxTerrainSurfaceObjects; i++)
     {
-        const auto surfaceObj = static_cast<TerrainSurfaceObject*>(objManager.GetLoadedObject(ObjectType::TerrainSurface, i));
+        const auto surfaceObj = objManager.GetLoadedObject<TerrainSurfaceObject>(i);
         // If fallback images are loaded, the RCT1 styles will just look like copies of already existing styles, so hide them.
         if (surfaceObj != nullptr && !surfaceObj->UsesFallbackImages())
         {
             auto imageId = ImageId(surfaceObj->IconImageId);
-            if (surfaceObj->Colour != 255)
+            if (surfaceObj->Colour != Drawing::kColourNull)
                 imageId = imageId.WithPrimary(surfaceObj->Colour);
 
-            gDropdownItems[itemIndex].Format = Dropdown::FormatLandPicker;
-            Dropdown::SetImage(itemIndex, imageId);
+            gDropdown.items[itemIndex] = Dropdown::ImageItem(imageId, surfaceObj->NameStringId);
             if (i == currentSurfaceType)
             {
                 defaultIndex = itemIndex;
@@ -83,10 +78,31 @@ void LandTool::ShowSurfaceStyleDropdown(WindowBase* w, Widget* widget, ObjectEnt
     uint32_t surfaceCount = itemIndex;
 
     WindowDropdownShowImage(
-        w->windowPos.x + widget->left, w->windowPos.y + widget->top, widget->height(), w->colours[2], 0, surfaceCount, 47, 36,
-        DropdownGetAppropriateImageDropdownItemsPerRow(surfaceCount));
+        w->windowPos + ScreenCoordsXY{ widget->left, widget->top }, widget->height() - 1, w->colours[2], 0, surfaceCount, 47,
+        36, DropdownGetAppropriateImageDropdownItemsPerRow(surfaceCount));
 
-    gDropdownDefaultIndex = defaultIndex;
+    gDropdown.hasTooltips = true;
+    gDropdown.defaultIndex = defaultIndex;
+}
+
+ObjectEntryIndex LandTool::GetSurfaceStyleFromDropdownIndex(size_t index)
+{
+    auto& objManager = GetContext()->GetObjectManager();
+    auto itemIndex = 0U;
+    for (size_t i = 0; i < kMaxTerrainSurfaceObjects; i++)
+    {
+        const auto surfaceObj = objManager.GetLoadedObject<TerrainSurfaceObject>(i);
+        // If fallback images are loaded, the RCT1 styles will just look like copies of already existing styles, so hide them.
+        if (surfaceObj != nullptr && !surfaceObj->UsesFallbackImages())
+        {
+            if (itemIndex == index)
+            {
+                return static_cast<ObjectEntryIndex>(i);
+            }
+            itemIndex++;
+        }
+    }
+    return kObjectEntryIndexNull;
 }
 
 void LandTool::ShowEdgeStyleDropdown(WindowBase* w, Widget* widget, ObjectEntryIndex currentEdgeType)
@@ -95,14 +111,13 @@ void LandTool::ShowEdgeStyleDropdown(WindowBase* w, Widget* widget, ObjectEntryI
 
     auto defaultIndex = 0;
     auto itemIndex = 0;
-    for (size_t i = 0; i < MAX_TERRAIN_EDGE_OBJECTS; i++)
+    for (size_t i = 0; i < kMaxTerrainEdgeObjects; i++)
     {
-        const auto edgeObj = static_cast<TerrainEdgeObject*>(objManager.GetLoadedObject(ObjectType::TerrainEdge, i));
+        const auto edgeObj = objManager.GetLoadedObject<TerrainEdgeObject>(i);
         // If fallback images are loaded, the RCT1 styles will just look like copies of already existing styles, so hide them.
         if (edgeObj != nullptr && !edgeObj->UsesFallbackImages())
         {
-            gDropdownItems[itemIndex].Format = Dropdown::FormatLandPicker;
-            Dropdown::SetImage(itemIndex, ImageId(edgeObj->IconImageId));
+            gDropdown.items[itemIndex] = Dropdown::ImageItem(ImageId(edgeObj->IconImageId), edgeObj->NameStringId);
             if (i == currentEdgeType)
             {
                 defaultIndex = itemIndex;
@@ -114,8 +129,29 @@ void LandTool::ShowEdgeStyleDropdown(WindowBase* w, Widget* widget, ObjectEntryI
     auto itemsPerRow = DropdownGetAppropriateImageDropdownItemsPerRow(edgeCount);
 
     WindowDropdownShowImage(
-        w->windowPos.x + widget->left, w->windowPos.y + widget->top, widget->height(), w->colours[2], 0, edgeCount, 47, 36,
+        w->windowPos + ScreenCoordsXY{ widget->left, widget->top }, widget->height() - 1, w->colours[2], 0, edgeCount, 47, 36,
         itemsPerRow);
 
-    gDropdownDefaultIndex = defaultIndex;
+    gDropdown.hasTooltips = true;
+    gDropdown.defaultIndex = defaultIndex;
+}
+
+ObjectEntryIndex LandTool::GetEdgeStyleFromDropdownIndex(size_t index)
+{
+    auto& objManager = GetContext()->GetObjectManager();
+    auto itemIndex = 0U;
+    for (size_t i = 0; i < kMaxTerrainEdgeObjects; i++)
+    {
+        const auto edgeObj = objManager.GetLoadedObject<TerrainEdgeObject>(i);
+        // If fallback images are loaded, the RCT1 styles will just look like copies of already existing styles, so hide them.
+        if (edgeObj != nullptr && !edgeObj->UsesFallbackImages())
+        {
+            if (itemIndex == index)
+            {
+                return static_cast<ObjectEntryIndex>(i);
+            }
+            itemIndex++;
+        }
+    }
+    return kObjectEntryIndexNull;
 }

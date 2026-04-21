@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,175 +9,206 @@
 
 #pragma once
 
-#include "../drawing/Drawing.h"
-#include "../localisation/StringIds.h"
-#include "Window.h"
+#include "../core/FlagHolder.hpp"
+#include "../core/StringTypes.h"
+#include "../drawing/ImageId.hpp"
+#include "../localisation/StringIdType.h"
+#include "../world/Location.hpp"
 
-enum class WindowWidgetType : uint8_t
+#include <cstdint>
+
+namespace OpenRCT2
 {
-    Empty = 0,
-    Frame = 1,
-    Resize = 2,
-    ImgBtn = 3,
-    ColourBtn = 6,
-    TrnBtn = 7,
-    Tab = 8,
-    FlatBtn = 9,
-    Button = 10,
-    LabelCentred = 12, // Centred text
-    TableHeader = 13,  // Left-aligned textual button
-    Label = 14,        // Left-aligned text
-    Spinner = 15,
-    DropdownMenu = 16,
-    Viewport = 17,
-    Groupbox = 19,
-    Caption = 20,
-    CloseBox = 21,
-    Scroll = 22,
-    Checkbox = 23,
-    Placeholder = 25,
-    Custom = 28,
-    TextBox = 27,
-    Last = 26,
-};
+    using WidgetIndex = uint16_t;
+    constexpr WidgetIndex kWidgetIndexNull = 0xFFFF;
 
-constexpr const auto WIDGETS_END = Widget{ WindowWidgetType::Last, 0, 0, 0, 0, 0, 0, 0 };
-#define BAR_BLINK (1u << 31)
+    enum class WidgetType : uint8_t
+    {
+        empty = 0,
+        frame = 1,
+        resize = 2,
+        imgBtn = 3,
+        colourBtn = 6,
+        trnBtn = 7,
+        tab = 8,
+        flatBtn = 9,
+        /**
+         * For stuff that mostly acts as a label, while providing a way for power users to quickly
+         * open the associated window. For example: the money display in the lower left of the screen.
+         */
+        hiddenButton = 11,
+        button = 10,
+        labelCentred = 12, // Centred text
+        tableHeader = 13,  // Left-aligned textual button
+        label = 14,        // Left-aligned text
+        spinner = 15,
+        dropdownMenu = 16,
+        viewport = 17,
+        groupbox = 19,
+        caption = 20,
+        closeBox = 21,
+        scroll = 22,
+        checkbox = 23,
+        placeholder = 25,
+        progressBar = 29,
+        custom = 28,
+        textBox = 27,
+        horizontalSeparator = 30,
+    };
 
-enum
-{
-    SCROLL_HORIZONTAL = (1 << 0),
-    SCROLL_VERTICAL = (1 << 1),
-    SCROLL_BOTH = SCROLL_HORIZONTAL | SCROLL_VERTICAL
-};
+    enum class WidgetFlag : uint8_t
+    {
+        textIsString = 0,
+        isPressed = 2,
+        isDisabled = 3,
+        tooltipIsString = 4,
+        isHidden = 5,
+        isHoldable = 6,
+    };
+    using WidgetFlags = FlagHolder<uint8_t, WidgetFlag>;
 
-enum class WindowColour : uint8_t
-{
-    Primary,
-    Secondary,
-    Tertiary,
-    Quaternary,
-};
+    enum
+    {
+        SCROLL_HORIZONTAL = (1 << 0),
+        SCROLL_VERTICAL = (1 << 1),
+        SCROLL_BOTH = SCROLL_HORIZONTAL | SCROLL_VERTICAL
+    };
 
-constexpr uint8_t SCROLLBAR_WIDTH = 10;
+    constexpr const char* kCloseBoxStringBlackNormal = u8"{BLACK}❌";
+    constexpr const char* kCloseBoxStringBlackLarge = u8"{BLACK}X";
+    constexpr const char* kCloseBoxStringWhiteNormal = u8"{WHITE}❌";
+    constexpr const char* kCloseBoxStringWhiteLarge = u8"{WHITE}X";
 
-constexpr const ScreenSize TAB_SIZE = { 31, 27 };
+    struct Widget
+    {
+        WidgetType type{};
+        uint8_t colour{};
+        int16_t left{};
+        int16_t right{};
+        int16_t top{};
+        int16_t bottom{};
+        union
+        {
+            uint32_t content;
+            ImageId image{};
+            StringId text;
+            const utf8* string;
+        };
+        StringId tooltip{ kStringIdNone };
 
-constexpr Widget MakeWidget(
-    const ScreenCoordsXY& origin, const ScreenSize& size, WindowWidgetType type, WindowColour colour,
-    uint32_t content = 0xFFFFFFFF, StringId tooltip = STR_NONE)
-{
-    Widget out = {};
-    out.left = origin.x;
-    out.right = origin.x + size.width - 1;
-    out.top = origin.y;
-    out.bottom = origin.y + size.height - 1;
-    out.type = type;
-    out.colour = static_cast<uint8_t>(colour);
-    out.content = content;
-    out.tooltip = tooltip;
+        // New properties
+        WidgetFlags flags{};
+        const utf8* sztooltip{};
 
-    return out;
-}
+        int16_t width() const
+        {
+            return right - left + 1;
+        }
 
-constexpr Widget MakeWidget(
-    const ScreenCoordsXY& origin, const ScreenSize& size, WindowWidgetType type, WindowColour colour, ImageId image,
-    StringId tooltip = STR_NONE)
-{
-    Widget out = {};
-    out.left = origin.x;
-    out.right = origin.x + size.width - 1;
-    out.top = origin.y;
-    out.bottom = origin.y + size.height - 1;
-    out.type = type;
-    out.colour = static_cast<uint8_t>(colour);
-    out.image = image;
-    out.tooltip = tooltip;
+        void setWidth(int16_t newWidth)
+        {
+            right = left + newWidth - 1;
+        }
 
-    return out;
-}
+        int16_t height() const
+        {
+            return bottom - top + 1;
+        }
 
-constexpr Widget MakeRemapWidget(
-    const ScreenCoordsXY& origin, const ScreenSize& size, WindowWidgetType type, WindowColour colour, ImageIndex content,
-    StringId tooltip = STR_NONE)
-{
-    return MakeWidget(origin, size, type, colour, ImageId(content, FilterPaletteID::PaletteNull), tooltip);
-}
+        void setHeight(int16_t newHeight)
+        {
+            bottom = top + newHeight - 1;
+        }
 
-constexpr Widget MakeTab(const ScreenCoordsXY& origin, StringId tooltip = STR_NONE)
-{
-    const ScreenSize size = TAB_SIZE;
-    const WindowWidgetType type = WindowWidgetType::Tab;
-    const WindowColour colour = WindowColour::Secondary;
-    const auto content = ImageId(ImageIndexUndefined);
+        int16_t midX() const
+        {
+            return left + (width() / 2);
+        }
 
-    return MakeWidget(origin, size, type, colour, content, tooltip);
-}
+        int16_t midY() const
+        {
+            return top + (height() / 2);
+        }
 
-#define MakeSpinnerWidgets(...)                                                                                                \
-    MakeWidget(__VA_ARGS__), MakeSpinnerIncreaseWidget(__VA_ARGS__), MakeSpinnerDecreaseWidget(__VA_ARGS__)
+        int16_t textTop() const
+        {
+            if (height() >= 11)
+                return std::max<int32_t>(top, top + (height() / 2) - 6);
 
-constexpr Widget MakeSpinnerDecreaseWidget(
-    const ScreenCoordsXY& origin, const ScreenSize& size, [[maybe_unused]] WindowWidgetType type, WindowColour colour,
-    [[maybe_unused]] uint32_t content = 0xFFFFFFFF, StringId tooltip = STR_NONE)
-{
-    const int16_t xPos = origin.x + size.width - 26;
-    const int16_t yPos = origin.y + 1;
-    const uint16_t width = 13;
-    const uint16_t height = size.height - 2;
+            return top - 1;
+        }
 
-    return MakeWidget({ xPos, yPos }, { width, height }, WindowWidgetType::Button, colour, STR_NUMERIC_DOWN, tooltip);
-}
+        void moveRight(int32_t amount)
+        {
+            left += amount;
+            right += amount;
+        }
 
-constexpr Widget MakeSpinnerIncreaseWidget(
-    const ScreenCoordsXY& origin, const ScreenSize& size, [[maybe_unused]] WindowWidgetType type, WindowColour colour,
-    [[maybe_unused]] uint32_t content = 0xFFFFFFFF, StringId tooltip = STR_NONE)
-{
-    const int16_t xPos = origin.x + size.width - 13;
-    const int16_t yPos = origin.y + 1;
-    const uint16_t width = 12;
-    const uint16_t height = size.height - 2;
+        void moveDown(int32_t amount)
+        {
+            top += amount;
+            bottom += amount;
+        }
 
-    return MakeWidget({ xPos, yPos }, { width, height }, WindowWidgetType::Button, colour, STR_NUMERIC_UP, tooltip);
-}
+        void moveTo(ScreenCoordsXY coords)
+        {
+            moveRight(coords.x - left);
+            moveDown(coords.y - top);
+        }
 
-#define MakeDropdownWidgets(...) MakeDropdownBoxWidget(__VA_ARGS__), MakeDropdownButtonWidget(__VA_ARGS__)
+        void moveToX(int16_t x)
+        {
+            moveRight(x - left);
+        }
 
-constexpr Widget MakeDropdownBoxWidget(
-    const ScreenCoordsXY& origin, const ScreenSize& size, [[maybe_unused]] WindowWidgetType type, WindowColour colour,
-    [[maybe_unused]] uint32_t content = 0xFFFFFFFF, StringId tooltip = STR_NONE)
-{
-    return MakeWidget(origin, size, type, colour, content);
-}
+        void moveToY(int16_t y)
+        {
+            moveDown(y - top);
+        }
 
-constexpr Widget MakeDropdownButtonWidget(
-    const ScreenCoordsXY& origin, const ScreenSize& size, [[maybe_unused]] WindowWidgetType type, WindowColour colour,
-    [[maybe_unused]] uint32_t content = 0xFFFFFFFF, StringId tooltip = STR_NONE)
-{
-    const int16_t xPos = origin.x + size.width - 11;
-    const int16_t yPos = origin.y + 1;
-    const uint16_t width = 11;
-    const uint16_t height = 10;
+        bool isVisible() const
+        {
+            return !flags.has(WidgetFlag::isHidden);
+        }
 
-    return MakeWidget({ xPos, yPos }, { width, height }, WindowWidgetType::Button, colour, STR_DROPDOWN_GLYPH, tooltip);
-}
+        void setString(StringId newStringId)
+        {
+            text = newStringId;
+            flags.unset(WidgetFlag::textIsString);
+        }
 
-void WidgetScrollUpdateThumbs(WindowBase& w, WidgetIndex widget_index);
-void WidgetDraw(DrawPixelInfo* dpi, WindowBase& w, WidgetIndex widgetIndex);
+        void setString(const utf8* newString)
+        {
+            string = newString;
+            flags.set(WidgetFlag::textIsString);
+        }
 
-bool WidgetIsDisabled(const WindowBase& w, WidgetIndex widgetIndex);
-bool WidgetIsHoldable(const WindowBase& w, WidgetIndex widgetIndex);
-bool WidgetIsVisible(const WindowBase& w, WidgetIndex widgetIndex);
-bool WidgetIsPressed(const WindowBase& w, WidgetIndex widgetIndex);
-bool WidgetIsHighlighted(const WindowBase& w, WidgetIndex widgetIndex);
-bool WidgetIsActiveTool(const WindowBase& w, WidgetIndex widgetIndex);
-void WidgetScrollGetPart(
-    WindowBase& w, const Widget* widget, const ScreenCoordsXY& screenCoords, ScreenCoordsXY& retScreenCoords,
-    int32_t* output_scroll_area, int32_t* scroll_id);
+        void setTooltip(StringId newStringId)
+        {
+            tooltip = newStringId;
+            flags.unset(WidgetFlag::tooltipIsString);
+        }
 
-void WidgetSetEnabled(WindowBase& w, WidgetIndex widgetIndex, bool enabled);
-void WidgetSetDisabled(WindowBase& w, WidgetIndex widgetIndex, bool value);
-void WidgetSetHoldable(WindowBase& w, WidgetIndex widgetIndex, bool value);
-void WidgetSetVisible(WindowBase& w, WidgetIndex widgetIndex, bool value);
-void WidgetSetPressed(WindowBase& w, WidgetIndex widgetIndex, bool value);
-void WidgetSetCheckboxValue(WindowBase& w, WidgetIndex widgetIndex, bool value);
+        void setTooltip(const utf8* newString)
+        {
+            sztooltip = newString;
+            flags.set(WidgetFlag::tooltipIsString);
+        }
+    };
+
+    constexpr uint8_t kTitleHeightNormal = 13;
+    constexpr uint8_t kTitleHeightLarge = 24;
+
+    constexpr uint8_t kCloseButtonSize = 10;
+    constexpr uint8_t kCloseButtonSizeTouch = 20;
+
+    constexpr int32_t kScrollableRowHeight = 12;
+    constexpr uint8_t kListRowHeight = 12;
+    constexpr uint8_t kTableCellHeight = 12;
+    constexpr uint8_t kButtonFaceHeight = 12;
+    constexpr uint8_t kSpinnerHeight = 12;
+    constexpr uint8_t kDropdownHeight = 12;
+
+    constexpr uint16_t kTextInputSize = 1024;
+    constexpr uint16_t kTopToolbarHeight = 27;
+} // namespace OpenRCT2

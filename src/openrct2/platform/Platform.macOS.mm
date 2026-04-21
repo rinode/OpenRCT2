@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2023 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,38 +9,33 @@
 
 #if defined(__APPLE__) && defined(__MACH__)
 
-#    include "../OpenRCT2.h"
-#    include "../core/Path.hpp"
-#    include "../core/String.hpp"
-#    include "../localisation/Language.h"
-#    include "Platform.h"
+    #include "Platform.h"
 
-// undefine `interface` and `abstract`, because it's causing conflicts with Objective-C's keywords
-#    undef interface
-#    undef abstract
+    #include "../OpenRCT2.h"
+    #include "../core/Path.hpp"
+    #include "../core/String.hpp"
+    #include "../localisation/Language.h"
 
-#    include <AvailabilityMacros.h>
-#    include <CoreText/CoreText.h>
-#    include <Foundation/Foundation.h>
-#    include <mach-o/dyld.h>
-#    include <mach/mach_time.h>
-#    include <pwd.h>
+    #include <CoreText/CoreText.h>
+    #include <Foundation/Foundation.h>
+    #include <mach-o/dyld.h>
+    #include <pwd.h>
 
-namespace Platform
+namespace OpenRCT2::Platform
 {
-    std::string GetFolderPath(SPECIAL_FOLDER folder)
+    std::string GetFolderPath(SpecialFolder folder)
     {
         // macOS stores everything in ~/Library/Application Support/OpenRCT2
         switch (folder)
         {
-            case SPECIAL_FOLDER::USER_CACHE:
-            case SPECIAL_FOLDER::USER_CONFIG:
-            case SPECIAL_FOLDER::USER_DATA:
+            case SpecialFolder::userCache:
+            case SpecialFolder::userConfig:
+            case SpecialFolder::userData:
             {
-                auto home = GetFolderPath(SPECIAL_FOLDER::USER_HOME);
+                auto home = GetFolderPath(SpecialFolder::userHome);
                 return Path::Combine(home, "Library/Application Support");
             }
-            case SPECIAL_FOLDER::USER_HOME:
+            case SpecialFolder::userHome:
                 return GetHomePath();
             default:
                 return std::string();
@@ -99,9 +94,10 @@ namespace Platform
                 auto exeDirectory = Path::GetDirectory(exePath);
 
                 // check build and install paths
-                NSArray *dataSearchLocations = @[@"data", @"../share/openrct2"];
+                NSArray* dataSearchLocations = @[ @"data", @"../share/openrct2" ];
 
-                for (NSString *searchLocation in dataSearchLocations) {
+                for (NSString* searchLocation in dataSearchLocations)
+                {
                     path = Path::Combine(exeDirectory, [searchLocation UTF8String]);
                     NSString* nsPath = [NSString stringWithUTF8String:path.c_str()];
                     if ([[NSFileManager defaultManager] fileExistsAtPath:nsPath])
@@ -141,18 +137,18 @@ namespace Platform
 
     bool HandleSpecialCommandLineArgument(const char* argument)
     {
-        if (String::Equals(argument, "-NSDocumentRevisionsDebugMode"))
+        if (String::equals(argument, "-NSDocumentRevisionsDebugMode"))
         {
             return true;
         }
-        if (String::StartsWith(argument, "-psn_"))
+        if (String::startsWith(argument, "-psn_"))
         {
             return true;
         }
         return false;
     }
 
-    bool HasMatchingLanguage(NSString* preferredLocale, uint16_t* languageIdentifier)
+    static bool HasMatchingLanguage(NSString* preferredLocale, uint16_t* languageIdentifier)
     {
         @autoreleasepool
         {
@@ -232,7 +228,7 @@ namespace Platform
         }
     }
 
-    std::string GetSteamPath()
+    SteamPaths GetSteamPaths()
     {
         const char* homeDir = getpwuid(getuid())->pw_dir;
         if (homeDir == nullptr)
@@ -240,14 +236,19 @@ namespace Platform
             return {};
         }
 
-        auto steamPath = Path::Combine(
-            homeDir, "Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steamapps");
-        if (Path::DirectoryExists(steamPath))
+        auto steamPath = Path::Combine(homeDir, "Library/Application Support/Steam");
+        if (!Path::DirectoryExists(steamPath))
         {
-            return steamPath;
+            return {};
         }
 
-        return {};
+        SteamPaths ret = {};
+        ret.roots.emplace_back(steamPath);
+        ret.nativeFolder = "steamapps/common";
+        ret.downloadDepotFolder = "Steam.AppBundle/Steam/Contents/MacOS/steamapps/content";
+        ret.manifests = "steamapps";
+
+        return ret;
     }
 
     std::string GetFontPath(const TTFFontDescriptor& font)
@@ -268,6 +269,16 @@ namespace Platform
             }
         }
     }
-}
+
+    std::vector<std::string_view> GetSearchablePathsRCT1()
+    {
+        return {};
+    }
+
+    std::vector<std::string_view> GetSearchablePathsRCT2()
+    {
+        return { "/Applications" };
+    }
+} // namespace OpenRCT2::Platform
 
 #endif
