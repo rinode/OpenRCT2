@@ -23,7 +23,7 @@ namespace OpenRCT2
     /**
      * Used by the Scenario Editor and Track Designer.
      */
-    extern const std::array<std::string_view, 82> kCommonScenarioAndTrackDesignerObjects;
+    extern const std::array<std::string_view, 83> kCommonScenarioAndTrackDesignerObjects;
 
     /**
      * Used only by the Scenario Editor.

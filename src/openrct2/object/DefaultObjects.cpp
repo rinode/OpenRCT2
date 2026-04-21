@@ -20,7 +20,7 @@ namespace OpenRCT2
         "rct2.station.plain",
     };
 
-    constexpr std::array<std::string_view, 82> kCommonScenarioAndTrackDesignerObjects = {
+    constexpr std::array<std::string_view, 83> kCommonScenarioAndTrackDesignerObjects = {
         // An initial default selection
         "rct2.scenery_group.scgtrees", // Scenery: Trees
         "rct2.scenery_group.scgshrub", // Scenery: Shrubs and Ornaments
@@ -32,6 +32,8 @@ namespace OpenRCT2
         "rct2.park_entrance.pkent1", // Park Entrance: Traditional Park Entrance
 
         "rct2.water.wtrcyan", // Water: Natural Water
+
+        "openrct2.pool.placeholder", // Pool: Placeholder (TODO(pools-merge): replace with real pool objects)
 
         // Stations
         "rct2.station.wooden",
