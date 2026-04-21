@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2020 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -11,56 +11,43 @@
 
 #include "PoolObject.h"
 
-#include "../core/IStream.hpp"
+#include "../core/Guard.hpp"
 #include "../core/Json.hpp"
-#include "../core/Memory.hpp"
-#include "../core/String.hpp"
 #include "../drawing/Drawing.h"
 #include "../drawing/Image.h"
-#include "../interface/Cursors.h"
 #include "../localisation/Language.h"
-#include "../world/Pool.h"
 
-#include <algorithm>
-
-
-void PoolObject::Load()
+namespace OpenRCT2
 {
-    GetStringTable().Sort();
-    NameStringId = LanguageAllocateObjectString(GetName());
-
-    auto numImages = GetImageTable().GetCount();
-    if (numImages != 0)
+    void PoolObject::ReadJson(IReadObjectContext* context, json_t& root)
     {
-        PreviewImageId = GfxObjectAllocateImages(GetImageTable().GetImages(), GetImageTable().GetCount());
+        Guard::Assert(root.is_object(), "PoolObject::ReadJson expects parameter root to be object");
+
+        PopulateTablesFromJson(context, root);
+    }
+
+    void PoolObject::Load()
+    {
+        GetStringTable().Sort();
+        NameStringId = LanguageAllocateObjectString(GetName());
+
+        PreviewImageId = LoadImages();
         BaseImageId = PreviewImageId + 1;
     }
 
-}
+    void PoolObject::Unload()
+    {
+        UnloadImages();
+        LanguageFreeObjectString(NameStringId);
 
-void PoolObject::Unload()
-{
-    LanguageFreeObjectString(NameStringId);
-    GfxObjectFreeImages(PreviewImageId, GetImageTable().GetCount());
+        NameStringId = 0;
+        PreviewImageId = 0;
+        BaseImageId = 0;
+    }
 
-    NameStringId = 0;
-    PreviewImageId = 0;
-    BaseImageId = 0;
-}
-
-void PoolObject::DrawPreview(DrawPixelInfo* dpi, int32_t width, int32_t height) const
-{
-auto screenCoords = ScreenCoordsXY{24,32};
-GfxDrawSprite(dpi, ImageId(PreviewImageId + 0), screenCoords);
-}
-
-
-void PoolObject::ReadJson(IReadObjectContext* context, json_t& root)
-{
-    Guard::Assert(root.is_object(), "PoolObject::ReadJson expects parameter root to be object");
-
-    auto properties = root["properties"];
-
-
-    PopulateTablesFromJson(context, root);
-}
+    void PoolObject::DrawPreview(Drawing::RenderTarget& rt, int32_t width, int32_t height) const
+    {
+        auto screenCoords = ScreenCoordsXY{ width / 2, height / 2 };
+        GfxDrawSprite(rt, ImageId(PreviewImageId), screenCoords);
+    }
+} // namespace OpenRCT2

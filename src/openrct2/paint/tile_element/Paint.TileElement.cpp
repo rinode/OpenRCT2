@@ -34,6 +34,7 @@
 #include "Paint.Entrance.h"
 #include "Paint.LargeScenery.h"
 #include "Paint.Path.h"
+#include "Paint.Pool.h"
 #include "Paint.SmallScenery.h"
 #include "Paint.Surface.h"
 #include "Paint.Track.h"
@@ -298,7 +299,7 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
                 PaintBanner(session, direction, baseZ, *(tile_element->AsBanner()));
                 break;
             case TileElementType::Pool:
-                // TODO(pools-merge): re-enable once PoolElement+PaintPool are ported
+                PaintPool(session, direction, baseZ, *(tile_element->AsPool()));
                 break;
         }
         session.MapPosition = mapPosition;

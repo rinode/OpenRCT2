@@ -29,6 +29,7 @@
 #include "tile_element/EntranceElement.h"
 #include "tile_element/LargeSceneryElement.h"
 #include "tile_element/PathElement.h"
+#include "tile_element/PoolElement.h"
 #include "tile_element/Slope.h"
 #include "tile_element/SmallSceneryElement.h"
 #include "tile_element/SurfaceElement.h"
@@ -640,7 +641,24 @@ namespace OpenRCT2::TileInspector
         return GameActions::Result();
     }
     
-    // TODO(pools-merge): re-introduce PoolToggleEdge once PoolElement + tile-modify wiring are ported.
+    GameActions::Result PoolToggleEdge(const CoordsXY& loc, int32_t elementIndex, int32_t edgeIndex, bool isExecuting)
+    {
+        TileElement* const poolElement = MapGetNthElementAt(loc, elementIndex);
+        if (poolElement == nullptr || poolElement->GetType() != TileElementType::Pool)
+            return GameActions::Result(GameActions::Status::invalidParameters, STR_ERR_INVALID_PARAMETER, kStringIdNone);
+
+        if (isExecuting)
+        {
+            uint8_t edgesAndCorners = poolElement->AsPool()->GetEdgesAndCorners();
+            edgesAndCorners ^= static_cast<uint8_t>(1 << edgeIndex);
+            poolElement->AsPool()->SetEdgesAndCorners(edgesAndCorners);
+
+            auto* windowMgr = Ui::GetWindowManager();
+            windowMgr->InvalidateByClass(WindowClass::tileInspector);
+        }
+
+        return GameActions::Result();
+    }
 
     GameActions::Result EntranceMakeUsable(const CoordsXY& loc, int32_t elementIndex, bool isExecuting)
     {

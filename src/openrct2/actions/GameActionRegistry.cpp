@@ -38,6 +38,8 @@
 #include "park/ParkSetNameAction.h"
 #include "park/ParkSetParameterAction.h"
 #include "park/ParkSetResearchFundingAction.h"
+#include "PoolPlaceAction.h"
+#include "PoolRemoveAction.h"
 #include "peep/GuestSetFlagsAction.h"
 #include "peep/GuestSetNameAction.h"
 #include "peep/PeepPickupAction.h"
@@ -170,6 +172,8 @@ namespace OpenRCT2::GameActions
         REGISTER_ACTION(RideSetSettingAction);
         REGISTER_ACTION(ScenarioSetSettingAction);
         REGISTER_ACTION(ParkSetEntranceFeeAction);
+        REGISTER_ACTION(PoolPlaceAction);
+        REGISTER_ACTION(PoolRemoveAction);
         REGISTER_ACTION(SignSetNameAction);
         REGISTER_ACTION(SignSetStyleAction);
         REGISTER_ACTION(StaffFireAction);

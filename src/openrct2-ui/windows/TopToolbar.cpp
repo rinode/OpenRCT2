@@ -79,6 +79,7 @@ namespace OpenRCT2::Ui::Windows
         WIDX_WATER,
         WIDX_SCENERY,
         WIDX_PATH,
+        WIDX_POOL,
         WIDX_CONSTRUCT_RIDE,
         WIDX_RIDES,
         WIDX_PARK,
@@ -218,6 +219,7 @@ namespace OpenRCT2::Ui::Windows
         WIDX_WATER,
         WIDX_SCENERY,
         WIDX_PATH,
+        WIDX_POOL,
         WIDX_CONSTRUCT_RIDE,
 
         WIDX_SEPARATOR,
@@ -260,6 +262,7 @@ namespace OpenRCT2::Ui::Windows
         makeRemapWidget({327, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::tertiary  , SPR_TOOLBAR_WATER,          STR_ADJUST_WATER_TIP              ), // Water
         makeRemapWidget({357, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::tertiary  , SPR_TOOLBAR_SCENERY,        STR_PLACE_SCENERY_TIP             ), // Scenery
         makeRemapWidget({387, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::tertiary  , SPR_TOOLBAR_FOOTPATH,       STR_BUILD_FOOTPATH_TIP            ), // Path
+        makeRemapWidget({417, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::tertiary  , SPR_G2_BUTTON_POOL_WATER,   STR_POOL_TIP                      ), // Pool
         makeRemapWidget({490, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::tertiary  , SPR_TOOLBAR_CONSTRUCT_RIDE, STR_BUILD_RIDE_TIP                ), // Construct ride
         makeRemapWidget({520, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::quaternary, SPR_TOOLBAR_RIDES,          STR_RIDES_IN_PARK_TIP             ), // Rides
         makeRemapWidget({550, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::quaternary, SPR_TOOLBAR_PARK,           STR_PARK_INFORMATION_TIP          ), // Park
@@ -840,6 +843,9 @@ namespace OpenRCT2::Ui::Windows
                 case WIDX_PATH:
                     ToggleFootpathWindow();
                     break;
+                case WIDX_POOL:
+                    TogglePoolWindow();
+                    break;
                 case WIDX_CONSTRUCT_RIDE:
                     ContextOpenWindow(WindowClass::constructRide);
                     break;
@@ -1102,6 +1108,7 @@ namespace OpenRCT2::Ui::Windows
             widgets[WIDX_WATER].type = WidgetType::trnBtn;
             widgets[WIDX_SCENERY].type = WidgetType::trnBtn;
             widgets[WIDX_PATH].type = WidgetType::trnBtn;
+            widgets[WIDX_POOL].type = WidgetType::trnBtn;
             widgets[WIDX_CONSTRUCT_RIDE].type = WidgetType::trnBtn;
             widgets[WIDX_RIDES].type = WidgetType::trnBtn;
             widgets[WIDX_PARK].type = WidgetType::trnBtn;
@@ -1187,6 +1194,7 @@ namespace OpenRCT2::Ui::Windows
                 widgets[WIDX_MAP].type = WidgetType::empty;
                 widgets[WIDX_SCENERY].type = WidgetType::empty;
                 widgets[WIDX_PATH].type = WidgetType::empty;
+                widgets[WIDX_POOL].type = WidgetType::empty;
                 widgets[WIDX_CLEAR_SCENERY].type = WidgetType::empty;
 
                 widgets[WIDX_ZOOM_OUT].type = WidgetType::empty;
@@ -1284,6 +1292,11 @@ namespace OpenRCT2::Ui::Windows
                 pressedWidgets &= ~(1uLL << WIDX_PATH);
             else
                 pressedWidgets |= (1uLL << WIDX_PATH);
+
+            if (windowMgr->FindByClass(WindowClass::pool) == nullptr)
+                pressedWidgets &= ~(1uLL << WIDX_POOL);
+            else
+                pressedWidgets |= (1uLL << WIDX_POOL);
         }
 
         // TODO: look into using std::span

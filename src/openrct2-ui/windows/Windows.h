@@ -202,6 +202,10 @@ namespace OpenRCT2::Ui::Windows
     // Player
     WindowBase* PlayerOpen(uint8_t id);
 
+    // Pool
+    WindowBase* PoolOpen();
+    void TogglePoolWindow();
+
     // ProgressWindow
     WindowBase* ProgressWindowOpen(const std::string& text, CloseCallback onClose = nullptr);
     void ProgressWindowSet(uint32_t currentProgress, uint32_t totalCount, StringId format = kStringIdNone);

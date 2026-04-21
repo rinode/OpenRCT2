@@ -147,7 +147,8 @@ enum class ViewportInteractionItem : uint8_t
     wall,
     largeScenery,
     label,
-    banner
+    banner,
+    pool,
 };
 
 enum class ViewportVisibility : uint8_t

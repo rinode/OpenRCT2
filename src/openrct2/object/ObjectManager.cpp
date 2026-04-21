@@ -31,8 +31,8 @@
 #include "RideObject.h"
 #include "SceneryGroupObject.h"
 #include "SmallSceneryObject.h"
+#include "PoolObject.h"
 #include "WallObject.h"
-// TODO(pools-merge): re-include PoolObject.h once ported to new API
 
 #include <algorithm>
 #include <array>

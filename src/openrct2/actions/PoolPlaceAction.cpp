@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2020 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -10,207 +10,182 @@
 #include "PoolPlaceAction.h"
 
 #include "../Cheats.h"
+#include "../GameState.h"
 #include "../OpenRCT2.h"
+#include "../core/Guard.hpp"
 #include "../core/MemoryStream.h"
-#include "../interface/Window.h"
 #include "../localisation/StringIds.h"
 #include "../management/Finance.h"
-#include "../ride/RideConstruction.h"
 #include "../world/ConstructionClearance.h"
-#include "../world/Pool.h"
 #include "../world/Location.hpp"
+#include "../world/Map.h"
 #include "../world/Park.h"
-#include "../world/Scenery.h"
-#include "../world/Surface.h"
-#include "../world/TileElementsView.h"
-#include "../world/Wall.h"
 #include "../world/Pool.h"
+#include "../world/QuarterTile.h"
+#include "../world/TileElementsView.h"
+#include "../world/tile_element/PoolElement.h"
+#include "../world/tile_element/SurfaceElement.h"
 
-using namespace OpenRCT2;
-
-PoolPlaceAction::PoolPlaceAction(
-    const CoordsXYZ& loc, ObjectEntryIndex type, bool isWater,uint8_t edgeStyle)
-    : _loc(loc)
-    , _type(type)
-    , _isWater(isWater)
-    , _edgeStyle(edgeStyle)
+namespace OpenRCT2::GameActions
 {
-}
-
-void PoolPlaceAction::AcceptParameters(GameActionParameterVisitor& visitor)
-{
-    visitor.Visit(_loc);
-    visitor.Visit("object", _type);
-}
-
-uint16_t PoolPlaceAction::GetActionFlags() const
-{
-    return GameAction::GetActionFlags();
-}
-
-void PoolPlaceAction::Serialise(DataSerialiser& stream)
-{
-    GameAction::Serialise(stream);
-
-    stream << DS_TAG(_loc)  << DS_TAG(_type) ;
-}
-
-
-GameActions::Result PoolPlaceAction::Query() const
-{
-    auto res = GameActions::Result();
-    res.Cost = 0;
-    res.Expenditure = ExpenditureType::Landscaping;
-    res.Position = _loc.ToTileCentre();
-
-    if (!LocationValid(_loc) || MapIsEdge(_loc))
+    PoolPlaceAction::PoolPlaceAction(const CoordsXYZ& loc, ObjectEntryIndex type, bool isWater, uint8_t edgeStyle)
+        : _loc(loc)
+        , _type(type)
+        , _isWater(isWater)
+        , _edgeStyle(edgeStyle)
     {
-        return GameActions::Result(GameActions::Status::InvalidParameters, STR_CANT_BUILD_FOOTPATH_HERE, STR_OFF_EDGE_OF_MAP);
     }
 
-    if (!((gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) || gCheatsSandboxMode) && !MapIsLocationOwned(_loc))
+    void PoolPlaceAction::AcceptParameters(GameActionParameterVisitor& visitor)
     {
-        return GameActions::Result(GameActions::Status::Disallowed, STR_CANT_BUILD_FOOTPATH_HERE, STR_LAND_NOT_OWNED_BY_PARK);
+        visitor.Visit(_loc);
+        visitor.Visit("object", _type);
+        visitor.Visit("isWater", _isWater);
+        visitor.Visit("edgeStyle", _edgeStyle);
     }
 
-    if (_loc.z < PoolMinHeight)
+    uint16_t PoolPlaceAction::GetActionFlags() const
     {
-        return GameActions::Result(GameActions::Status::Disallowed, STR_CANT_BUILD_FOOTPATH_HERE, STR_TOO_LOW);
+        return GameAction::GetActionFlags();
     }
 
-    if (_loc.z > PoolMaxHeight)
+    void PoolPlaceAction::Serialise(DataSerialiser& stream)
     {
-        return GameActions::Result(GameActions::Status::Disallowed, STR_CANT_BUILD_FOOTPATH_HERE, STR_TOO_HIGH);
+        GameAction::Serialise(stream);
+
+        stream << DS_TAG(_loc) << DS_TAG(_type) << DS_TAG(_isWater) << DS_TAG(_edgeStyle);
     }
 
-    pool_provisional_remove();
-    auto tileElement = map_get_pool_element(_loc);
-    if (tileElement == nullptr)
+    Result PoolPlaceAction::Query(GameState_t& gameState, Park::ParkData& park) const
     {
-        return ElementInsertQuery(std::move(res));
-    }
-    return ElementUpdateQuery(tileElement, std::move(res));
-}
+        auto res = Result();
+        res.cost = 0;
+        res.expenditure = ExpenditureType::landscaping;
+        res.position = _loc.ToTileCentre();
 
-GameActions::Result PoolPlaceAction::Execute() const
-{
-    auto res = GameActions::Result();
-    res.Cost = 0;
-    res.Expenditure = ExpenditureType::Landscaping;
-    res.Position = _loc.ToTileCentre();
+        if (!LocationValid(_loc) || MapIsEdge(_loc))
+        {
+            return Result(Status::invalidParameters, STR_CANT_BUILD_POOL_HERE, STR_OFF_EDGE_OF_MAP);
+        }
 
-    auto tileElement = map_get_pool_element(_loc);
-    if (tileElement == nullptr)
-    {
-        return ElementInsertExecute(std::move(res));
-    }
-    return ElementUpdateExecute(tileElement, std::move(res));
-}
+        if (!(gLegacyScene == LegacyScene::scenarioEditor || gameState.cheats.sandboxMode) && !MapIsLocationOwned(_loc))
+        {
+            return Result(Status::disallowed, STR_CANT_BUILD_POOL_HERE, STR_LAND_NOT_OWNED_BY_PARK);
+        }
 
-GameActions::Result PoolPlaceAction::ElementUpdateQuery(PoolElement* poolElement, GameActions::Result res) const
-{
-    if (GetFlags() & GAME_COMMAND_FLAG_GHOST && !poolElement->IsGhost())
-    {
-        return GameActions::Result(GameActions::Status::Unknown, STR_CANT_BUILD_POOL_HERE, STR_NONE);
-    }
-return res;
-}
-GameActions::Result PoolPlaceAction::ElementUpdateExecute(PoolElement* poolElement, GameActions::Result res) const
-{
-poolElement->SetPoolEntryIndex(_type);
+        if (_loc.z < kPoolMinHeight)
+        {
+            return Result(Status::disallowed, STR_CANT_BUILD_POOL_HERE, STR_TOO_LOW);
+        }
 
-	if(poolElement->IsWater()!=_isWater||poolElement->GetEdgeStyle()!=_edgeStyle)
-	{
-	poolElement->SetIsWater(_isWater);
-	poolElement->SetEdgeStyle(_edgeStyle);
-        pool_connect_edges(_loc,reinterpret_cast<TileElement*>(poolElement));
-	}
-return res;
-}
+        if (_loc.z > kPoolMaxHeight)
+        {
+            return Result(Status::disallowed, STR_CANT_BUILD_POOL_HERE, STR_TOO_HIGH);
+        }
 
-GameActions::Result PoolPlaceAction::ElementInsertQuery(GameActions::Result res) const
-{
-return ElementInsertQueryExecute(res,false);
-}
+        PoolProvisionalRemove();
 
-GameActions::Result PoolPlaceAction::ElementInsertExecute(GameActions::Result res) const
-{
-return ElementInsertQueryExecute(res,true);
-}
-
-GameActions::Result PoolPlaceAction::ElementInsertQueryExecute(GameActions::Result res,bool isExecuting) const
-{
-    if (!isExecuting&&!MapCheckCapacityAndReorganise(_loc))
-    {
-        return GameActions::Result(GameActions::Status::NoFreeElements, STR_CANT_BUILD_FOOTPATH_HERE, STR_NONE);
+        auto* poolElement = MapGetPoolElement(_loc);
+        if (poolElement == nullptr)
+        {
+            return ElementInsertQueryExecute(gameState, std::move(res), false);
+        }
+        return ElementUpdateQuery(poolElement, std::move(res));
     }
 
-res.Cost = 12.00_GBP;
-
-    QuarterTile quarterTile{ 0b1111, 0 };
-    auto zLow = _loc.z;
-    auto zHigh = zLow + POOL_CLEARANCE;
-
-
-    auto surfaceElement = MapGetSurfaceElementAt(_loc);
-    if (surfaceElement == nullptr)
+    Result PoolPlaceAction::Execute(GameState_t& gameState, Park::ParkData& park) const
     {
-        return GameActions::Result(GameActions::Status::InvalidParameters, STR_CANT_BUILD_POOL_HERE, STR_NONE);
+        auto res = Result();
+        res.cost = 0;
+        res.expenditure = ExpenditureType::landscaping;
+        res.position = _loc.ToTileCentre();
+
+        auto* poolElement = MapGetPoolElement(_loc);
+        if (poolElement == nullptr)
+        {
+            return ElementInsertQueryExecute(gameState, std::move(res), true);
+        }
+        return ElementUpdateExecute(poolElement, std::move(res));
     }
 
-    bool inGround=false;
-    if(surfaceElement->AsSurface()->GetSlope()==0&&surfaceElement->AsSurface()->GetBaseZ()==zLow+POOL_DEPTH)
+    Result PoolPlaceAction::ElementUpdateQuery(PoolElement* poolElement, Result res) const
     {
-    inGround=true;
+        if (GetFlags().has(CommandFlag::ghost) && !poolElement->IsGhost())
+        {
+            return Result(Status::itemAlreadyPlaced, STR_CANT_BUILD_POOL_HERE, kStringIdNone);
+        }
+        return res;
     }
 
-    auto canBuild = MapCanConstructWithClearAt({ _loc, inGround?zLow+POOL_DEPTH:zLow, zHigh }, &MapPlaceNonSceneryClearFunc, quarterTile, GAME_COMMAND_FLAG_APPLY | GetFlags(),
-        0);
-    if (canBuild.Error != GameActions::Status::Ok)
+    Result PoolPlaceAction::ElementUpdateExecute(PoolElement* poolElement, Result res) const
     {
-	
-        canBuild.ErrorTitle = STR_CANT_BUILD_POOL_HERE;
-        return canBuild;
-    }
-    res.Cost += canBuild.Cost;
-
-    const auto clearanceData = canBuild.GetData<ConstructClearResult>();
-    if (!isExecuting&&!gCheatsDisableClearanceChecks && (clearanceData.GroundFlags & ELEMENT_IS_UNDERWATER))
-    {
-        return GameActions::Result(
-            GameActions::Status::Disallowed, STR_CANT_BUILD_FOOTPATH_HERE, STR_CANT_BUILD_THIS_UNDERWATER);
-    }
-
-
-//    int32_t supportHeight = zLow - surfaceElement->GetBaseZ();
-    //res.Cost += supportHeight < 0 ? 20.00_GBP : (supportHeight / POOL_HEIGHT_STEP) * 5.00_GBP;
-
-        if(isExecuting)
-	{
-        auto* poolElement = TileElementInsert<PoolElement>(_loc, 0b1111);
-        Guard::Assert(poolElement != nullptr);
-
-        poolElement->SetClearanceZ(zHigh);
         poolElement->SetPoolEntryIndex(_type);
-        poolElement->SetGhost(GetFlags() & GAME_COMMAND_FLAG_GHOST);
-	poolElement->SetInGround(inGround);
-	poolElement->SetIsWater(_isWater);
-	poolElement->SetEdgeStyle(_edgeStyle);
 
-        pool_connect_edges(_loc,reinterpret_cast<TileElement*>(poolElement));
-
-	}
-    return res;
-}
-
-PoolElement* PoolPlaceAction::map_get_pool_element(const CoordsXYZ& poolPos) const
-{
-    for (auto* poolElement : TileElementsView<PoolElement>(poolPos))
-    {
-        if (poolElement->GetBaseZ() != poolPos.z)
-            continue;
-        return poolElement;
+        if (poolElement->IsWater() != _isWater || poolElement->GetEdgeStyle() != _edgeStyle)
+        {
+            poolElement->SetIsWater(_isWater);
+            poolElement->SetEdgeStyle(_edgeStyle);
+            PoolConnectEdges(_loc, poolElement);
+        }
+        return res;
     }
 
-    return nullptr;
-}
+    Result PoolPlaceAction::ElementInsertQueryExecute(GameState_t& gameState, Result res, bool isExecuting) const
+    {
+        if (!isExecuting && !MapCheckCapacityAndReorganise(_loc))
+        {
+            return Result(Status::noFreeElements, STR_CANT_BUILD_POOL_HERE, kStringIdNone);
+        }
+
+        res.cost = 12.00_GBP;
+
+        QuarterTile quarterTile{ 0b1111, 0 };
+        auto zLow = _loc.z;
+        auto zHigh = zLow + kPoolClearance;
+
+        auto* surfaceElement = MapGetSurfaceElementAt(_loc);
+        if (surfaceElement == nullptr)
+        {
+            return Result(Status::invalidParameters, STR_CANT_BUILD_POOL_HERE, kStringIdNone);
+        }
+
+        bool inGround = false;
+        if (surfaceElement->GetSlope() == 0 && surfaceElement->GetBaseZ() == zLow + kPoolDepth)
+        {
+            inGround = true;
+        }
+
+        auto canBuild = MapCanConstructWithClearAt(
+            { _loc, inGround ? zLow + kPoolDepth : zLow, zHigh }, MapPlaceNonSceneryClearFunc, quarterTile,
+            GetFlags().with(CommandFlag::apply), 0);
+        if (canBuild.error != Status::ok)
+        {
+            canBuild.errorTitle = STR_CANT_BUILD_POOL_HERE;
+            return canBuild;
+        }
+        res.cost += canBuild.cost;
+
+        const auto clearanceData = canBuild.getData<ConstructClearResult>();
+        if (!isExecuting && !gameState.cheats.disableClearanceChecks && (clearanceData.GroundFlags & ELEMENT_IS_UNDERWATER))
+        {
+            return Result(Status::disallowed, STR_CANT_BUILD_POOL_HERE, STR_CANT_BUILD_THIS_UNDERWATER);
+        }
+
+        if (isExecuting)
+        {
+            auto* poolElement = TileElementInsert<PoolElement>(_loc, 0b1111);
+            Guard::Assert(poolElement != nullptr);
+
+            poolElement->SetClearanceZ(zHigh);
+            poolElement->SetPoolEntryIndex(_type);
+            poolElement->SetGhost(GetFlags().has(CommandFlag::ghost));
+            poolElement->SetInGround(inGround);
+            poolElement->SetIsWater(_isWater);
+            poolElement->SetEdgeStyle(_edgeStyle);
+
+            PoolConnectEdges(_loc, poolElement);
+            MapInvalidateTileFull(_loc);
+        }
+        return res;
+    }
+} // namespace OpenRCT2::GameActions

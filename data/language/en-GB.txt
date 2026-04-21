@@ -3543,20 +3543,23 @@ STR_6545    :Use RCT1 interest calculation
 STR_6546    :Use the interest calculation algorithm of RollerCoaster Tycoon 1, which used a fixed percentage of approximately 1.33%.
 STR_6547    :All Scenery
 
-STR_6506    :Pools
-STR_6507    :Pool in the way
-STR_6508    :Can’t build pool here…
-STR_6509    :Can’t remove pool from here…
-STR_6510    :Build pools
-STR_6511    :Pool
-STR_6512    :Corner style
-STR_6513    :Square
-STR_6514    :Angled
-STR_6515    :Rounded
-STR_6516    :Place path tiles
-STR_6517    :Place water tiles
-STR_6518    :Draw rectangle
-STR_6519    :Depth
+STR_7030    :Pools
+STR_7031    :Pool in the way
+STR_7032    :Can’t build pool here…
+STR_7033    :Can’t remove pool from here…
+STR_7034    :Build pools
+STR_7035    :Pool
+STR_7036    :Corner style
+STR_7037    :Square
+STR_7038    :Angled
+STR_7039    :Rounded
+STR_7040    :Place path tiles
+STR_7041    :Place water tiles
+STR_7042    :Draw rectangle
+STR_7043    :Depth
+STR_7044    :Type
+STR_7045    :Pool
+STR_7046    :Pool details
 
 #############
 # Scenarios #

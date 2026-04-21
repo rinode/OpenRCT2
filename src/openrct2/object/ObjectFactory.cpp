@@ -40,6 +40,7 @@
 #include "PathAdditionObject.h"
 #include "PeepAnimationsObject.h"
 #include "PeepNamesObject.h"
+#include "PoolObject.h"
 #include "RideObject.h"
 #include "ScenarioMetaObject.h"
 #include "SceneryGroupObject.h"
@@ -414,6 +415,9 @@ namespace OpenRCT2::ObjectFactory
                 break;
             case ObjectType::climate:
                 result = std::make_unique<ClimateObject>();
+                break;
+            case ObjectType::pool:
+                result = std::make_unique<PoolObject>();
                 break;
             default:
                 throw std::runtime_error("Invalid object type");

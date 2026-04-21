@@ -155,6 +155,13 @@ namespace OpenRCT2::GameActions
                 res = TileInspector::PathToggleEdge(_loc, elementIndex, edgeIndex, isExecuting);
                 break;
             }
+            case TileModifyType::PoolToggleEdge:
+            {
+                const auto elementIndex = _value1;
+                const auto edgeIndex = _value2;
+                res = TileInspector::PoolToggleEdge(_loc, elementIndex, edgeIndex, isExecuting);
+                break;
+            }
             case TileModifyType::EntranceMakeUsable:
             {
                 const auto elementIndex = _value1;

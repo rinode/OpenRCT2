@@ -53,6 +53,7 @@
 #include <openrct2/world/tile_element/EntranceElement.h>
 #include <openrct2/world/tile_element/LargeSceneryElement.h>
 #include <openrct2/world/tile_element/PathElement.h>
+#include <openrct2/world/tile_element/PoolElement.h>
 #include <openrct2/world/tile_element/Slope.h>
 #include <openrct2/world/tile_element/SmallSceneryElement.h>
 #include <openrct2/world/tile_element/SurfaceElement.h>
@@ -195,6 +196,15 @@ namespace OpenRCT2::Ui::Windows
         WIDX_BANNER_CHECK_BLOCK_SE,
         WIDX_BANNER_CHECK_BLOCK_SW,
         WIDX_BANNER_CHECK_BLOCK_NW,
+
+        // Pool
+        WIDX_POOL_SPINNER_HEIGHT = PAGE_WIDGETS,
+        WIDX_POOL_SPINNER_HEIGHT_INCREASE,
+        WIDX_POOL_SPINNER_HEIGHT_DECREASE,
+        WIDX_POOL_CHECK_EDGE_NE,
+        WIDX_POOL_CHECK_EDGE_SE,
+        WIDX_POOL_CHECK_EDGE_SW,
+        WIDX_POOL_CHECK_EDGE_NW,
     };
 
     static_assert(WC_TILE_INSPECTOR__WIDX_BUTTON_ROTATE == WIDX_BUTTON_ROTATE);
@@ -224,6 +234,8 @@ namespace OpenRCT2::Ui::Windows
     static_assert(WC_TILE_INSPECTOR__WIDX_LARGE_SCENERY_SPINNER_HEIGHT_DECREASE == WIDX_LARGE_SCENERY_SPINNER_HEIGHT_DECREASE);
     static_assert(WC_TILE_INSPECTOR__WIDX_BANNER_SPINNER_HEIGHT_INCREASE == WIDX_BANNER_SPINNER_HEIGHT_INCREASE);
     static_assert(WC_TILE_INSPECTOR__WIDX_BANNER_SPINNER_HEIGHT_DECREASE == WIDX_BANNER_SPINNER_HEIGHT_DECREASE);
+    static_assert(WC_TILE_INSPECTOR__WIDX_POOL_SPINNER_HEIGHT_INCREASE == WIDX_POOL_SPINNER_HEIGHT_INCREASE);
+    static_assert(WC_TILE_INSPECTOR__WIDX_POOL_SPINNER_HEIGHT_DECREASE == WIDX_POOL_SPINNER_HEIGHT_DECREASE);
 
 #pragma region MEASUREMENTS
 
@@ -423,6 +435,19 @@ namespace OpenRCT2::Ui::Windows
         makeWidget(CheckboxGroupOffset(PropertyRowCol({ 12, 0 }, 1, 1), 1, 1), { 12, 12 }, WidgetType::checkbox, WindowColour::secondary)  // WIDX_BANNER_CHECK_BLOCK_NW
     );
 
+    constexpr int32_t kNumPoolProperties = 3;
+    constexpr int32_t kNumPoolDetails = 1;
+    constexpr int32_t kPoolPropertiesHeight = 20 + kNumPoolProperties * 21;
+    constexpr int32_t kPoolDetailsHeight = 20 + kNumPoolDetails * 11;
+    static constexpr auto kPoolWidgets = makeWidgets(
+        kMainTileInspectorWidgets,
+        makeSpinnerWidgets(PropertyRowCol({ 12, 0 }, 0, 1), kPropertySpinnerSize, WidgetType::spinner, WindowColour::secondary), // WIDX_POOL_SPINNER_HEIGHT{,_INCREASE,_DECREASE}
+        makeWidget(CheckboxGroupOffset(PropertyRowCol({ 12, 0 }, 1, 1), 3, 1), { 12, 12 }, WidgetType::checkbox, WindowColour::secondary), // WIDX_POOL_CHECK_EDGE_NE
+        makeWidget(CheckboxGroupOffset(PropertyRowCol({ 12, 0 }, 1, 1), 3, 3), { 12, 12 }, WidgetType::checkbox, WindowColour::secondary), // WIDX_POOL_CHECK_EDGE_SE
+        makeWidget(CheckboxGroupOffset(PropertyRowCol({ 12, 0 }, 1, 1), 1, 3), { 12, 12 }, WidgetType::checkbox, WindowColour::secondary), // WIDX_POOL_CHECK_EDGE_SW
+        makeWidget(CheckboxGroupOffset(PropertyRowCol({ 12, 0 }, 1, 1), 1, 1), { 12, 12 }, WidgetType::checkbox, WindowColour::secondary)  // WIDX_POOL_CHECK_EDGE_NW
+    );
+
     static constexpr std::span<const Widget> kWidgetsByPage[] = {
         kDefaultWidgets,
         kSurfaceWidgets,
@@ -433,6 +458,7 @@ namespace OpenRCT2::Ui::Windows
         kWallWidgets,
         kLargeSceneryWidgets,
         kBannerWidgets,
+        kPoolWidgets,
     };
     // clang-format on
 
@@ -467,12 +493,14 @@ namespace OpenRCT2::Ui::Windows
         MakeGroupboxSettings(
             kLargeSceneryDetailsHeight, kLargeSceneryPropertiesHeight, STR_TILE_INSPECTOR_GROUPBOX_LARGE_SCENERY_INFO),
         MakeGroupboxSettings(kBannerDetailsHeight, kBannerPropertiesHeight, STR_TILE_INSPECTOR_GROUPBOX_BANNER_INFO),
+        MakeGroupboxSettings(kPoolDetailsHeight, kPoolPropertiesHeight, STR_TILE_INSPECTOR_GROUPBOX_POOL_INFO),
     };
 
     static constexpr int32_t ViewportInteractionFlags = EnumsToFlags(
         ViewportInteractionItem::terrain, ViewportInteractionItem::ride, ViewportInteractionItem::scenery,
         ViewportInteractionItem::footpath, ViewportInteractionItem::pathAddition, ViewportInteractionItem::parkEntrance,
-        ViewportInteractionItem::wall, ViewportInteractionItem::largeScenery, ViewportInteractionItem::banner);
+        ViewportInteractionItem::wall, ViewportInteractionItem::largeScenery, ViewportInteractionItem::banner,
+        ViewportInteractionItem::pool);
 
     // clang-format off
     static uint64_t kHoldableWidgetsByPage[] = {
@@ -485,6 +513,7 @@ namespace OpenRCT2::Ui::Windows
         (1uLL << WIDX_SPINNER_X_INCREASE) | (1uLL << WIDX_SPINNER_X_DECREASE) | (1uLL << WIDX_SPINNER_Y_INCREASE) | (1uLL << WIDX_SPINNER_Y_DECREASE) | (1uLL << WIDX_WALL_SPINNER_HEIGHT_INCREASE) | (1uLL << WIDX_WALL_SPINNER_HEIGHT_DECREASE) | (1uLL << WIDX_WALL_SPINNER_ANIMATION_FRAME_INCREASE) | (1uLL << WIDX_WALL_SPINNER_ANIMATION_FRAME_DECREASE),
         (1uLL << WIDX_SPINNER_X_INCREASE) | (1uLL << WIDX_SPINNER_X_DECREASE) | (1uLL << WIDX_SPINNER_Y_INCREASE) | (1uLL << WIDX_SPINNER_Y_DECREASE) | (1uLL << WIDX_LARGE_SCENERY_SPINNER_HEIGHT_INCREASE) | (1uLL << WIDX_LARGE_SCENERY_SPINNER_HEIGHT_DECREASE),
         (1uLL << WIDX_SPINNER_X_INCREASE) | (1uLL << WIDX_SPINNER_X_DECREASE) | (1uLL << WIDX_SPINNER_Y_INCREASE) | (1uLL << WIDX_SPINNER_Y_DECREASE) | (1uLL << WIDX_BANNER_SPINNER_HEIGHT_INCREASE) | (1uLL << WIDX_BANNER_SPINNER_HEIGHT_DECREASE),
+        (1uLL << WIDX_SPINNER_X_INCREASE) | (1uLL << WIDX_SPINNER_X_DECREASE) | (1uLL << WIDX_SPINNER_Y_INCREASE) | (1uLL << WIDX_SPINNER_Y_DECREASE) | (1uLL << WIDX_POOL_SPINNER_HEIGHT_INCREASE) | (1uLL << WIDX_POOL_SPINNER_HEIGHT_DECREASE),
     };
 
     static uint64_t kDisabledWidgetsByPage[] = {
@@ -497,6 +526,7 @@ namespace OpenRCT2::Ui::Windows
         0,
         (1uLL << WIDX_BUTTON_ROTATE),
         0,
+        (1uLL << WIDX_BUTTON_ROTATE),
     };
     // clang-format on
 
@@ -728,6 +758,18 @@ namespace OpenRCT2::Ui::Windows
                     } // switch widget index
                     break;
 
+                case TileElementType::Pool:
+                    switch (widgetIndex)
+                    {
+                        case WIDX_POOL_CHECK_EDGE_NE:
+                        case WIDX_POOL_CHECK_EDGE_SE:
+                        case WIDX_POOL_CHECK_EDGE_SW:
+                        case WIDX_POOL_CHECK_EDGE_NW:
+                            PoolToggleEdge(windowTileInspectorSelectedIndex, widgetIndex - WIDX_POOL_CHECK_EDGE_NE);
+                            break;
+                    } // switch widget index
+                    break;
+
                 case TileElementType::LargeScenery:
                 case TileElementType::Wall:
                     switch (widgetIndex)
@@ -949,6 +991,19 @@ namespace OpenRCT2::Ui::Windows
                     } // switch widget index
                     break;
 
+                case TileElementType::Pool:
+                    switch (widgetIndex)
+                    {
+                        case WIDX_POOL_SPINNER_HEIGHT_INCREASE:
+                            BaseHeightOffset(windowTileInspectorSelectedIndex, 1);
+                            break;
+
+                        case WIDX_POOL_SPINNER_HEIGHT_DECREASE:
+                            BaseHeightOffset(windowTileInspectorSelectedIndex, -1);
+                            break;
+                    } // switch widget index
+                    break;
+
                 default:
                     break;
             }
@@ -1137,6 +1192,13 @@ namespace OpenRCT2::Ui::Windows
                     {
                         auto* bannerEl = tileElement->AsBanner();
                         onDrawBanner(rt, screenCoords, *bannerEl);
+                        break;
+                    }
+
+                    case TileElementType::Pool:
+                    {
+                        auto* poolEl = tileElement->AsPool();
+                        onDrawPool(rt, screenCoords, *poolEl);
                         break;
                     }
 
@@ -1598,6 +1660,21 @@ namespace OpenRCT2::Ui::Windows
             drawText(rt, screenCoords, STR_TILE_INSPECTOR_BANNER_BLOCKED_PATHS, { colours[1] });
         }
 
+        void onDrawPool(RenderTarget& rt, ScreenCoordsXY screenCoords, const PoolElement& poolEl)
+        {
+            // Properties
+            // Raise / lower label
+            screenCoords.y = windowPos.y + widgets[WIDX_POOL_SPINNER_HEIGHT].top + 1;
+            drawText(rt, screenCoords, STR_TILE_INSPECTOR_BASE_HEIGHT_FULL, { colours[1] });
+
+            // Current base height
+            screenCoords = windowPos
+                + ScreenCoordsXY{ widgets[WIDX_POOL_SPINNER_HEIGHT].left + 3, widgets[WIDX_POOL_SPINNER_HEIGHT].textTop() };
+            auto ft = Formatter();
+            ft.Add<int32_t>(poolEl.BaseHeight);
+            drawText(rt, screenCoords, STR_FORMAT_INTEGER, ft, { colours[1] });
+        }
+
         void onScrollDraw(int32_t scrollIndex, RenderTarget& rt) override
         {
             const int32_t listWidth = widgets[WIDX_LIST].width() - 1;
@@ -1713,6 +1790,10 @@ namespace OpenRCT2::Ui::Windows
                             buffer, sizeof(buffer), "%s (%u)", LanguageGetString(STR_BANNER_WINDOW_TITLE),
                             tileElement->AsBanner()->GetIndex().ToUnderlying());
                         typeName = buffer;
+                        break;
+
+                    case TileElementType::Pool:
+                        typeName = LanguageGetString(STR_POOLS);
                         break;
 
                     default:
@@ -2082,6 +2163,15 @@ namespace OpenRCT2::Ui::Windows
             GameActions::Execute(&modifyTile, getGameState());
         }
 
+        void PoolToggleEdge(int32_t elementIndex, int32_t edgeIndex)
+        {
+            Guard::Assert(edgeIndex >= 0 && edgeIndex < 4, "edgeIndex out of range");
+            edgeIndex = (edgeIndex - GetCurrentRotation()) & 3;
+            auto modifyTile = GameActions::TileModifyAction(
+                _toolMap, GameActions::TileModifyType::PoolToggleEdge, elementIndex, edgeIndex);
+            GameActions::Execute(&modifyTile, getGameState());
+        }
+
         void ToggleInvisibility(int32_t elementIndex)
         {
             Guard::Assert(elementIndex >= 0 && elementIndex < windowTileInspectorElementCount, "elementIndex out of range");
@@ -2137,6 +2227,10 @@ namespace OpenRCT2::Ui::Windows
 
                     case TileElementType::Banner:
                         p = TileInspectorPage::Banner;
+                        break;
+
+                    case TileElementType::Pool:
+                        p = TileInspectorPage::Pool;
                         break;
                 }
             }
@@ -2442,6 +2536,30 @@ namespace OpenRCT2::Ui::Windows
                         WIDX_BANNER_CHECK_BLOCK_NW,
                         (tileElement->AsBanner()->GetAllowedEdges() & (1 << ((3 - GetCurrentRotation()) & 3))));
                     break;
+
+                case TileElementType::Pool:
+                {
+                    widgets[WIDX_POOL_SPINNER_HEIGHT].moveTo(PropertyRowCol(propertiesAnchor, 0, 1));
+                    widgets[WIDX_POOL_SPINNER_HEIGHT_INCREASE].moveTo(
+                        PropertyRowCol(propertiesAnchor, 0, 1) + ScreenCoordsXY{ kPropertyButtonSize.width - 13, 1 });
+                    widgets[WIDX_POOL_SPINNER_HEIGHT_DECREASE].moveTo(
+                        PropertyRowCol(propertiesAnchor, 0, 1) + ScreenCoordsXY{ kPropertyButtonSize.width - 26, 1 });
+                    widgets[WIDX_POOL_CHECK_EDGE_NE].moveTo(
+                        CheckboxGroupOffset(PropertyRowCol(propertiesAnchor, 1, 1), 3, 1));
+                    widgets[WIDX_POOL_CHECK_EDGE_SE].moveTo(
+                        CheckboxGroupOffset(PropertyRowCol(propertiesAnchor, 1, 1), 3, 3));
+                    widgets[WIDX_POOL_CHECK_EDGE_SW].moveTo(
+                        CheckboxGroupOffset(PropertyRowCol(propertiesAnchor, 1, 1), 1, 3));
+                    widgets[WIDX_POOL_CHECK_EDGE_NW].moveTo(
+                        CheckboxGroupOffset(PropertyRowCol(propertiesAnchor, 1, 1), 1, 1));
+
+                    const uint8_t edges = tileElement->AsPool()->GetEdgesAndCorners() & 0x0F;
+                    setCheckboxValue(WIDX_POOL_CHECK_EDGE_NE, (edges & (1 << ((0 - GetCurrentRotation()) & 3))));
+                    setCheckboxValue(WIDX_POOL_CHECK_EDGE_SE, (edges & (1 << ((1 - GetCurrentRotation()) & 3))));
+                    setCheckboxValue(WIDX_POOL_CHECK_EDGE_SW, (edges & (1 << ((2 - GetCurrentRotation()) & 3))));
+                    setCheckboxValue(WIDX_POOL_CHECK_EDGE_NW, (edges & (1 << ((3 - GetCurrentRotation()) & 3))));
+                    break;
+                }
 
                 default:
                     break; // Nothing.

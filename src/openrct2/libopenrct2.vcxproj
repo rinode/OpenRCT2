@@ -124,6 +124,8 @@
     <ClInclude Include="actions\peep\StaffSetNameAction.h" />
     <ClInclude Include="actions\peep\StaffSetOrdersAction.h" />
     <ClInclude Include="actions\peep\StaffSetPatrolAreaAction.h" />
+    <ClInclude Include="actions\PoolPlaceAction.h" />
+    <ClInclude Include="actions\PoolRemoveAction.h" />
     <ClInclude Include="actions\ResultWithMessage.h" />
     <ClInclude Include="actions\ride\MazePlaceTrackAction.h" />
     <ClInclude Include="actions\ride\MazeSetTrackAction.h" />
@@ -375,6 +377,7 @@
     <ClInclude Include="object\PathAdditionObject.h" />
     <ClInclude Include="object\PeepAnimationsObject.h" />
     <ClInclude Include="object\PeepNamesObject.h" />
+    <ClInclude Include="object\PoolObject.h" />
     <ClInclude Include="object\ResourceTable.h" />
     <ClInclude Include="object\RideObject.h" />
     <ClInclude Include="object\SceneryGroupEntry.h" />
@@ -408,6 +411,7 @@
     <ClInclude Include="paint\tile_element\Paint.Entrance.h" />
     <ClInclude Include="paint\tile_element\Paint.LargeScenery.h" />
     <ClInclude Include="paint\tile_element\Paint.Path.h" />
+    <ClInclude Include="paint\tile_element\Paint.Pool.h" />
     <ClInclude Include="paint\tile_element\Paint.SmallScenery.h" />
     <ClInclude Include="paint\tile_element\Paint.PathAddition.h" />
     <ClInclude Include="paint\tile_element\Paint.Surface.h" />
@@ -686,6 +690,7 @@
     <ClInclude Include="world\MapSelection.h" />
     <ClInclude Include="world\Park.h" />
     <ClInclude Include="world\ParkData.h" />
+    <ClInclude Include="world\Pool.h" />
     <ClInclude Include="world\QuarterTile.h" />
     <ClInclude Include="world\Scenery.h" />
     <ClInclude Include="world\ScenerySelection.h" />
@@ -705,6 +710,7 @@
     <ClInclude Include="world\tile_element\EntranceElement.h" />
     <ClInclude Include="world\tile_element\LargeSceneryElement.h" />
     <ClInclude Include="world\tile_element\PathElement.h" />
+    <ClInclude Include="world\tile_element\PoolElement.h" />
     <ClInclude Include="world\tile_element\Slope.h" />
     <ClInclude Include="world\tile_element\SmallSceneryElement.h" />
     <ClInclude Include="world\tile_element\SurfaceElement.h" />
@@ -765,6 +771,8 @@
     <ClCompile Include="actions\peep\StaffSetNameAction.cpp" />
     <ClCompile Include="actions\peep\StaffSetOrdersAction.cpp" />
     <ClCompile Include="actions\peep\StaffSetPatrolAreaAction.cpp" />
+    <ClCompile Include="actions\PoolPlaceAction.cpp" />
+    <ClCompile Include="actions\PoolRemoveAction.cpp" />
     <ClCompile Include="actions\ride\MazePlaceTrackAction.cpp" />
     <ClCompile Include="actions\ride\MazeSetTrackAction.cpp" />
     <ClCompile Include="actions\ride\RideCreateAction.cpp" />
@@ -975,6 +983,7 @@
     <ClCompile Include="object\PathAdditionObject.cpp" />
     <ClCompile Include="object\PeepAnimationsObject.cpp" />
     <ClCompile Include="object\PeepNamesObject.cpp" />
+    <ClCompile Include="object\PoolObject.cpp" />
     <ClCompile Include="object\ResourceTable.cpp" />
     <ClCompile Include="object\RideObject.cpp" />
     <ClCompile Include="object\ScenarioMetaObject.cpp" />
@@ -1006,6 +1015,7 @@
     <ClCompile Include="paint\tile_element\Paint.LargeScenery.cpp" />
     <ClCompile Include="paint\tile_element\Paint.Path.cpp" />
     <ClCompile Include="paint\tile_element\Paint.PathAddition.cpp" />
+    <ClCompile Include="paint\tile_element\Paint.Pool.cpp" />
     <ClCompile Include="paint\tile_element\Paint.SmallScenery.cpp" />
     <ClCompile Include="paint\tile_element\Paint.Surface.cpp" />
     <ClCompile Include="paint\tile_element\Paint.TileElement.cpp" />
@@ -1241,6 +1251,7 @@
     <ClCompile Include="world\MapAnimation.cpp" />
     <ClCompile Include="world\MapSelection.cpp" />
     <ClCompile Include="world\Park.cpp" />
+    <ClCompile Include="world\Pool.cpp" />
     <ClCompile Include="world\QuarterTile.cpp" />
     <ClCompile Include="world\Scenery.cpp" />
     <ClCompile Include="world\SurfaceData.cpp" />
@@ -1256,6 +1267,7 @@
     <ClCompile Include="world\tile_element\EntranceElement.cpp" />
     <ClCompile Include="world\tile_element\LargeSceneryElement.cpp" />
     <ClCompile Include="world\tile_element\PathElement.cpp" />
+    <ClCompile Include="world\tile_element\PoolElement.cpp" />
     <ClCompile Include="world\tile_element\Slope.cpp" />
     <ClCompile Include="world\tile_element\SmallSceneryElement.cpp" />
     <ClCompile Include="world\tile_element\SurfaceElement.cpp" />

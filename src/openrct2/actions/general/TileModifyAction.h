@@ -29,6 +29,7 @@ namespace OpenRCT2::GameActions
         PathSetBroken,
         PathToggleEdge,
         PathSetJunctionRailings,
+        PoolToggleEdge,
         EntranceMakeUsable,
         WallSetSlope,
         WallSetAnimationFrame,

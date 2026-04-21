@@ -15,6 +15,7 @@
 #include "EntranceElement.h"
 #include "LargeSceneryElement.h"
 #include "PathElement.h"
+#include "PoolElement.h"
 #include "SmallSceneryElement.h"
 #include "SurfaceElement.h"
 #include "TileElement.h"
@@ -206,5 +207,14 @@ namespace OpenRCT2
     BannerElement* TileElementBase::AsBanner()
     {
         return as<BannerElement>();
+    }
+
+    const PoolElement* TileElementBase::AsPool() const
+    {
+        return as<PoolElement>();
+    }
+    PoolElement* TileElementBase::AsPool()
+    {
+        return as<PoolElement>();
     }
 } // namespace OpenRCT2

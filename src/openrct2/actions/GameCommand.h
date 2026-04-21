@@ -100,6 +100,8 @@ namespace OpenRCT2
         SetGameSpeed,
         SetRestrictedScenery,
         setRideVisibility,
+        PlacePool,
+        RemovePool,
         Count,
     };
 }

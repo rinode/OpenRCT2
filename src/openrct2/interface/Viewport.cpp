@@ -1476,7 +1476,7 @@ namespace OpenRCT2
     static bool PSInteractionTypeIsInFilter(PaintStruct* ps, uint16_t filter)
     {
         if (ps->InteractionItem != ViewportInteractionItem::none && ps->InteractionItem != ViewportInteractionItem::label
-            && ps->InteractionItem <= ViewportInteractionItem::banner)
+            && ps->InteractionItem <= ViewportInteractionItem::pool)
         {
             auto mask = EnumToFlag(ps->InteractionItem);
             if (filter & mask)

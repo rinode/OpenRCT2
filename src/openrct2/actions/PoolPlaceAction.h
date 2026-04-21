@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2020 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,33 +9,36 @@
 
 #pragma once
 
-#include "../world/Footpath.h"
-#include "GameAction.h"
+#include "GameAction.hpp"
 
-class PoolPlaceAction final : public GameActionBase<GameCommand::PlacePool>
+namespace OpenRCT2
 {
-private:
-    CoordsXYZ _loc;
-    ObjectEntryIndex _type{};
-    bool _isWater;
-    uint8_t _edgeStyle;
-public:
-    PoolPlaceAction() = default;
-    PoolPlaceAction(
-        const CoordsXYZ& loc, ObjectEntryIndex type, bool isWater,uint8_t edgeStyle);
-    void AcceptParameters(GameActionParameterVisitor& visitor) override;
+    struct PoolElement;
+}
 
-    uint16_t GetActionFlags() const override;
+namespace OpenRCT2::GameActions
+{
+    class PoolPlaceAction final : public GameActionBase<GameCommand::PlacePool>
+    {
+    private:
+        CoordsXYZ _loc;
+        ObjectEntryIndex _type{};
+        bool _isWater{};
+        uint8_t _edgeStyle{};
 
-    void Serialise(DataSerialiser& stream) override;
-    GameActions::Result Query() const override;
-    GameActions::Result Execute() const override;
+    public:
+        PoolPlaceAction() = default;
+        PoolPlaceAction(const CoordsXYZ& loc, ObjectEntryIndex type, bool isWater, uint8_t edgeStyle);
 
-private:
-    GameActions::Result ElementUpdateQuery(PoolElement* pathElement, GameActions::Result res) const;
-    GameActions::Result ElementUpdateExecute(PoolElement* pathElement, GameActions::Result res) const;
-    GameActions::Result ElementInsertQuery(GameActions::Result res) const;
-    GameActions::Result ElementInsertExecute(GameActions::Result res) const;
-    GameActions::Result ElementInsertQueryExecute(GameActions::Result res,bool isExecuting) const;
-    PoolElement* map_get_pool_element(const CoordsXYZ& poolPos) const;
-};
+        void AcceptParameters(GameActionParameterVisitor& visitor) override;
+        uint16_t GetActionFlags() const override;
+        void Serialise(DataSerialiser& stream) override;
+        Result Query(GameState_t& gameState, Park::ParkData& park) const override;
+        Result Execute(GameState_t& gameState, Park::ParkData& park) const override;
+
+    private:
+        Result ElementUpdateQuery(PoolElement* poolElement, Result res) const;
+        Result ElementUpdateExecute(PoolElement* poolElement, Result res) const;
+        Result ElementInsertQueryExecute(GameState_t& gameState, Result res, bool isExecuting) const;
+    };
+} // namespace OpenRCT2::GameActions

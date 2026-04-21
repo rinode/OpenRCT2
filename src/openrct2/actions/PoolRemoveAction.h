@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2020 OpenRCT2 developers
+ * Copyright (c) 2014-2026 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -9,27 +9,31 @@
 
 #pragma once
 
-#include "../world/TileElement.h"
-#include "GameAction.h"
+#include "GameAction.hpp"
 
-class PoolRemoveAction final : public GameActionBase<GameCommand::RemovePool>
+namespace OpenRCT2
 {
-private:
-    CoordsXYZ _loc;
+    struct PoolElement;
+}
 
-public:
-    PoolRemoveAction() = default;
-    PoolRemoveAction(const CoordsXYZ& location);
+namespace OpenRCT2::GameActions
+{
+    class PoolRemoveAction final : public GameActionBase<GameCommand::RemovePool>
+    {
+    private:
+        CoordsXYZ _loc;
 
-    void AcceptParameters(GameActionParameterVisitor& visitor) override;
+    public:
+        PoolRemoveAction() = default;
+        PoolRemoveAction(const CoordsXYZ& location);
 
-    uint16_t GetActionFlags() const override;
+        void AcceptParameters(GameActionParameterVisitor& visitor) override;
+        uint16_t GetActionFlags() const override;
+        void Serialise(DataSerialiser& stream) override;
+        Result Query(GameState_t& gameState, Park::ParkData& park) const override;
+        Result Execute(GameState_t& gameState, Park::ParkData& park) const override;
 
-    void Serialise(DataSerialiser& stream) override;
-    GameActions::Result Query() const override;
-    GameActions::Result Execute() const override;
-    GameActions::Result QueryExecute(bool isExecuting) const;
-
-private:
-    TileElement* FindPoolElement() const;
-};
+    private:
+        PoolElement* FindPoolElement() const;
+    };
+} // namespace OpenRCT2::GameActions
