@@ -400,7 +400,7 @@ void MapGetObstructionErrorText(TileElement* tileElement, GameActions::Result& r
         case TileElementType::Banner:
             break;
         case TileElementType::Pool:
-            res.ErrorMessage = STR_POOL_IN_THE_WAY;
+            res.errorMessage = STR_POOL_IN_THE_WAY;
             break;
     }
 }

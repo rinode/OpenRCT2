@@ -298,7 +298,7 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
                 PaintBanner(session, direction, baseZ, *(tile_element->AsBanner()));
                 break;
             case TileElementType::Pool:
-                PaintPool(session, direction, baseZ, *(tile_element->AsPool()));
+                // TODO(pools-merge): re-enable once PoolElement+PaintPool are ported
                 break;
         }
         session.MapPosition = mapPosition;

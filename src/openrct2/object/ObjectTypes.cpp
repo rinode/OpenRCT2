@@ -38,6 +38,7 @@ namespace OpenRCT2
         ObjectType::peepNames,
         ObjectType::peepAnimations,
         ObjectType::climate,
+        ObjectType::pool,
     };
 
     static_assert(kAllObjectTypes.size() == EnumValue(ObjectType::count));
@@ -48,7 +49,7 @@ namespace OpenRCT2
         ObjectType::banners,      ObjectType::paths,          ObjectType::pathAdditions,   ObjectType::sceneryGroup,
         ObjectType::parkEntrance, ObjectType::water,          ObjectType::terrainSurface,  ObjectType::terrainEdge,
         ObjectType::station,      ObjectType::music,          ObjectType::footpathSurface, ObjectType::footpathRailings,
-        ObjectType::peepNames,    ObjectType::peepAnimations, ObjectType::climate,
+        ObjectType::peepNames,    ObjectType::peepAnimations, ObjectType::climate,         ObjectType::pool,
     };
 
     // Object types that cannot be saved in a park file.

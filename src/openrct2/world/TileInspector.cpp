@@ -640,29 +640,7 @@ namespace OpenRCT2::TileInspector
         return GameActions::Result();
     }
     
-    GameActions::Result PoolToggleEdge(const CoordsXY& loc, int32_t elementIndex, int32_t edgeIndex, bool isExecuting)
-    {
-        TileElement* const poolElement = MapGetNthElementAt(loc, elementIndex);
-
-        if (poolElement == nullptr || poolElement->GetType() != TileElementType::Pool)
-            return GameActions::Result(GameActions::Status::Unknown, STR_NONE, STR_NONE);
-
-        if (isExecuting)
-        {
-            uint8_t newEdges = poolElement->AsPool()->GetEdgesAndCorners() ^ (1 << edgeIndex);
-            poolElement->AsPool()->SetEdgesAndCorners(newEdges);
-
-            MapInvalidateTileFull(loc);
-
-            if (auto* inspector = GetTileInspectorWithPos(loc); inspector != nullptr)
-            {
-                inspector->Invalidate();
-            }
-        }
-
-        return GameActions::Result();
-    }
-
+    // TODO(pools-merge): re-introduce PoolToggleEdge once PoolElement + tile-modify wiring are ported.
 
     GameActions::Result EntranceMakeUsable(const CoordsXY& loc, int32_t elementIndex, bool isExecuting)
     {
