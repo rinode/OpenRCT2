@@ -137,23 +137,23 @@ int32_t Vehicle::UpdateMotionDodgems()
             if (var_34 > 0)
             {
                 var_34--;
-                Orientation += 2;
+                orientation += 2;
             }
             else
             {
                 var_34++;
-                Orientation -= 2;
+                orientation -= 2;
             }
-            Orientation &= 0x1E;
+            orientation &= 0x1E;
             Invalidate();
         }
         else if ((ScenarioRand() & 0xFFFF) <= 2849)
         {
             if (var_35 & (1 << 6))
-                Orientation -= 2;
+                orientation -= 2;
             else
-                Orientation += 2;
-            Orientation &= 0x1E;
+                orientation += 2;
+            orientation &= 0x1E;
             Invalidate();
         }
     }
@@ -189,7 +189,7 @@ int32_t Vehicle::UpdateMotionDodgems()
         while (true)
         {
             var_35++;
-            uint8_t direction = Orientation;
+            uint8_t direction = orientation;
             direction |= var_35 & 1;
 
             CoordsXY location = _vehicleCurPosition;
@@ -216,7 +216,7 @@ int32_t Vehicle::UpdateMotionDodgems()
             int32_t oldVelocity = velocity;
             remaining_distance = 0;
             velocity = 0;
-            uint8_t direction = Orientation | 1;
+            uint8_t direction = orientation | 1;
 
             Vehicle* collideVehicle = getGameState().entities.GetEntity<Vehicle>(collideSprite.value());
             if (collideVehicle != nullptr)

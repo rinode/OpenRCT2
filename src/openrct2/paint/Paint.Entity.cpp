@@ -122,7 +122,7 @@ void EntityPaintSetup(PaintSession& session, const CoordsXY& pos)
 
         int32_t image_direction = session.CurrentRotation;
         image_direction <<= 3;
-        image_direction += entity->Orientation;
+        image_direction += entity->orientation;
         image_direction &= 0x1F;
 
         session.CurrentlyDrawnEntity = entity;

@@ -3054,7 +3054,7 @@ static Vehicle* VehicleCreateCar(
             if (numAttempts > 10000)
                 return nullptr;
 
-            vehicle->Orientation = ScenarioRand() & 0x1E;
+            vehicle->orientation = ScenarioRand() & 0x1E;
             chosenLoc.y = dodgemPos.y + (ScenarioRand() & 0xFF);
             chosenLoc.x = dodgemPos.x + (ScenarioRand() & 0xFF);
         } while (vehicle->DodgemsCarWouldCollideAt(chosenLoc).has_value());
@@ -3102,7 +3102,7 @@ static Vehicle* VehicleCreateCar(
         vehicle->TrackLocation = chosenLoc;
 
         int32_t direction = trackElement->GetDirection();
-        vehicle->Orientation = direction << 3;
+        vehicle->orientation = direction << 3;
 
         if (ride.getRideTypeDescriptor().specialType == RtdSpecialType::spaceRings)
         {
@@ -3135,7 +3135,7 @@ static Vehicle* VehicleCreateCar(
 
         vehicle->MoveTo(chosenLoc);
         vehicle->SetTrackType(trackElement->GetTrackType());
-        vehicle->SetTrackDirection(vehicle->Orientation >> 3);
+        vehicle->SetTrackDirection(vehicle->orientation >> 3);
         vehicle->track_progress = 31;
         if (carEntry.flags.has(CarEntryFlag::isMiniGolf))
         {

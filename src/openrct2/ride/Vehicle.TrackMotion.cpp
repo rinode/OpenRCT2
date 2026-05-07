@@ -907,7 +907,7 @@ bool Vehicle::UpdateTrackMotionForwards(const CarEntry* carEntry, const Ride& cu
             }
 
             _vehicleCurPosition = nextVehiclePosition;
-            Orientation = moveInfo->yaw;
+            orientation = moveInfo->yaw;
             roll = moveInfo->roll;
             pitch = moveInfo->pitch;
 
@@ -1205,7 +1205,7 @@ bool Vehicle::UpdateTrackMotionBackwards(const CarEntry* carEntry, const Ride& c
             remaining_distance += Geometry::getTranslationDistance(nextVehiclePosition - _vehicleCurPosition, false);
 
             _vehicleCurPosition = nextVehiclePosition;
-            Orientation = moveInfo->yaw;
+            orientation = moveInfo->yaw;
             roll = moveInfo->roll;
             pitch = moveInfo->pitch;
 

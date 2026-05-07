@@ -1074,7 +1074,7 @@ namespace OpenRCT2
             if (!(pathingResult & PATHING_DESTINATION_REACHED))
                 return;
 
-            Orientation = (Var37 & 3) << 3;
+            orientation = (Var37 & 3) << 3;
             Action = PeepActionType::staffWatering;
             AnimationFrameNum = 0;
             AnimationImageIdOffset = 0;
@@ -1137,7 +1137,7 @@ namespace OpenRCT2
             if (!(pathingResult & PATHING_DESTINATION_REACHED))
                 return;
 
-            Orientation = (Var37 & 3) << 3;
+            orientation = (Var37 & 3) << 3;
             Action = PeepActionType::staffEmptyBin;
             AnimationFrameNum = 0;
             AnimationImageIdOffset = 0;
@@ -1313,7 +1313,7 @@ namespace OpenRCT2
 
             auto newDestination = CoordsXY{ 16, 16 } + NextLoc + (DirectionOffsets[PeepDirection] * 53);
             SetDestination(newDestination, 2);
-            Orientation = PeepDirection << 3;
+            orientation = PeepDirection << 3;
 
             z = rideEntranceExitElement->BaseHeight * 4;
             SubState = 4;
@@ -1420,7 +1420,7 @@ namespace OpenRCT2
             int32_t destY = NextLoc.y + 16 + DirectionOffsets[PeepDirection].y * 53;
 
             SetDestination({ destX, destY }, 2);
-            Orientation = PeepDirection << 3;
+            orientation = PeepDirection << 3;
 
             z = rideEntranceExitElement->BaseHeight * 4;
             SubState = 4;
@@ -2148,7 +2148,7 @@ namespace OpenRCT2
     {
         if (!firstRun)
         {
-            Orientation = PeepDirection << 3;
+            orientation = PeepDirection << 3;
 
             Action = (ScenarioRand() & 1) ? PeepActionType::staffFix2 : PeepActionType::staffFix;
             AnimationImageIdOffset = 0;
@@ -2190,7 +2190,7 @@ namespace OpenRCT2
     {
         if (!firstRun)
         {
-            Orientation = PeepDirection << 3;
+            orientation = PeepDirection << 3;
             Action = PeepActionType::staffFix3;
             AnimationImageIdOffset = 0;
             AnimationFrameNum = 0;
@@ -2296,7 +2296,7 @@ namespace OpenRCT2
     {
         if (!firstRun)
         {
-            Orientation = PeepDirection << 3;
+            orientation = PeepDirection << 3;
             Action = PeepActionType::staffCheckBoard;
             AnimationFrameNum = 0;
             AnimationImageIdOffset = 0;
@@ -2410,7 +2410,7 @@ namespace OpenRCT2
                 return true;
             }
 
-            Orientation = PeepDirection << 3;
+            orientation = PeepDirection << 3;
 
             Action = PeepActionType::staffFix;
             AnimationFrameNum = 0;
@@ -2438,7 +2438,7 @@ namespace OpenRCT2
     {
         if (!firstRun)
         {
-            Orientation = PeepDirection << 3;
+            orientation = PeepDirection << 3;
 
             Action = PeepActionType::staffFixGround;
             AnimationFrameNum = 0;
@@ -2530,7 +2530,7 @@ namespace OpenRCT2
             StaffRidesFixed = AddClamp(StaffRidesFixed, 1u);
             WindowInvalidateFlags |= PEEP_INVALIDATE_STAFF_STATS;
 
-            Orientation = PeepDirection << 3;
+            orientation = PeepDirection << 3;
             Action = PeepActionType::staffAnswerCall2;
             AnimationFrameNum = 0;
             AnimationImageIdOffset = 0;

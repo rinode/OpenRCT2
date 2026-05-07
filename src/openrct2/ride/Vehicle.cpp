@@ -229,7 +229,7 @@ void Vehicle::UpdateTrackChange()
 
     _vehicleCurPosition = TrackLocation
         + CoordsXYZ{ moveInfo->x, moveInfo->y, moveInfo->z + GetRideTypeDescriptor(curRide->type).Heights.VehicleZOffset };
-    Orientation = moveInfo->yaw;
+    orientation = moveInfo->yaw;
     roll = moveInfo->roll;
     pitch = moveInfo->pitch;
     MoveTo(_vehicleCurPosition);

@@ -71,7 +71,7 @@ Vehicle* CableLiftSegmentCreate(
         peep = EntityId::GetNull();
     }
     current->TrackSubposition = VehicleTrackSubposition::Default;
-    current->Orientation = direction << 3;
+    current->orientation = direction << 3;
 
     z = z * kCoordsZStep;
     current->TrackLocation = { x, y, z };
@@ -79,7 +79,7 @@ Vehicle* CableLiftSegmentCreate(
 
     current->MoveTo({ 16, 16, z });
     current->SetTrackType(TrackElemType::cableLiftHill);
-    current->SetTrackDirection(current->Orientation >> 3);
+    current->SetTrackDirection(current->orientation >> 3);
     current->track_progress = 164;
     current->flags = { VehicleFlag::collisionDisabled };
     current->SetState(Vehicle::Status::movingToEndOfStation, 0);
@@ -284,7 +284,7 @@ bool Vehicle::CableLiftUpdateTrackMotionForwards()
         remaining_distance -= Geometry::getTranslationDistance(nextVehiclePosition - _vehicleCurPosition, false);
         _vehicleCurPosition = nextVehiclePosition;
 
-        Orientation = moveInfo->yaw;
+        orientation = moveInfo->yaw;
         roll = moveInfo->roll;
         pitch = moveInfo->pitch;
 
@@ -344,7 +344,7 @@ bool Vehicle::CableLiftUpdateTrackMotionBackwards()
         remaining_distance += Geometry::getTranslationDistance(nextVehiclePosition - _vehicleCurPosition, false);
 
         _vehicleCurPosition = nextVehiclePosition;
-        Orientation = moveInfo->yaw;
+        orientation = moveInfo->yaw;
         roll = moveInfo->roll;
         pitch = moveInfo->pitch;
 

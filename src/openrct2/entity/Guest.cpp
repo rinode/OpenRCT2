@@ -528,8 +528,8 @@ namespace OpenRCT2
 
         passingPeep.GiveItem(ShopItem::pizza);
 
-        int32_t peepDirection = (Orientation >> 3) ^ 2;
-        int32_t otherPeepOppositeDirection = passingPeep.Orientation >> 3;
+        int32_t peepDirection = (orientation >> 3) ^ 2;
+        int32_t otherPeepOppositeDirection = passingPeep.orientation >> 3;
         if (peepDirection == otherPeepOppositeDirection)
         {
             if (passingPeep.IsActionInterruptableSafely())
@@ -1299,7 +1299,7 @@ namespace OpenRCT2
 
             MoveTo(loc);
 
-            Orientation = ((Var37 + 2) & 3) * 8;
+            orientation = ((Var37 + 2) & 3) * 8;
             Action = PeepActionType::idle;
             NextAnimationType = PeepAnimationType::sittingIdle;
             SwitchNextAnimationType();
@@ -3424,7 +3424,7 @@ namespace OpenRCT2
                 auto* windowMgr = Ui::GetWindowManager();
                 windowMgr->InvalidateByNumber(WindowClass::peep, Id);
             }
-            Orientation ^= 0x10;
+            orientation ^= 0x10;
 
             auto destination = CoordsXY{ 16, 16 } + NextLoc;
             SetDestination(destination);
@@ -3535,7 +3535,7 @@ namespace OpenRCT2
             else
             {
                 DestinationTolerance = 0;
-                Orientation ^= (1 << 4);
+                orientation ^= (1 << 4);
                 Invalidate();
             }
         }
@@ -3831,7 +3831,7 @@ namespace OpenRCT2
 
         auto destination = GetDestination();
         auto loadPositionWithReversal = (vehicle->flags.has(VehicleFlag::carIsReversed)) ? -load_position : load_position;
-        switch (vehicle->Orientation / 8)
+        switch (vehicle->orientation / 8)
         {
             case 0:
                 destination.x = vehicle->x - loadPositionWithReversal;
@@ -3901,7 +3901,7 @@ namespace OpenRCT2
 
         guest.SetDestination({ x, y }, 2);
 
-        guest.Orientation = exit_direction * 8;
+        guest.orientation = exit_direction * 8;
         guest.RideSubState = PeepRideSubState::approachExit;
     }
 
@@ -4289,7 +4289,7 @@ namespace OpenRCT2
 
                     if (carEntry->flags.hasAny(CarEntryFlag::isChairlift, CarEntryFlag::isGoKart))
                     {
-                        specialDirection = ((vehicle->Orientation + 3) / 8) + 1;
+                        specialDirection = ((vehicle->orientation + 3) / 8) + 1;
                         specialDirection &= 3;
 
                         if (vehicle->TrackSubposition == VehicleTrackSubposition::GoKartsRightLane)
@@ -4324,7 +4324,7 @@ namespace OpenRCT2
             {
                 int8_t loadPosition = carEntry->peep_loading_positions[CurrentSeat];
 
-                switch (vehicle->Orientation / 8)
+                switch (vehicle->orientation / 8)
                 {
                     case 0:
                         platformLocation.x -= loadPosition;
@@ -4849,7 +4849,7 @@ namespace OpenRCT2
 
                     MoveTo({ newLocation, z });
 
-                    Orientation = (Var37 & 0xC) * 2;
+                    orientation = (Var37 & 0xC) * 2;
 
                     Var37++;
                     return;
@@ -5829,7 +5829,7 @@ namespace OpenRCT2
         if (Happiness <= 65 && (0xFFFF & ScenarioRand()) < 2184)
         {
             // Give up queueing for the ride
-            Orientation ^= (1 << 4);
+            orientation ^= (1 << 4);
             Invalidate();
             RemoveFromQueue();
             SetState(PeepState::one);
@@ -5920,7 +5920,7 @@ namespace OpenRCT2
 
             SetDestination(GetLocation());
 
-            Orientation = (Var37 & 3) * 8;
+            orientation = (Var37 & 3) * 8;
 
             Action = PeepActionType::idle;
             NextAnimationType = PeepAnimationType::watchRide;
@@ -7270,7 +7270,7 @@ namespace OpenRCT2
         peep->SpriteData.Width = spriteBounds.spriteWidth;
         peep->SpriteData.HeightMin = spriteBounds.spriteHeightNegative;
         peep->SpriteData.HeightMax = spriteBounds.spriteHeightPositive;
-        peep->Orientation = 0;
+        peep->orientation = 0;
 
         peep->MoveTo(coords);
         peep->Mass = (ScenarioRand() & 0x1F) + 45;
@@ -7795,7 +7795,7 @@ namespace OpenRCT2
         WindowInvalidateFlags |= PEEP_INVALIDATE_PEEP_2;
 
         const auto curLoc = GetLocation();
-        Litter::Create({ curLoc, Orientation }, (Id.ToUnderlying() & 1) ? Litter::Type::vomitAlt : Litter::Type::vomit);
+        Litter::Create({ curLoc, orientation }, (Id.ToUnderlying() & 1) ? Litter::Type::vomitAlt : Litter::Type::vomit);
 
         static constexpr Audio::SoundId coughs[4] = {
             Audio::SoundId::cough1,

@@ -44,7 +44,7 @@ void PaintStaffLightingEffects(const Staff& staff)
         return;
 
     auto loc = staff.GetLocation();
-    switch (staff.Orientation)
+    switch (staff.orientation)
     {
         case 0:
             loc.x -= 10;

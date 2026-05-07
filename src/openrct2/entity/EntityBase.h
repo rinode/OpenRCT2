@@ -47,7 +47,7 @@ namespace OpenRCT2
         int32_t z;
         EntitySpriteData SpriteData;
         // Used as direction or rotation depending on the entity.
-        uint8_t Orientation;
+        uint8_t orientation;
         uint32_t SpatialIndex;
 
         /**

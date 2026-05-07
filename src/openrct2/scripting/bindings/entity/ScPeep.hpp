@@ -152,7 +152,7 @@ namespace OpenRCT2::Scripting
             if (peep != nullptr && value < kNumOrthogonalDirections)
             {
                 peep->PeepDirection = value;
-                peep->Orientation = value << 3;
+                peep->orientation = value << 3;
                 peep->Invalidate();
             }
             return JS_UNDEFINED;

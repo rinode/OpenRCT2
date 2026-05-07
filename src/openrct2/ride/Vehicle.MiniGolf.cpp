@@ -403,7 +403,7 @@ void RideUpdateMeasurementsSpecialElements_MiniGolf(Ride& ride, const TrackElemT
         }
 
         _vehicleCurPosition = trackPos;
-        Orientation = moveInfo->yaw;
+        orientation = moveInfo->yaw;
         roll = moveInfo->roll;
         pitch = moveInfo->pitch;
 
@@ -493,7 +493,7 @@ void RideUpdateMeasurementsSpecialElements_MiniGolf(Ride& ride, const TrackElemT
         }
 
         _vehicleCurPosition = trackPos;
-        Orientation = moveInfo->yaw;
+        orientation = moveInfo->yaw;
         roll = moveInfo->roll;
         pitch = moveInfo->pitch;
 

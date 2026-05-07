@@ -86,7 +86,7 @@ namespace OpenRCT2
         if (litter == nullptr)
             return;
 
-        litter->Orientation = offsetLitterPos.direction;
+        litter->orientation = offsetLitterPos.direction;
         litter->SpriteData.Width = 6;
         litter->SpriteData.HeightMin = 6;
         litter->SpriteData.HeightMax = 3;

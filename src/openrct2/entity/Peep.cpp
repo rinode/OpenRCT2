@@ -552,7 +552,7 @@ namespace OpenRCT2
             }
         }
 
-        Orientation = nextDirection * 8;
+        orientation = nextDirection * 8;
 
         CoordsXY loc = { x, y };
         loc += kWalkingOffsetByDirection[nextDirection];
@@ -909,7 +909,7 @@ namespace OpenRCT2
         }
 
         SetDestination(GetLocation(), 10);
-        PeepDirection = Orientation >> 3;
+        PeepDirection = orientation >> 3;
     }
 
     void Peep::SetState(PeepState new_state)

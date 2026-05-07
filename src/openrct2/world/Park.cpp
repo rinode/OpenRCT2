@@ -544,7 +544,7 @@ namespace OpenRCT2::Park
             peep = Guest::Generate({ spawn->x, spawn->y, spawn->z });
             if (peep != nullptr)
             {
-                peep->Orientation = direction << 3;
+                peep->orientation = direction << 3;
 
                 auto destination = peep->GetLocation().ToTileCentre();
                 peep->SetDestination(destination, 5);

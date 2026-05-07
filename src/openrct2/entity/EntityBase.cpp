@@ -67,7 +67,7 @@ namespace OpenRCT2
         stream << x;
         stream << y;
         stream << z;
-        stream << Orientation;
+        stream << orientation;
     }
 
     // Exists only for signature

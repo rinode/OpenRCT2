@@ -105,7 +105,7 @@ static constexpr uint8_t kDuckAnimationFlyAway[] =
 
         Invalidate();
         int32_t manhattanDistance = abs(target_x - x) + abs(target_y - y);
-        int32_t direction = Orientation >> 3;
+        int32_t direction = orientation >> 3;
         auto destination = CoordsXYZ{ CoordsXY{ x, y } + kDuckMoveOffset[direction], 0 };
         int32_t manhattanDistanceN = abs(target_x - destination.x) + abs(target_y - destination.y);
 
@@ -203,10 +203,10 @@ static constexpr uint8_t kDuckAnimationFlyAway[] =
                     if ((randomNumber & 0xFFFF) <= 0xAAA)
                     {
                         randomNumber >>= 16;
-                        Orientation = randomNumber & 0x18;
+                        orientation = randomNumber & 0x18;
                     }
 
-                    int32_t direction = Orientation >> 3;
+                    int32_t direction = orientation >> 3;
                     auto destination = CoordsXYZ{ CoordsXY{ x, y } + kDuckMoveOffset[direction], 0 };
                     landZ = TileElementHeight(destination);
                     waterZ = TileElementWaterHeight(destination);
@@ -264,7 +264,7 @@ static constexpr uint8_t kDuckAnimationFlyAway[] =
 
             Invalidate();
 
-            int32_t direction = Orientation >> 3;
+            int32_t direction = orientation >> 3;
             auto destination = CoordsXYZ{ x + (kDuckMoveOffset[direction].x * 2), y + (kDuckMoveOffset[direction].y * 2),
                                           std::min<int32_t>(z + 2, 496) };
             if (MapIsLocationValid(destination))
@@ -323,7 +323,7 @@ static constexpr uint8_t kDuckAnimationFlyAway[] =
                 targetPos.y = GetMapSizeMaxXY().y - (ScenarioRand() & 0x3F);
                 break;
         }
-        duck->Orientation = direction << 3;
+        duck->orientation = direction << 3;
         duck->MoveTo({ targetPos.x, targetPos.y, 496 });
         duck->state = DuckState::FlyToWater;
         duck->frame = 0;

@@ -195,7 +195,7 @@ void Vehicle::UpdateCrashSetup()
         lastVehicle = trainVehicle;
 
         trainVehicle->sub_state = 0;
-        auto crashDirection = Geometry::getCrashDirectionComponents(trainVehicle->Orientation);
+        auto crashDirection = Geometry::getCrashDirectionComponents(trainVehicle->orientation);
         int32_t trainX = crashDirection.x;
         int32_t trainY = crashDirection.y;
 

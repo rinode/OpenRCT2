@@ -1829,7 +1829,7 @@ namespace OpenRCT2::RCT2
             dst->SpriteData.HeightMin = src->SpriteHeightNegative;
             dst->SpriteData.HeightMax = src->SpriteHeightPositive;
             dst->SpriteData.SpriteRect = ScreenRect(src->SpriteLeft, src->SpriteTop, src->SpriteRight, src->SpriteBottom);
-            dst->Orientation = src->EntityDirection;
+            dst->orientation = src->EntityDirection;
         }
 
         void ImportEntity(GameState_t& gameState, const RCT12EntityBase& src);

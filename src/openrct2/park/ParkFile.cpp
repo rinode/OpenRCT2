@@ -1763,7 +1763,7 @@ namespace OpenRCT2
             cs.readWrite(entity.z);
             cs.readWrite(entity.SpriteData.Width);
             cs.readWrite(entity.SpriteData.HeightMax);
-            cs.readWrite(entity.Orientation);
+            cs.readWrite(entity.orientation);
         }
 
         static std::vector<ObjectEntryIndex> LegacyGetRideTypesBeenOn(const std::array<uint8_t, 16>& srcArray)

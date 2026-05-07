@@ -1343,7 +1343,7 @@ namespace OpenRCT2::RCT1
 
             dst->MoveTo({ src->x, src->y, src->z });
 
-            dst->Orientation = src->EntityDirection;
+            dst->orientation = src->EntityDirection;
 
             // Peep name
             if (IsUserStringID(src->NameStringID))
@@ -1428,7 +1428,7 @@ namespace OpenRCT2::RCT1
 
         void ImportEntityCommonProperties(EntityBase* dst, const RCT12EntityBase* src)
         {
-            dst->Orientation = src->EntityDirection;
+            dst->orientation = src->EntityDirection;
             dst->SpriteData.Width = src->SpriteWidth;
             dst->SpriteData.HeightMin = src->SpriteHeightNegative;
             dst->SpriteData.HeightMax = src->SpriteHeightPositive;
@@ -2820,7 +2820,7 @@ namespace OpenRCT2::RCT1
         dst->SpriteData.Width = src->SpriteWidth;
         dst->SpriteData.HeightMin = src->SpriteHeightNegative;
         dst->SpriteData.HeightMax = src->SpriteHeightPositive;
-        dst->Orientation = src->EntityDirection;
+        dst->orientation = src->EntityDirection;
 
         dst->SpriteData.SpriteRect = ScreenRect(src->SpriteLeft, src->SpriteTop, src->SpriteRight, src->SpriteBottom);
 
